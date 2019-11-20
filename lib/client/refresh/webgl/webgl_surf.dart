@@ -340,9 +340,14 @@ DrawTextureChains() {
 
 		c_visible_textures++;
 
+    int depth = 0;
 		for ( ; s != null; s = s.texturechain) {
 			SetLightFlags(s);
 			RenderBrushPoly(s);
+      if (++depth > 200) {
+        print("Breaking texture chain");
+        break;
+      }
 		}
 
 		image.texturechain = null;

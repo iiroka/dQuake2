@@ -290,9 +290,6 @@ List<List<int>> vec_to_st = [
 
 
 WebGL_SetSky(String name, double rotate, List<double> axis) async {
-	// int i;
-	// char pathname[MAX_QPATH];
-	// char skyname[MAX_QPATH];
 
 	var skyname = name;
 	_skyrotate = rotate;
@@ -512,8 +509,6 @@ WebGL_ClearSkyBox() {
 }
 
 _MakeSkyVec(double s, double t, int axis, Float32List vert, int offset) {
-	// vec3_t v, b;
-	// int j, k;
 
 	double dist = (!r_farsee.boolean) ? 2300.0 : 4096.0;
 

@@ -109,7 +109,6 @@ CL_SendConnectPacket() {
  * Resend a connect message if the last one has timed out
  */
 CL_CheckForResend() {
-	// netadr_t adr;
 
 	/* if the local server is running and we aren't just connect */
 	if ((cls.state == connstate_t.ca_disconnected) && Com_ServerState() != 0) {
@@ -153,7 +152,6 @@ CL_CheckForResend() {
  * it shouldn't cause any errors
  */
 CL_Disconnect() {
-	// byte final[32];
 
 	if (cls.state == connstate_t.ca_disconnected) {
 		return;
@@ -287,8 +285,6 @@ CL_Reconnect_f(List<String> args) async {
  * Responses to broadcasts, etc
  */
 CL_ConnectionlessPacket(Readbuf msg, netadr_t adr) async {
-	// char *s;
-	// char *c;
 
 	msg.BeginReading();
 	msg.ReadLong(); /* skip the -1 */

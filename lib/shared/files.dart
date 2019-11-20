@@ -92,6 +92,7 @@ class daliasframe_t {
 
   daliasframe_t(ByteData data, int offset, int size) {
     final count = (size - daliasframeSize) ~/ dtrivertxSize;
+    assert(((size - daliasframeSize) % dtrivertxSize) == 0);
     this.scale = List.generate(3, (i) => data.getFloat32(offset + i * 4, Endian.little));
     this.translate = List.generate(3, (i) => data.getFloat32(offset + (i + 3) * 4, Endian.little));
     this.name = readString(data, offset + 6 * 4, 16);

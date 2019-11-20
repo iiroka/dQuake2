@@ -163,6 +163,23 @@ explosion_t CL_AllocExplosion() {
 	return cl_explosions[index];
 }
 
+CL_SmokeAndFlash(List<double> origin) {
+	var ex = CL_AllocExplosion();
+  ex.ent.origin.setAll(0, origin);
+	ex.type = exptype_t.ex_misc;
+	ex.frames = 4;
+	ex.ent.flags = RF_TRANSLUCENT;
+	ex.start = cl.frame.servertime - 100.0;
+	ex.ent.model = cl_mod_smoke;
+
+	ex = CL_AllocExplosion();
+  ex.ent.origin.setAll(0, origin);
+	ex.type = exptype_t.ex_flash;
+	ex.ent.flags = RF_FULLBRIGHT;
+	ex.frames = 2;
+	ex.start = cl.frame.servertime - 100.0;
+	ex.ent.model = cl_mod_flash;
+}
 
 final splash_color = [0x00, 0xe0, 0xb0, 0x50, 0xd0, 0xe0, 0xe8];
 
@@ -203,10 +220,9 @@ CL_ParseTEnt(Readbuf msg) {
 				CL_ParticleEffect(pos, dir, 0xe0, 6);
 			}
 
-			// if (type != TE_SPARKS)
-			// {
-			// 	CL_SmokeAndFlash(pos);
-			// 	/* impact sound */
+			if (type != temp_event_t.TE_SPARKS) {
+				CL_SmokeAndFlash(pos);
+				/* impact sound */
 			// 	cnt = randk() & 15;
 
 			// 	if (cnt == 1)
@@ -223,7 +239,7 @@ CL_ParseTEnt(Readbuf msg) {
 			// 	{
 			// 		S_StartSound(pos, 0, 0, cl_sfx_ric3, 1, ATTN_NORM, 0);
 			// 	}
-			// }
+			}
 
 			break;
 
@@ -265,7 +281,7 @@ CL_ParseTEnt(Readbuf msg) {
 			pos = msg.ReadPos();
 			dir = msg.ReadDir();
 			CL_ParticleEffect(pos, dir, 0, 20);
-			// CL_SmokeAndFlash(pos);
+			CL_SmokeAndFlash(pos);
 			break;
 
 		case temp_event_t.TE_SPLASH: /* bullet hitting water */
@@ -397,25 +413,25 @@ CL_ParseTEnt(Readbuf msg) {
 
 		case temp_event_t.TE_PLASMA_EXPLOSION:
 			pos = msg.ReadPos();
-			// ex = CL_AllocExplosion();
-			// VectorCopy(pos, ex->ent.origin);
-			// ex->type = ex_poly;
-			// ex->ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
-			// ex->start = cl.frame.servertime - 100.0f;
-			// ex->light = 350;
-			// ex->lightcolor[0] = 1.0;
-			// ex->lightcolor[1] = 0.5;
-			// ex->lightcolor[2] = 0.5;
-			// ex->ent.angles[1] = (float)(randk() % 360);
-			// ex->ent.model = cl_mod_explo4;
+			var ex = CL_AllocExplosion();
+      ex.ent.origin.setAll(0, pos);
+			ex.type = exptype_t.ex_poly;
+			ex.ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
+			ex.start = cl.frame.servertime - 100.0;
+			ex.light = 350;
+			ex.lightcolor[0] = 1.0;
+			ex.lightcolor[1] = 0.5;
+			ex.lightcolor[2] = 0.5;
+			ex.ent.angles[1] = (randk() % 360).toDouble();
+			ex.ent.model = cl_mod_explo4;
 
 			// if (frandk() < 0.5)
 			// {
 			// 	ex->baseframe = 15;
 			// }
 
-			// ex->frames = 15;
-			// EXPLOSION_PARTICLES(pos);
+			ex.frames = 15;
+			// CL_ExplosionParticles(pos);
 			// S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, ATTN_NORM, 0);
 			break;
 
@@ -425,16 +441,16 @@ CL_ParseTEnt(Readbuf msg) {
 		case temp_event_t.TE_ROCKET_EXPLOSION:
 		case temp_event_t.TE_ROCKET_EXPLOSION_WATER:
 			pos = msg.ReadPos();
-			// ex = CL_AllocExplosion();
-			// VectorCopy(pos, ex->ent.origin);
-			// ex->type = ex_poly;
-			// ex->ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
-			// ex->start = cl.frame.servertime - 100.0f;
-			// ex->light = 350;
-			// ex->lightcolor[0] = 1.0;
-			// ex->lightcolor[1] = 0.5;
-			// ex->lightcolor[2] = 0.5;
-			// ex->ent.angles[1] = (float)(randk() % 360);
+			var ex = CL_AllocExplosion();
+      ex.ent.origin.setAll(0, pos);
+			ex.type = exptype_t.ex_poly;
+			ex.ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
+			ex.start = cl.frame.servertime - 100.0;
+			ex.light = 350;
+			ex.lightcolor[0] = 1.0;
+			ex.lightcolor[1] = 0.5;
+			ex.lightcolor[2] = 0.5;
+			ex.ent.angles[1] = (randk() % 360).toDouble();
 
 			// if (type != TE_EXPLOSION1_BIG)
 			// {
@@ -451,7 +467,7 @@ CL_ParseTEnt(Readbuf msg) {
 			// 	ex->baseframe = 15;
 			// }
 
-			// ex->frames = 15;
+			ex.frames = 15;
 
 			// if ((type != TE_EXPLOSION1_BIG) && (type != TE_EXPLOSION1_NP))
 			// {
@@ -472,19 +488,19 @@ CL_ParseTEnt(Readbuf msg) {
 
 		case temp_event_t.TE_BFG_EXPLOSION:
 			pos = msg.ReadPos();
-			// ex = CL_AllocExplosion();
-			// VectorCopy(pos, ex->ent.origin);
-			// ex->type = ex_poly;
-			// ex->ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
-			// ex->start = cl.frame.servertime - 100.0f;
-			// ex->light = 350;
-			// ex->lightcolor[0] = 0.0;
-			// ex->lightcolor[1] = 1.0;
-			// ex->lightcolor[2] = 0.0;
-			// ex->ent.model = cl_mod_bfg_explo;
-			// ex->ent.flags |= RF_TRANSLUCENT;
-			// ex->ent.alpha = 0.30f;
-			// ex->frames = 4;
+			var ex = CL_AllocExplosion();
+      ex.ent.origin.setAll(0, pos);
+			ex.type = exptype_t.ex_poly;
+			ex.ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
+			ex.start = cl.frame.servertime - 100.0;
+			ex.light = 350;
+			ex.lightcolor[0] = 0.0;
+			ex.lightcolor[1] = 1.0;
+			ex.lightcolor[2] = 0.0;
+			ex.ent.model = cl_mod_bfg_explo;
+			ex.ent.flags |= RF_TRANSLUCENT;
+			ex.ent.alpha = 0.30;
+			ex.frames = 4;
 			break;
 
 		case temp_event_t.TE_BFG_BIGEXPLOSION:

@@ -184,7 +184,7 @@ class msurface_t {
 	int dlight_s = 0, dlight_t = 0;         /* gl lightmap coordinates for dynamic lightmaps */
 
 	glpoly_t polys;                /* multiple if warped */
-	msurface_t texturechain;
+	msurface_t texturechain = null;
 	// struct  msurface_s *lightmapchain; not used/needed anymore
 
 	mtexinfo_t texinfo;
@@ -707,8 +707,6 @@ class webglbrushmodel_t extends webglmodel_t {
 class webglaliasmodel_t extends webglmodel_t {
 
   dmdl_t header;
-  List<dstvert_t> sts;
-  List<dtriangle_t> tris;
   List<daliasframe_t> frames;
   ByteData cmds;
   List<String> skinNames;
@@ -761,12 +759,6 @@ Future<webglaliasmodel_t> Mod_LoadAliasModel(String name, ByteData buffer, ByteB
 	if (pheader.num_frames <= 0) {
 		Com_Error(ERR_DROP, "model $name has no frames");
 	}
-
-	/* load base s and t vertices (not used in gl version) */
-  mod.sts = List<dstvert_t>.generate(pheader.num_st, (i) => dstvert_t(buffer, pheader.ofs_st + i * dstvertSize));
-
-	/* load triangle lists */
-  mod.tris = List<dtriangle_t>.generate(pheader.num_tris, (i) => dtriangle_t(buffer, pheader.ofs_tris + i * dtriangleSize));
 
 	/* load the frames */
   mod.frames = List<daliasframe_t>.generate(pheader.num_frames, (i) => daliasframe_t(buffer, pheader.ofs_frames + i * pheader.framesize, pheader.framesize));

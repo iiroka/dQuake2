@@ -1167,6 +1167,12 @@ VectorAdd(List<double> veca, List<double> vecb, List<double> out) {
 	out[2] = veca[2] + vecb[2];
 }
 
+VectorScale(List<double> ind, double scale, List<double> out) {
+	out[0] = ind[0] * scale;
+	out[1] = ind[1] * scale;
+	out[2] = ind[2] * scale;
+}
+
 class ParseResult {
   String token;
   int index;

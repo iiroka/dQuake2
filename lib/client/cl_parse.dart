@@ -90,15 +90,6 @@ List<int> CL_ParseEntityBits(Readbuf msg) {
 		total |= b << 24;
 	}
 
-	/* count the bits for net profiling */
-	// for (i = 0; i < 32; i++)
-	// {
-	// 	if (total & (1 << i))
-	// 	{
-	// 		bitcounts[i]++;
-	// 	}
-	// }
-
   int number;
 	if ((total & U_NUMBER16) != 0) {
 		number = msg.ReadShort();
@@ -116,7 +107,7 @@ CL_ParseDelta(Readbuf msg, entity_state_t from, entity_state_t to, int number, i
 	/* set everything to the state we are delta'ing from */
 	to.copy(from);
 
-	// VectorCopy(from->origin, to->old_origin);
+  to.old_origin.setAll(0, from.origin);
 	to.number = number;
 
 	if ((bits & U_MODEL) != 0) {
@@ -263,7 +254,7 @@ CL_DeltaEntity(Readbuf msg, frame_t frame, int newnum, entity_state_t old, int b
 	else
 	{
 		/* shuffle the last state to previous */
-		ent.prev = ent.current;
+		ent.prev.copy(ent.current);
 	}
 
 	ent.serverframe = cl.frame.serverframe;

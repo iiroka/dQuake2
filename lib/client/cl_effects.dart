@@ -81,22 +81,21 @@ CL_AddMuzzleFlash(Readbuf msg) {
 	// 	volume = 1;
 	// }
 
-	// switch (weapon)
-	// {
-	// 	case MZ_BLASTER:
+	switch (weapon) {
+		case MZ_BLASTER:
 			dl.color[0] = 1;
 			dl.color[1] = 1;
 			dl.color[2] = 0;
 	// 		S_StartSound(NULL, i, CHAN_WEAPON,
 	// 			S_RegisterSound("weapons/blastf1a.wav"), volume, ATTN_NORM, 0);
-	// 		break;
-	// 	case MZ_BLUEHYPERBLASTER:
-	// 		dl->color[0] = 0;
-	// 		dl->color[1] = 0;
-	// 		dl->color[2] = 1;
+			break;
+		case MZ_BLUEHYPERBLASTER:
+			dl.color[0] = 0;
+			dl.color[1] = 0;
+			dl.color[2] = 1;
 	// 		S_StartSound(NULL, i, CHAN_WEAPON,
 	// 			S_RegisterSound("weapons/hyprbf1a.wav"), volume, ATTN_NORM, 0);
-	// 		break;
+			break;
 	// 	case MZ_HYPERBLASTER:
 	// 		dl->color[0] = 1;
 	// 		dl->color[1] = 1;
@@ -113,15 +112,15 @@ CL_AddMuzzleFlash(Readbuf msg) {
 	// 		S_StartSound(NULL, i, CHAN_WEAPON, S_RegisterSound(
 	// 					soundname), volume, ATTN_NORM, 0);
 	// 		break;
-	// 	case MZ_SHOTGUN:
-	// 		dl->color[0] = 1;
-	// 		dl->color[1] = 1;
-	// 		dl->color[2] = 0;
+		case MZ_SHOTGUN:
+			dl.color[0] = 1;
+			dl.color[1] = 1;
+			dl.color[2] = 0;
 	// 		S_StartSound(NULL, i, CHAN_WEAPON,
 	// 			S_RegisterSound("weapons/shotgf1b.wav"), volume, ATTN_NORM, 0);
 	// 		S_StartSound(NULL, i, CHAN_AUTO,
 	// 			S_RegisterSound("weapons/shotgr1b.wav"), volume, ATTN_NORM, 0.1f);
-	// 		break;
+			break;
 	// 	case MZ_SSHOTGUN:
 	// 		dl->color[0] = 1;
 	// 		dl->color[1] = 1;
@@ -306,7 +305,7 @@ CL_AddMuzzleFlash(Readbuf msg) {
 	// 		dl->color[2] = 1;
 	// 		dl->die = cl.time + 100;
 	// 		break;
-	// }
+	}
 }
 
 CL_AddMuzzleFlash2(Readbuf msg) {

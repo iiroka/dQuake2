@@ -36,6 +36,7 @@ import 'package:dQuakeWeb/shared/shared.dart';
 import 'local.dart';
 import 'webgl_main.dart';
 import 'webgl_image.dart';
+import 'webgl_light.dart';
 import 'webgl_shaders.dart';
 
 const SHADEDOT_QUANT = 16;
@@ -441,15 +442,12 @@ WebGL_DrawAliasModel(entity_t entity) {
 	}
 	else
 	{
-		for (int i = 0; i < 3; i++) {
-			shadelight[i] = 1.0;
-		}
-		// GL3_LightPoint(entity.origin, shadelight);
+		WebGL_LightPoint(entity.origin, shadelight);
 
-		// /* player lighting hack for communication back to server */
-		// if ((entity.flags & RF_WEAPONMODEL) != 0) {
-		// 	/* pick the greatest component, which should be
-		// 	   the same as the mono value returned by software */
+		/* player lighting hack for communication back to server */
+		if ((entity.flags & RF_WEAPONMODEL) != 0) {
+			/* pick the greatest component, which should be
+			   the same as the mono value returned by software */
 		// 	if (shadelight[0] > shadelight[1])
 		// 	{
 		// 		if (shadelight[0] > shadelight[2])
@@ -472,7 +470,7 @@ WebGL_DrawAliasModel(entity_t entity) {
 		// 			r_lightlevel.value = 150 * shadelight[2];
 		// 		}
 		// 	}
-		// }
+		}
 	}
 
 	if ((entity.flags & RF_MINLIGHT) != 0) {

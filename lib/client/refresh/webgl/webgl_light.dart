@@ -35,8 +35,11 @@ import 'local.dart';
 import 'webgl_model.dart';
 import 'webgl_shaders.dart';
 
-const DLIGHT_CUTOFF = 64;
-int r_dlightframecount = 0;
+const _DLIGHT_CUTOFF = 64;
+int _r_dlightframecount = 0;
+List<double> _pointcolor = [0,0,0];
+cplane_t _lightplane = null;
+List<double> lightspot = [0,0,0];
 
 // bit: 1 << i for light number i, will be or'ed into msurface_t::dlightbits if surface is affected by this light
 WebGL_MarkLights(dlight_t light, int bit, mleadornode_t anode) {
@@ -49,12 +52,12 @@ WebGL_MarkLights(dlight_t light, int bit, mleadornode_t anode) {
 	var splitplane = node.plane;
 	double dist = DotProduct(light.origin, splitplane.normal) - splitplane.dist;
 
-	if (dist > light.intensity - DLIGHT_CUTOFF) {
+	if (dist > light.intensity - _DLIGHT_CUTOFF) {
 		WebGL_MarkLights(light, bit, node.children[0]);
 		return;
 	}
 
-	if (dist < -light.intensity + DLIGHT_CUTOFF) {
+	if (dist < -light.intensity + _DLIGHT_CUTOFF) {
 		WebGL_MarkLights(light, bit, node.children[1]);
 		return;
 	}
@@ -64,9 +67,9 @@ WebGL_MarkLights(dlight_t light, int bit, mleadornode_t anode) {
 	for (int i = 0; i < node.numsurfaces; i++)
 	{
 	  var surf = webgl_worldmodel.surfaces[node.firstsurface = i];
-		if (surf.dlightframe != r_dlightframecount) {
+		if (surf.dlightframe != _r_dlightframecount) {
 			surf.dlightbits = 0;
-			surf.dlightframe = r_dlightframecount;
+			surf.dlightframe = _r_dlightframecount;
 		}
 
 		dist = DotProduct(light.origin, surf.plane.normal) - surf.plane.dist;
@@ -94,7 +97,7 @@ WebGL_PushDlights() {
 	// dlight_t *l;
 
 	/* because the count hasn't advanced yet for this frame */
-	r_dlightframecount = webgl_framecount + 1;
+	_r_dlightframecount = webgl_framecount + 1;
 
 
 	glstate.uniLightsData.numDynLights = webgl_newrefdef.dlights.length;
@@ -121,6 +124,149 @@ WebGL_PushDlights() {
 
 	WebGL_UpdateUBOLights();
 }
+
+int _RecursiveLightPoint(mleadornode_t anode, List<double> start, List<double> end) {
+	// float front, back, frac;
+	// int side;
+	// cplane_t *plane;
+	// vec3_t mid;
+	// msurface_t *surf;
+	// int s, t, ds, dt;
+	// int i;
+	// mtexinfo_t *tex;
+	// byte *lightmap;
+	// int maps;
+	// int r;
+
+	if (anode.contents != -1) {
+		return -1;     /* didn't hit anything */
+	}
+
+  final node = anode as mnode_t;
+	/* calculate mid point */
+	var plane = node.plane;
+	double front = DotProduct(start, plane.normal) - plane.dist;
+	double back = DotProduct(end, plane.normal) - plane.dist;
+	int side = (front < 0) ? 1 : 0;
+
+	if ((back < 0) == (front < 0)) {
+		return _RecursiveLightPoint(node.children[side], start, end);
+	}
+
+	double frac = front / (front - back);
+  List<double> mid = List.generate(3, (i) => start[i] + (end[i] - start[i]) * frac);
+
+	/* go down front side */
+	int r = _RecursiveLightPoint(node.children[side], start, mid);
+	if (r >= 0) {
+		return r;     /* hit something */
+	}
+
+	if ((back < 0) == side)
+	{
+		return -1;     /* didn't hit anuthing */
+	}
+
+	/* check for impact on this node */
+  lightspot.setAll(0, mid);
+	_lightplane = plane;
+
+
+	for (int i = 0; i < node.numsurfaces; i++) {
+  	var surf = webgl_worldmodel.surfaces[node.firstsurface + i];
+		if ((surf.flags & (SURF_DRAWTURB | SURF_DRAWSKY)) != 0) {
+			continue; /* no lightmaps */
+		}
+
+		var tex = surf.texinfo;
+
+		int s = (DotProduct(mid, tex.vecs[0]) + tex.vecs[0][3]).toInt();
+		int t = (DotProduct(mid, tex.vecs[1]) + tex.vecs[1][3]).toInt();
+
+		if ((s < surf.texturemins[0]) ||
+			(t < surf.texturemins[1]))
+		{
+			continue;
+		}
+
+		int ds = s - surf.texturemins[0];
+		int dt = t - surf.texturemins[1];
+
+		if ((ds > surf.extents[0]) || (dt > surf.extents[1])) {
+			continue;
+		}
+
+		if (surf.samples == null) {
+			return 0;
+		}
+
+		ds >>= 4;
+		dt >>= 4;
+
+		var lightmap = surf.samples;
+    var lightmap_i = 0;
+    _pointcolor.setAll(0, [0,0,0]);
+
+		if (lightmap != null) {
+			List<double> scale = [0,0,0];
+
+			lightmap_i += 3 * (dt * ((surf.extents[0] >> 4) + 1) + ds);
+
+			for (int maps = 0; maps < MAX_LIGHTMAPS_PER_SURFACE && surf.styles[maps] != 255; maps++) {
+				for (int j = 0; j < 3; j++) {
+					scale[j] = r_modulate.value *
+							   webgl_newrefdef.lightstyles[surf.styles[maps]].rgb[j];
+				}
+
+				_pointcolor[0] += lightmap[lightmap_i + 0] * scale[0] * (1.0 / 255);
+				_pointcolor[1] += lightmap[lightmap_i + 1] * scale[1] * (1.0 / 255);
+				_pointcolor[2] += lightmap[lightmap_i + 2] * scale[2] * (1.0 / 255);
+				lightmap_i += 3 * ((surf.extents[0] >> 4) + 1) * ((surf.extents[1] >> 4) + 1);
+			}
+		}
+
+		return 1;
+	}
+
+	/* go down back side */
+	return _RecursiveLightPoint(node.children[side ^ 1], mid, end);
+}
+
+
+WebGL_LightPoint(List<double> p, List<double> color) {
+
+	if (webgl_worldmodel.lightdata == null || currententity == null) {
+		color[0] = color[1] = color[2] = 1.0;
+		return;
+	}
+
+  List<double> end = [p[0], p[1], p[2] - 2048];
+
+	// TODO: don't just aggregate the color, but also save position of brightest+nearest light
+	//       for shadow position and maybe lighting on model?
+
+	int r = _RecursiveLightPoint(webgl_worldmodel.nodes[0], p, end);
+	if (r == -1) {
+    color.setAll(0, [0,0,0]);
+	} else {
+    color.setAll(0, _pointcolor);
+	}
+
+	/* add dynamic lights */
+  List<double> dist = [0,0,0];
+	for (var dl in webgl_newrefdef.dlights) {
+	  VectorSubtract(currententity.origin, dl.origin, dist);
+		double add = dl.intensity - VectorLength(dist);
+		add *= (1.0 / 256.0);
+
+		if (add > 0) {
+			VectorMA(color, add, dl.color, color);
+		}
+	}
+
+	VectorScale(color, r_modulate.value, color);
+}
+
 
 /*
  * Combine and scale multiple lightmaps into the floating format in blocklights
