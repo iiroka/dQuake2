@@ -1,0 +1,16 @@
+name: dQuakeWeb
+description: An absolute bare-bones web app.
+# version: 1.0.0
+#homepage: https://www.example.com
+#author: Iiro Kaihlaniemi <iiro.kaihlaniemi@here.com>
+
+environment:
+  sdk: '>=2.5.0 <3.0.0'
+
+dependencies:
+  image: ^2.1.8
+
+dev_dependencies:
+  build_runner: ^1.6.0
+  build_web_compilers: ^2.3.0
+  pedantic: ^1.8.0

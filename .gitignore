@@ -1,0 +1,7 @@
+.dart_tool/
+build/
+.DS_Store
+pubspec.lock
+.packages
+web/baseq2/
+
