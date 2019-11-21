@@ -28,6 +28,7 @@ import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/server/sv_init.dart';
+import 'package:dQuakeWeb/server/sv_world.dart';
 import '../game.dart';
 import '../g_items.dart';
 import '../g_utils.dart';
@@ -263,21 +264,21 @@ PutClientInServer(edict_t ent) {
 	/* clear entity values */
 	ent.groundentity = null;
 	ent.client = game.clients[index];
-	// ent->takedamage = DAMAGE_AIM;
+	ent.takedamage = damage_t.DAMAGE_AIM.index;
 	ent.movetype = movetype_t.MOVETYPE_WALK;
 	ent.viewheight = 22;
 	ent.inuse = true;
 	ent.classname = "player";
 	ent.mass = 200;
 	ent.solid = solid_t.SOLID_BBOX;
-	// ent->deadflag = DEAD_NO;
+	ent.deadflag = DEAD_NO;
 	// ent->air_finished = level.time + 12;
-	// ent.clipmask = MASK_PLAYERSOLID;
+	ent.clipmask = MASK_PLAYERSOLID;
 	ent.model = "players/male/tris.md2";
 	// ent->pain = player_pain;
 	// ent->die = player_die;
-	// ent.waterlevel = 0;
-	// ent.watertype = 0;
+	ent.waterlevel = 0;
+	ent.watertype = 0;
 	ent.flags &= ~FL_NO_KNOCKBACK;
 	ent.svflags = 0;
 
@@ -334,7 +335,7 @@ PutClientInServer(edict_t ent) {
 	ent.s.angles[YAW] = spawn_angles[YAW];
 	ent.s.angles[ROLL] = 0;
   client.ps.viewangles.setAll(0, ent.s.angles);
-  // client.v_angle.setAll(0, ent.s.angles);
+  client.v_angle.setAll(0, ent.s.angles);
 
 	// /* spawn a spectator */
 	// if (client->pers.spectator)
@@ -360,7 +361,7 @@ PutClientInServer(edict_t ent) {
 	// 	/* could't spawn in? */
 	// }
 
-	// gi.linkentity(ent);
+	SV_LinkEdict(ent);
 
 	/* force the current weapon up */
 	client.newweapon = client.pers.weapon;

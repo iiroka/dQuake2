@@ -25,6 +25,7 @@
  */
 import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/shared/game.dart';
+import 'package:dQuakeWeb/shared/shared.dart';
 
 /* protocol bytes that can be directly added to messages */
 const svc_muzzleflash = 1;
@@ -89,6 +90,82 @@ enum ammo_t {
 	AMMO_SLUGS
 }
 
+/* Maximum debris / gibs per frame */
+const MAX_GIBS = 20;
+const MAX_DEBRIS = 20;
+
+/* deadflag */
+const DEAD_NO = 0;
+const DEAD_DYING = 1;
+const DEAD_DEAD = 2;
+const DEAD_RESPAWNABLE = 3;
+
+/* range */
+const RANGE_MELEE = 0;
+const RANGE_NEAR = 1;
+const RANGE_MID = 2;
+const RANGE_FAR = 3;
+
+/* gib types */
+const GIB_ORGANIC = 0;
+const GIB_METALLIC = 1;
+
+/* monster ai flags */
+const AI_STAND_GROUND = 0x00000001;
+const AI_TEMP_STAND_GROUND = 0x00000002;
+const AI_SOUND_TARGET = 0x00000004;
+const AI_LOST_SIGHT = 0x00000008;
+const AI_PURSUIT_LAST_SEEN = 0x00000010;
+const AI_PURSUE_NEXT = 0x00000020;
+const AI_PURSUE_TEMP = 0x00000040;
+const AI_HOLD_FRAME = 0x00000080;
+const AI_GOOD_GUY = 0x00000100;
+const AI_BRUTAL = 0x00000200;
+const AI_NOSTEP = 0x00000400;
+const AI_DUCKED = 0x00000800;
+const AI_COMBAT_POINT = 0x00001000;
+const AI_MEDIC = 0x00002000;
+const AI_RESURRECTING = 0x00004000;
+
+/* monster attack state */
+const AS_STRAIGHT = 1;
+const AS_SLIDING = 2;
+const AS_MELEE = 3;
+const AS_MISSILE = 4;
+
+/* armor types */
+const ARMOR_NONE = 0;
+const ARMOR_JACKET = 1;
+const ARMOR_COMBAT = 2;
+const ARMOR_BODY = 3;
+const ARMOR_SHARD = 4;
+
+/* power armor types */
+const POWER_ARMOR_NONE = 0;
+const POWER_ARMOR_SCREEN = 1;
+const POWER_ARMOR_SHIELD = 2;
+
+/* handedness values */
+const RIGHT_HANDED = 0;
+const LEFT_HANDED = 1;
+const CENTER_HANDED = 2;
+
+/* game.serverflags values */
+const SFL_CROSS_TRIGGER_1 = 0x00000001;
+const SFL_CROSS_TRIGGER_2 = 0x00000002;
+const SFL_CROSS_TRIGGER_3 = 0x00000004;
+const SFL_CROSS_TRIGGER_4 = 0x00000008;
+const SFL_CROSS_TRIGGER_5 = 0x00000010;
+const SFL_CROSS_TRIGGER_6 = 0x00000020;
+const SFL_CROSS_TRIGGER_7 = 0x00000040;
+const SFL_CROSS_TRIGGER_8 = 0x00000080;
+const SFL_CROSS_TRIGGER_MASK = 0x000000ff;
+
+/* noise types for PlayerNoise */
+const PNOISE_SELF = 0;
+const PNOISE_WEAPON = 1;
+const PNOISE_IMPACT = 2;
+
 /* edict->movetype values */
 enum movetype_t {
 	MOVETYPE_NONE, /* never moves */
@@ -133,15 +210,16 @@ class glistitem_t {
 
 	String precaches; /* string of all models, sounds, and images this item will use */
 
-  glistitem_t.empty() : this(null, null);
+  glistitem_t.empty() : this(null, null, 0, null, null, null);
 
-  glistitem_t(this.classname, this.pickup_name);
+  glistitem_t(this.classname, this.world_model, this.world_model_flags, this.view_model, this.icon, this.pickup_name);
 }
 
 class gitem_t extends glistitem_t {
   int index;
 
-  gitem_t(this.index, glistitem_t other) : super(other.classname, other.pickup_name);
+  gitem_t(this.index, glistitem_t other) : super(other.classname, other.world_model, other.world_model_flags,
+    other.view_model, other.icon, other.pickup_name);
 
 }
 
@@ -354,6 +432,68 @@ class client_respawn_t {
   }
 }
 
+class monsterinfo_t {
+	// mmove_t *currentmove;
+	int aiflags = 0;
+	// int nextframe;
+	// float scale;
+
+	// void (*stand)(edict_t *self);
+	// void (*idle)(edict_t *self);
+	// void (*search)(edict_t *self);
+	// void (*walk)(edict_t *self);
+	// void (*run)(edict_t *self);
+	// void (*dodge)(edict_t *self, edict_t *other, float eta);
+	// void (*attack)(edict_t *self);
+	// void (*melee)(edict_t *self);
+	// void (*sight)(edict_t *self, edict_t *other);
+	// qboolean (*checkattack)(edict_t *self);
+
+	// float pausetime;
+	// float attack_finished;
+
+	// vec3_t saved_goal;
+	// float search_time;
+	// float trail_time;
+	// vec3_t last_sighting;
+	// int attack_state;
+	// int lefty;
+	// float idle_time;
+	// int linkcount;
+
+	// int power_armor_type;
+	// int power_armor_power;
+
+  clear() {
+    // mmove_t *currentmove;
+    this.aiflags = 0;
+    // int nextframe;
+    // float scale;
+    // void (*stand)(edict_t *self);
+    // void (*idle)(edict_t *self);
+    // void (*search)(edict_t *self);
+    // void (*walk)(edict_t *self);
+    // void (*run)(edict_t *self);
+    // void (*dodge)(edict_t *self, edict_t *other, float eta);
+    // void (*attack)(edict_t *self);
+    // void (*melee)(edict_t *self);
+    // void (*sight)(edict_t *self, edict_t *other);
+    // qboolean (*checkattack)(edict_t *self);
+    // float pausetime;
+    // float attack_finished;
+    // vec3_t saved_goal;
+    // float search_time;
+    // float trail_time;
+    // vec3_t last_sighting;
+    // int attack_state;
+    // int lefty;
+    // float idle_time;
+    // int linkcount;
+    // int power_armor_type;
+    // int power_armor_power;
+  }
+}
+
 /* this structure is cleared on each PutClientInServer(),
    except for 'client->pers' */
 class gclient_t extends gclient_s {
@@ -398,7 +538,7 @@ class gclient_t extends gclient_s {
 	double damage_alpha = 0;
 	double bonus_alpha = 0;
 	// vec3_t damage_blend;
-	// vec3_t v_angle; /* aiming direction */
+	List<double> v_angle = [0,0,0]; /* aiming direction */
 	double bobtime = 0; /* so off-ground doesn't change it */
 	// vec3_t oldviewangles;
 	// vec3_t oldvelocity;
@@ -468,7 +608,7 @@ class gclient_t extends gclient_s {
 	  this.damage_alpha = 0;
 	  this.bonus_alpha = 0;
 	// // vec3_t damage_blend;
-	// // vec3_t v_angle; /* aiming direction */
+	  this.v_angle.fillRange(0, 3, 0);
 	  this.bobtime = 0;
 	// // vec3_t oldviewangles;
 	// // vec3_t oldvelocity;
@@ -545,8 +685,8 @@ class edict_t extends edict_s {
 	// void (*prethink)(edict_t *ent);
 	// void (*think)(edict_t *self);
 	// void (*blocked)(edict_t *self, edict_t *other);
-	// void (*touch)(edict_t *self, edict_t *other, cplane_t *plane,
-	// 		csurface_t *surf);
+	void Function(edict_t self, edict_t other, cplane_t plane,
+			csurface_t surf) touch;
 	// void (*use)(edict_t *self, edict_t *other, edict_t *activator);
 	// void (*pain)(edict_t *self, edict_t *other, float kick, int damage);
 	// void (*die)(edict_t *self, edict_t *inflictor, edict_t *attacker,
@@ -600,22 +740,22 @@ class edict_t extends edict_s {
 
 	// double last_sound_time = 0;
 
-	// int watertype = 0;
-	// int waterlevel = 0;
+	int watertype = 0;
+	int waterlevel = 0;
 
 	// vec3_t move_origin;
 	// vec3_t move_angles;
 
-	// /* move this to clientinfo? */
-	// int light_level = 0;
+	/* move this to clientinfo? */
+	int light_level = 0;
 
-	// int style = 0; /* also used as areaportal number */
+	int style = 0; /* also used as areaportal number */
 
-	// gitem_t *item = null; /* for bonus items */
+	gitem_t item = null; /* for bonus items */
 
-	// /* common data blocks */
+	/* common data blocks */
 	// moveinfo_t moveinfo;
-	// monsterinfo_t monsterinfo;  
+	monsterinfo_t monsterinfo = monsterinfo_t();
 
   edict_t(int index) {
     this.index = index;
@@ -627,7 +767,7 @@ class edict_t extends edict_s {
 	  this.inuse = false;
 	  this.linkcount = 0;
 	  this.num_clusters = 0;
-	// int clusternums[MAX_ENT_CLUSTERS];
+    this.clusternums.fillRange(0, MAX_ENT_CLUSTERS, 0);
 	  this.headnode = 0;
 	  this.areanum = 0;
     this.areanum2 = 0;
@@ -720,15 +860,15 @@ class edict_t extends edict_s {
     this.delay = 0;
     this.random = 0;
     // float last_sound_time = 0;
-    // int watertype = 0;
-    // int waterlevel = 0;
+    this.watertype = 0;
+    this.waterlevel = 0;
     // vec3_t move_origin;
     // vec3_t move_angles;
-    // int light_level = 0;
-    // int style = 0;
-    // gitem_t *item = null;
+    this.light_level = 0;
+    this.style = 0;
+    this.item = null;
     // moveinfo_t moveinfo;
-    // monsterinfo_t monsterinfo;  
+    this.monsterinfo.clear();
   }
 }
 

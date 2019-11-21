@@ -38,7 +38,7 @@ class Readbuf {
   int ReadChar() {
     int c = -1;
     if (this.readcount + 1 <= data.lengthInBytes) {
-      c = this.data[this.readcount];
+      c = this.data.buffer.asByteData().getInt8(this.readcount);
     }
     this.readcount += 1;
     return c;
@@ -47,7 +47,7 @@ class Readbuf {
   int ReadByte() {
     int c = -1;
     if (this.readcount + 1 <= data.lengthInBytes) {
-      c = this.data[this.readcount] & 0xFF;
+      c = this.data.buffer.asByteData().getUint8(this.readcount);
     }
     this.readcount += 1;
     return c;

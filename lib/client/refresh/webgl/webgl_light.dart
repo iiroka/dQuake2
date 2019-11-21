@@ -93,8 +93,6 @@ WebGL_MarkLights(dlight_t light, int bit, mleadornode_t anode) {
 }
 
 WebGL_PushDlights() {
-	// int i;
-	// dlight_t *l;
 
 	/* because the count hasn't advanced yet for this frame */
 	_r_dlightframecount = webgl_framecount + 1;
@@ -126,17 +124,6 @@ WebGL_PushDlights() {
 }
 
 int _RecursiveLightPoint(mleadornode_t anode, List<double> start, List<double> end) {
-	// float front, back, frac;
-	// int side;
-	// cplane_t *plane;
-	// vec3_t mid;
-	// msurface_t *surf;
-	// int s, t, ds, dt;
-	// int i;
-	// mtexinfo_t *tex;
-	// byte *lightmap;
-	// int maps;
-	// int r;
 
 	if (anode.contents != -1) {
 		return -1;     /* didn't hit anything */

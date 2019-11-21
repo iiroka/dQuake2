@@ -35,8 +35,309 @@ import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/shared/writebuf.dart';
 import 'server.dart';
 import 'sv_game.dart' show ge;
+import 'sv_main.dart' show maxclients;
 
 Uint8List _fatpvs = Uint8List(65536 ~/ 8);
+
+/*
+ * Writes a delta update of an entity_state_t list to the message.
+ */
+SV_EmitPacketEntities(client_frame_t from, client_frame_t to, Writebuf msg) {
+
+	msg.WriteByte(svc_ops_e.svc_packetentities.index);
+
+  int from_num_entities;
+	if (from == null) {
+		from_num_entities = 0;
+	} else {
+		from_num_entities = from.num_entities;
+	}
+
+	int newindex = 0;
+	int oldindex = 0;
+	entity_state_t newent;
+	entity_state_t oldent;
+
+	while (newindex < to.num_entities || oldindex < from_num_entities) {
+		if (msg.cursize > MAX_MSGLEN - 150) {
+			break;
+		}
+
+    int newnum, oldnum;
+		if (newindex >= to.num_entities) {
+			newnum = 9999;
+		} else {
+			newent = svs.client_entities[(to.first_entity + newindex) % svs.num_client_entities];
+			newnum = newent.number;
+		}
+
+		if (oldindex >= from_num_entities) {
+			oldnum = 9999;
+		} else {
+			oldent = svs.client_entities[(from.first_entity + oldindex) % svs.num_client_entities];
+			oldnum = oldent.number;
+		}
+
+		if (newnum == oldnum) {
+			/* delta update from old position. because the force 
+			   parm is false, this will not result in any bytes
+			   being emited if the entity has not changed at all
+			   note that players are always 'newentities', this
+			   updates their oldorigin always and prevents warping */
+			msg.WriteDeltaEntity(oldent, newent, false, newent.number <= maxclients.integer);
+			oldindex++;
+			newindex++;
+			continue;
+		}
+
+		if (newnum < oldnum) {
+			/* this is a new entity, send it from the baseline */
+			msg.WriteDeltaEntity(sv.baselines[newnum], newent, true, true);
+			newindex++;
+			continue;
+		}
+
+		if (newnum > oldnum) {
+			/* the old entity isn't present in the new message */
+			var bits = U_REMOVE;
+
+			if (oldnum >= 256) {
+				bits |= U_NUMBER16 | U_MOREBITS1;
+			}
+
+			msg.WriteByte(bits & 255);
+			if ((bits & 0x0000ff00) != 0) {
+				msg.WriteByte((bits >> 8) & 255);
+			}
+
+			if ((bits & U_NUMBER16) != 0) {
+				msg.WriteShort(oldnum);
+			} else {
+				msg.WriteByte(oldnum);
+			}
+
+			oldindex++;
+			continue;
+		}
+	}
+
+	msg.WriteShort(0);
+}
+
+SV_WritePlayerstateToClient(client_frame_t from, client_frame_t to, Writebuf msg) {
+
+	var ps = to.ps;
+  player_state_t ops;
+
+	if (from == null) {
+		ops = player_state_t();
+	} else {
+		ops = from.ps;
+	}
+
+	/* determine what needs to be sent */
+	int pflags = 0;
+
+	if (ps.pmove.pm_type != ops.pmove.pm_type) {
+		pflags |= PS_M_TYPE;
+	}
+
+	if ((ps.pmove.origin[0] != ops.pmove.origin[0]) ||
+		(ps.pmove.origin[1] != ops.pmove.origin[1]) ||
+		(ps.pmove.origin[2] != ops.pmove.origin[2])) {
+		pflags |= PS_M_ORIGIN;
+	}
+
+	if ((ps.pmove.velocity[0] != ops.pmove.velocity[0]) ||
+		(ps.pmove.velocity[1] != ops.pmove.velocity[1]) ||
+		(ps.pmove.velocity[2] != ops.pmove.velocity[2])) {
+		pflags |= PS_M_VELOCITY;
+	}
+
+	if (ps.pmove.pm_time != ops.pmove.pm_time) {
+		pflags |= PS_M_TIME;
+	}
+
+	if (ps.pmove.pm_flags != ops.pmove.pm_flags) {
+		pflags |= PS_M_FLAGS;
+	}
+
+	if (ps.pmove.gravity != ops.pmove.gravity) {
+		pflags |= PS_M_GRAVITY;
+	}
+
+	if ((ps.pmove.delta_angles[0] != ops.pmove.delta_angles[0]) ||
+		(ps.pmove.delta_angles[1] != ops.pmove.delta_angles[1]) ||
+		(ps.pmove.delta_angles[2] != ops.pmove.delta_angles[2]))
+	{
+		pflags |= PS_M_DELTA_ANGLES;
+	}
+
+	if ((ps.viewoffset[0] != ops.viewoffset[0]) ||
+		(ps.viewoffset[1] != ops.viewoffset[1]) ||
+		(ps.viewoffset[2] != ops.viewoffset[2]))
+	{
+		pflags |= PS_VIEWOFFSET;
+	}
+
+	if ((ps.viewangles[0] != ops.viewangles[0]) ||
+		(ps.viewangles[1] != ops.viewangles[1]) ||
+		(ps.viewangles[2] != ops.viewangles[2]))
+	{
+		pflags |= PS_VIEWANGLES;
+	}
+
+	if ((ps.kick_angles[0] != ops.kick_angles[0]) ||
+		(ps.kick_angles[1] != ops.kick_angles[1]) ||
+		(ps.kick_angles[2] != ops.kick_angles[2]))
+	{
+		pflags |= PS_KICKANGLES;
+	}
+
+	if ((ps.blend[0] != ops.blend[0]) ||
+		(ps.blend[1] != ops.blend[1]) ||
+		(ps.blend[2] != ops.blend[2]) ||
+		(ps.blend[3] != ops.blend[3]))
+	{
+		pflags |= PS_BLEND;
+	}
+
+	if (ps.fov != ops.fov)
+	{
+		pflags |= PS_FOV;
+	}
+
+	if (ps.rdflags != ops.rdflags)
+	{
+		pflags |= PS_RDFLAGS;
+	}
+
+	if (ps.gunframe != ops.gunframe)
+	{
+		pflags |= PS_WEAPONFRAME;
+	}
+
+	pflags |= PS_WEAPONINDEX;
+
+	/* write it */
+	msg.WriteByte(svc_ops_e.svc_playerinfo.index);
+	msg.WriteShort(pflags);
+
+	/* write the pmove_state_t */
+	if ((pflags & PS_M_TYPE) != 0)
+	{
+		msg.WriteByte(ps.pmove.pm_type.index);
+	}
+
+	if ((pflags & PS_M_ORIGIN) != 0)
+	{
+		msg.WriteShort(ps.pmove.origin[0]);
+		msg.WriteShort(ps.pmove.origin[1]);
+		msg.WriteShort(ps.pmove.origin[2]);
+	}
+
+	if ((pflags & PS_M_VELOCITY) != 0)
+	{
+		msg.WriteShort(ps.pmove.velocity[0]);
+		msg.WriteShort(ps.pmove.velocity[1]);
+		msg.WriteShort(ps.pmove.velocity[2]);
+	}
+
+	if ((pflags & PS_M_TIME) != 0)
+	{
+		msg.WriteByte(ps.pmove.pm_time);
+	}
+
+	if ((pflags & PS_M_FLAGS) != 0)
+	{
+		msg.WriteByte(ps.pmove.pm_flags);
+	}
+
+	if ((pflags & PS_M_GRAVITY) != 0)
+	{
+		msg.WriteShort(ps.pmove.gravity);
+	}
+
+	if ((pflags & PS_M_DELTA_ANGLES) != 0)
+	{
+		msg.WriteShort(ps.pmove.delta_angles[0]);
+		msg.WriteShort(ps.pmove.delta_angles[1]);
+		msg.WriteShort(ps.pmove.delta_angles[2]);
+	}
+
+	/* write the rest of the player_state_t */
+	if ((pflags & PS_VIEWOFFSET) != 0)
+	{
+		msg.WriteChar((ps.viewoffset[0] * 4).toInt());
+		msg.WriteChar((ps.viewoffset[1] * 4).toInt());
+		msg.WriteChar((ps.viewoffset[2] * 4).toInt());
+	}
+
+	if ((pflags & PS_VIEWANGLES) != 0)
+	{
+		msg.WriteAngle16(ps.viewangles[0]);
+		msg.WriteAngle16(ps.viewangles[1]);
+		msg.WriteAngle16(ps.viewangles[2]);
+	}
+
+	if ((pflags & PS_KICKANGLES) != 0)
+	{
+		msg.WriteChar((ps.kick_angles[0] * 4).toInt());
+		msg.WriteChar((ps.kick_angles[1] * 4).toInt());
+		msg.WriteChar((ps.kick_angles[2] * 4).toInt());
+	}
+
+	if ((pflags & PS_WEAPONINDEX) != 0)
+	{
+		msg.WriteByte(ps.gunindex);
+	}
+
+	if ((pflags & PS_WEAPONFRAME) != 0)
+	{
+		msg.WriteByte(ps.gunframe);
+		msg.WriteChar((ps.gunoffset[0] * 4).toInt());
+		msg.WriteChar((ps.gunoffset[1] * 4).toInt());
+		msg.WriteChar((ps.gunoffset[2] * 4).toInt());
+		msg.WriteChar((ps.gunangles[0] * 4).toInt());
+		msg.WriteChar((ps.gunangles[1] * 4).toInt());
+		msg.WriteChar((ps.gunangles[2] * 4).toInt());
+	}
+
+	if ((pflags & PS_BLEND) != 0)
+	{
+		msg.WriteByte((ps.blend[0] * 255).toInt());
+		msg.WriteByte((ps.blend[1] * 255).toInt());
+		msg.WriteByte((ps.blend[2] * 255).toInt());
+		msg.WriteByte((ps.blend[3] * 255).toInt());
+	}
+
+	if ((pflags & PS_FOV) != 0) {
+		msg.WriteByte(ps.fov.toInt());
+	}
+
+	if ((pflags & PS_RDFLAGS) != 0)
+	{
+		msg.WriteByte(ps.rdflags);
+	}
+
+	/* send stats */
+	int statbits = 0;
+
+	for (int i = 0; i < MAX_STATS; i++) {
+		if (ps.stats[i] != ops.stats[i]) {
+			statbits |= 1 << i;
+		}
+	}
+
+	msg.WriteLong(statbits);
+
+	for (int i = 0; i < MAX_STATS; i++) {
+		if ((statbits & (1 << i)) != 0) {
+			msg.WriteShort(ps.stats[i]);
+		}
+	}
+}
+
 
 SV_WriteFrameToClient(client_t client, Writebuf msg) {
 
@@ -69,11 +370,11 @@ SV_WriteFrameToClient(client_t client, Writebuf msg) {
 	msg.WriteByte(frame.areabytes);
   msg.Write(frame.areabits.sublist(0, frame.areabytes));
 
-	// /* delta encode the playerstate */
-	// SV_WritePlayerstateToClient(oldframe, frame, msg);
+	/* delta encode the playerstate */
+	SV_WritePlayerstateToClient(oldframe, frame, msg);
 
-	// /* delta encode the entities */
-	// SV_EmitPacketEntities(oldframe, frame, msg);
+	/* delta encode the entities */
+	SV_EmitPacketEntities(oldframe, frame, msg);
 }
 
 /*
@@ -81,11 +382,6 @@ SV_WriteFrameToClient(client_t client, Writebuf msg) {
  * so we can't use a single PVS point
  */
 _SV_FatPVS(List<double> org) {
-	// int leafs[64];
-	// int i, j, count;
-	// int longs;
-	// byte *src;
-	// vec3_t mins, maxs;
 
   List<double> mins = List.generate(3, (i) => org[i] - 8);
   List<double> maxs = List.generate(3, (i) => org[i] + 8);
@@ -129,18 +425,6 @@ _SV_FatPVS(List<double> org) {
  * copies off the playerstat and areabits.
  */
 SV_BuildClientFrame(client_t client) {
-	// int e, i;
-	// vec3_t org;
-	// edict_t *ent;
-	// edict_t *clent;
-	// client_frame_t *frame;
-	// entity_state_t *state;
-	// int l;
-	// int clientarea, clientcluster;
-	// int leafnum;
-	// int c_fullsend;
-	// byte *clientphs;
-	// byte *bitvector;
 
 	var clent = client.edict;
 
@@ -205,54 +489,46 @@ SV_BuildClientFrame(client_t client) {
 
 			/* beams just check one point for PHS */
 			if ((ent.s.renderfx & RF_BEAM) != 0) {
-	// 			l = ent->clusternums[0];
+				int l = ent.clusternums[0];
 
-	// 			if (!(clientphs[l >> 3] & (1 << (l & 7))))
-	// 			{
-	// 				continue;
-	// 			}
+				if ((clientphs[l >> 3] & (1 << (l & 7))) == 0) {
+					continue;
+				}
 			} else {
-	// 			bitvector = fatpvs;
+				var bitvector = _fatpvs;
 
 				if (ent.num_clusters == -1) {
 					/* too many leafs for individual check, go by headnode */
-	// 				if (!CM_HeadnodeVisible(ent->headnode, bitvector))
-	// 				{
-	// 					continue;
-	// 				}
+					if (!CM_HeadnodeVisible(ent.headnode, bitvector)) {
+						continue;
+					}
 
 	// 				c_fullsend++;
 				} else {
 					/* check individual leafs */
-					// for (i = 0; i < ent->num_clusters; i++)
-	// 				{
-	// 					l = ent->clusternums[i];
+          int i;
+					for (i = 0; i < ent.num_clusters; i++) {
+						int l = ent.clusternums[i];
 
-	// 					if (bitvector[l >> 3] & (1 << (l & 7)))
-	// 					{
-	// 						break;
-	// 					}
-	// 				}
+						if ((bitvector[l >> 3] & (1 << (l & 7))) != 0) {
+							break;
+						}
+					}
 
-	// 				if (i == ent->num_clusters)
-	// 				{
-	// 					continue; /* not visible */
-	// 				}
+					if (i == ent.num_clusters) {
+						continue; /* not visible */
+					}
 				}
 
 				if (ent.s.modelindex == 0) {
 					/* don't send sounds if they 
 					   will be attenuated away */
-	// 				vec3_t delta;
-	// 				float len;
-
-	// 				VectorSubtract(org, ent->s.origin, delta);
-	// 				len = VectorLength(delta);
-
-	// 				if (len > 400)
-	// 				{
-	// 					continue;
-	// 				}
+          List<double> delta = [0,0,0];
+					VectorSubtract(org, ent.s.origin, delta);
+					double len = VectorLength(delta);
+					if (len > 400) {
+						continue;
+					}
 				}
       }
     }

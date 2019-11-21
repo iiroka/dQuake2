@@ -241,7 +241,6 @@ class webglbrushmodel_t extends webglmodel_t {
   Uint8List lightdata;
   List<mtexinfo_t> texinfo;
   List<msurface_t> surfaces;
-  // List<msurface_t> marksurfaces;
   List<int> marksurfaces;
   dvis_t vis;
   Uint8List visData;
@@ -335,7 +334,7 @@ class webglbrushmodel_t extends webglmodel_t {
       var out = mmodel_t();
       /* spread the mins / maxs by a pixel */
       out.mins = List.generate(3, (j) => src.mins[j] - 1);
-      out.maxs = List.generate(3, (j) => src.mins[j]);
+      out.maxs = List.generate(3, (j) => src.mins[j] + 1);
       out.origin = List.generate(3, (j) => src.mins[j]);
       out.radius = Mod_RadiusFromBounds(out.mins, out.maxs);
       out.headnode = src.headnode;
@@ -618,8 +617,7 @@ class webglbrushmodel_t extends webglmodel_t {
   static SetParent(mleadornode_t anode, mnode_t parent) {
     anode.parent = parent;
 
-    if (anode.contents != -1)
-    {
+    if (anode.contents != -1) {
       return;
     }
 
@@ -731,10 +729,9 @@ Future<webglaliasmodel_t> Mod_LoadAliasModel(String name, ByteData buffer, ByteB
 		Com_Error(ERR_DROP, "$name has wrong version number (${pheader.version} should be $ALIAS_VERSION)");
 	}
 
-	// ofs_end = LittleLong(pinmodel->ofs_end);
-	// if (ofs_end < 0 || ofs_end > modfilelen)
-	// 	ri.Sys_Error (ERR_DROP, "model %s file size(%d) too small, should be %d", mod->name,
-	// 			   modfilelen, ofs_end);
+	if (pheader.ofs_end < 0 || pheader.ofs_end > buffer.lengthInBytes) {
+	  Com_Error(ERR_DROP, "model $name file size(${buffer.lengthInBytes}) too small, should be ${pheader.ofs_end}");
+  }
 
 	if (pheader.skinheight > MAX_LBM_HEIGHT) {
 		Com_Error(ERR_DROP, "model $name has a skin taller than $MAX_LBM_HEIGHT");

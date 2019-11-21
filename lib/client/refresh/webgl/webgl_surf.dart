@@ -39,9 +39,9 @@ import 'webgl_warp.dart' show WebGL_ClearSkyBox, WebGL_AddSkySurface, WebGL_Draw
 import 'local.dart';
 
 List<double> _modelorg = [0,0,0];
-msurface_t webgl_alpha_surfaces;
+msurface_t _webgl_alpha_surfaces;
 
-const BACKFACE_EPSILON = 0.01;
+const _BACKFACE_EPSILON = 0.01;
 
 
 WebGL_SurfInit() {
@@ -120,7 +120,7 @@ WebGL_SurfInit() {
 /*
  * Returns true if the box is completely outside the frustom
  */
-bool CullBox(List<double> mins, List<double> maxs) {
+bool _CullBox(List<double> mins, List<double> maxs) {
 
 	if (!gl_cull.boolean) {
 		return false;
@@ -138,7 +138,7 @@ bool CullBox(List<double> mins, List<double> maxs) {
 /*
  * Returns the proper texture for a given time and base texture
  */
-webglimage_t TextureAnimation(mtexinfo_t tex) {
+webglimage_t _TextureAnimation(mtexinfo_t tex) {
 
 	if (tex.next == null) {
 		return tex.image;
@@ -154,7 +154,7 @@ webglimage_t TextureAnimation(mtexinfo_t tex) {
 	return tex.image;
 }
 
-SetLightFlags(msurface_t surf) {
+_SetLightFlags(msurface_t surf) {
 	var lightFlags = 0;
 	if (surf.dlightframe == webgl_framecount) {
 		lightFlags = surf.dlightbits;
@@ -168,7 +168,7 @@ SetLightFlags(msurface_t surf) {
 	}
 }
 
-SetAllLightFlags(msurface_t surf) {
+_SetAllLightFlags(msurface_t surf) {
 
 	var lightFlags = 0xffffffff;
 
@@ -177,68 +177,6 @@ SetAllLightFlags(msurface_t surf) {
 	for(int i=0; i<numVerts; ++i) {
     verts.setUint32((i * gl3_3D_vtx_size + gl3_3D_vtx_lightFlags_offset) * 4, lightFlags);
 	}
-}
-
-UpdateLMscales(List<List<double>> lmScales, gl3ShaderInfo_t si) {
-	var hasChanged = false;
-
-	for(int i=0; i<MAX_LIGHTMAPS_PER_SURFACE; ++i)
-	{
-		if(hasChanged) {
-			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
-		} else if( si.lmScales[i * 4 + 0] != lmScales[i][0]
-		        || si.lmScales[i * 4 + 1] != lmScales[i][1]
-		        || si.lmScales[i * 4 + 2] != lmScales[i][2]
-		        || si.lmScales[i * 4 + 3] != lmScales[i][3] )
-		{
-			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
-			hasChanged = true;
-		}
-	}
-
-	if (hasChanged) {
-		gl.uniform4fv(si.uniLmScales, Float32List.fromList(si.lmScales));
-	}
-}
-
-RenderBrushPoly(msurface_t fa) {
-
-	c_brush_polys++;
-
-	var image = TextureAnimation(fa.texinfo);
-
-	if ((fa.flags & SURF_DRAWTURB) != 0) {
-		WebGL_Bind(image.texture);
-		WebGL_EmitWaterPolys(fa);
-		return;
-	} else {
-		WebGL_Bind(image.texture);
-	}
-
-	List<List<double>> lmScales = List.generate(MAX_LIGHTMAPS_PER_SURFACE, (i) => [0,0,0,0]);
-	lmScales[0] = [1.0, 1.0, 1.0, 1.0];
-
-	WebGL_BindLightmap(fa.lightmaptexturenum);
-
-	// Any dynamic lights on this surface?
-	for (int map = 0; map < MAX_LIGHTMAPS_PER_SURFACE && fa.styles[map] != 255; map++) {
-		lmScales[map][0] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[0];
-		lmScales[map][1] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[1];
-		lmScales[map][2] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[2];
-		lmScales[map][3] = 1.0;
-	}
-
-	if ((fa.texinfo.flags & SURF_FLOWING) != 0) {
-		WebGL_UseProgram(glstate.si3DlmFlow.shaderProgram);
-		UpdateLMscales(lmScales, glstate.si3DlmFlow);
-		WebGL_DrawGLFlowingPoly(fa);
-	} else {
-		WebGL_UseProgram(glstate.si3Dlm.shaderProgram);
-		UpdateLMscales(lmScales, glstate.si3Dlm);
-		WebGL_DrawGLPoly(fa);
-	}
-
-	// Note: lightmap chains are gone, lightmaps are rendered together with normal texture in one pass
 }
 
 WebGL_DrawGLPoly(msurface_t fa) {
@@ -285,7 +223,7 @@ WebGL_DrawAlphaSurfaces() {
 
 	gl.enable(WebGL.BLEND);
 
-	for (var s = webgl_alpha_surfaces; s != null; s = s.texturechain) {
+	for (var s = _webgl_alpha_surfaces; s != null; s = s.texturechain) {
 		WebGL_Bind(s.texinfo.image.texture);
 		c_brush_polys++;
 		var alpha = 1.0;
@@ -319,11 +257,73 @@ WebGL_DrawAlphaSurfaces() {
 
 	gl.disable(WebGL.BLEND);
 
-	webgl_alpha_surfaces = null;
+	_webgl_alpha_surfaces = null;
 }
 
 
-DrawTextureChains() {
+_UpdateLMscales(List<List<double>> lmScales, gl3ShaderInfo_t si) {
+	var hasChanged = false;
+
+	for(int i=0; i<MAX_LIGHTMAPS_PER_SURFACE; ++i)
+	{
+		if(hasChanged) {
+			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
+		} else if( si.lmScales[i * 4 + 0] != lmScales[i][0]
+		        || si.lmScales[i * 4 + 1] != lmScales[i][1]
+		        || si.lmScales[i * 4 + 2] != lmScales[i][2]
+		        || si.lmScales[i * 4 + 3] != lmScales[i][3] )
+		{
+			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
+			hasChanged = true;
+		}
+	}
+
+	if (hasChanged) {
+		gl.uniform4fv(si.uniLmScales, Float32List.fromList(si.lmScales));
+	}
+}
+
+_RenderBrushPoly(msurface_t fa) {
+
+	c_brush_polys++;
+
+	var image = _TextureAnimation(fa.texinfo);
+
+	if ((fa.flags & SURF_DRAWTURB) != 0) {
+		WebGL_Bind(image.texture);
+		WebGL_EmitWaterPolys(fa);
+		return;
+	} else {
+		WebGL_Bind(image.texture);
+	}
+
+	List<List<double>> lmScales = List.generate(MAX_LIGHTMAPS_PER_SURFACE, (i) => [0,0,0,0]);
+	lmScales[0] = [1.0, 1.0, 1.0, 1.0];
+
+	WebGL_BindLightmap(fa.lightmaptexturenum);
+
+	// Any dynamic lights on this surface?
+	for (int map = 0; map < MAX_LIGHTMAPS_PER_SURFACE && fa.styles[map] != 255; map++) {
+		lmScales[map][0] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[0];
+		lmScales[map][1] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[1];
+		lmScales[map][2] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[2];
+		lmScales[map][3] = 1.0;
+	}
+
+	if ((fa.texinfo.flags & SURF_FLOWING) != 0) {
+		WebGL_UseProgram(glstate.si3DlmFlow.shaderProgram);
+		_UpdateLMscales(lmScales, glstate.si3DlmFlow);
+		WebGL_DrawGLFlowingPoly(fa);
+	} else {
+		WebGL_UseProgram(glstate.si3Dlm.shaderProgram);
+		_UpdateLMscales(lmScales, glstate.si3Dlm);
+		WebGL_DrawGLPoly(fa);
+	}
+
+	// Note: lightmap chains are gone, lightmaps are rendered together with normal texture in one pass
+}
+
+_DrawTextureChains() {
 
 	c_visible_textures = 0;
 
@@ -342,8 +342,8 @@ DrawTextureChains() {
 
     int depth = 0;
 		for ( ; s != null; s = s.texturechain) {
-			SetLightFlags(s);
-			RenderBrushPoly(s);
+			_SetLightFlags(s);
+			_RenderBrushPoly(s);
       if (++depth > 200) {
         print("Breaking texture chain");
         break;
@@ -356,9 +356,9 @@ DrawTextureChains() {
 	// TODO: maybe one loop for normal faces and one for SURF_DRAWTURB ???
 }
 
-RenderLightmappedPoly(msurface_t surf) {
-	var image = TextureAnimation(surf.texinfo);
+_RenderLightmappedPoly(msurface_t surf) {
 
+	var image = _TextureAnimation(surf.texinfo);
 
 	List<List<double>> lmScales = List.generate(MAX_LIGHTMAPS_PER_SURFACE, (i) => [0,0,0,0]);
 	lmScales[0] = [1.0, 1.0, 1.0, 1.0];
@@ -381,18 +381,18 @@ RenderLightmappedPoly(msurface_t surf) {
 
 	if ((surf.texinfo.flags & SURF_FLOWING) != 0) {
 		WebGL_UseProgram(glstate.si3DlmFlow.shaderProgram);
-		UpdateLMscales(lmScales, glstate.si3DlmFlow);
+		_UpdateLMscales(lmScales, glstate.si3DlmFlow);
 		WebGL_DrawGLFlowingPoly(surf);
 	}
 	else
 	{
 		WebGL_UseProgram(glstate.si3Dlm.shaderProgram);
-		UpdateLMscales(lmScales, glstate.si3Dlm);
+		_UpdateLMscales(lmScales, glstate.si3Dlm);
 		WebGL_DrawGLPoly(surf);
 	}
 }
 
-DrawInlineBModel() {
+_DrawInlineBModel() {
   final model = currentmodel as webglbrushmodel_t;
 
 	/* calculate dynamic lighting for bmodel */
@@ -419,21 +419,17 @@ DrawInlineBModel() {
 		var dot = DotProduct(_modelorg, pplane.normal) - pplane.dist;
 
 		/* draw the polygon */
-		if (((psurf.flags & SURF_PLANEBACK) != 0 && (dot < -BACKFACE_EPSILON)) ||
-			((psurf.flags & SURF_PLANEBACK) == 0 && (dot > BACKFACE_EPSILON))) {
+		if (((psurf.flags & SURF_PLANEBACK) != 0 && (dot < -_BACKFACE_EPSILON)) ||
+			((psurf.flags & SURF_PLANEBACK) == 0 && (dot > _BACKFACE_EPSILON))) {
 			if ((psurf.texinfo.flags & (SURF_TRANS33 | SURF_TRANS66)) != 0) {
 				/* add to the translucent chain */
-				psurf.texturechain = webgl_alpha_surfaces;
-				webgl_alpha_surfaces = psurf;
-			}
-			else if ((psurf.flags & SURF_DRAWTURB) == 0)
-			{
-				SetAllLightFlags(psurf);
-				RenderLightmappedPoly(psurf);
-			}
-			else
-			{
-				RenderBrushPoly(psurf);
+				psurf.texturechain = _webgl_alpha_surfaces;
+				_webgl_alpha_surfaces = psurf;
+			} else if ((psurf.flags & SURF_DRAWTURB) == 0) {
+				_SetAllLightFlags(psurf);
+				_RenderLightmappedPoly(psurf);
+			} else {
+				_RenderBrushPoly(psurf);
 			}
 		}
 	}
@@ -472,7 +468,7 @@ WebGL_DrawBrushModel(entity_t e) {
 		VectorAdd(e.origin, currentmodel.maxs, maxs);
 	}
 
-	if (CullBox(mins, maxs)) {
+	if (_CullBox(mins, maxs)) {
 		return;
 	}
 
@@ -494,8 +490,6 @@ WebGL_DrawBrushModel(entity_t e) {
 		_modelorg[2] = DotProduct(temp, up);
 	}
 
-
-
 	//glPushMatrix();
 	var oldMat = glstate.uni3DData.transModelMat4;
 
@@ -505,7 +499,7 @@ WebGL_DrawBrushModel(entity_t e) {
 	e.angles[0] = -e.angles[0];
 	e.angles[2] = -e.angles[2];
 
-	DrawInlineBModel();
+	_DrawInlineBModel();
 
 	// glPopMatrix();
 	glstate.uni3DData.transModelMat4 = oldMat;
@@ -516,7 +510,7 @@ WebGL_DrawBrushModel(entity_t e) {
 	}
 }
 
-RecursiveWorldNode(webglbrushmodel_t model, mleadornode_t anode) {
+_RecursiveWorldNode(webglbrushmodel_t model, mleadornode_t anode) {
 
 	if (anode.contents == CONTENTS_SOLID) {
 		return; /* solid */
@@ -526,7 +520,7 @@ RecursiveWorldNode(webglbrushmodel_t model, mleadornode_t anode) {
 		return;
 	}
 
-	if (CullBox(anode.minmaxs, anode.minmaxs.sublist(3))) {
+	if (_CullBox(anode.minmaxs, anode.minmaxs.sublist(3))) {
 		return;
 	}
 
@@ -590,7 +584,7 @@ RecursiveWorldNode(webglbrushmodel_t model, mleadornode_t anode) {
 	}
 
 	/* recurse down the children, front side first */
-	RecursiveWorldNode(model, node.children[side]);
+	_RecursiveWorldNode(model, node.children[side]);
 
 	/* draw stuff */
 	for (int c = 0; c < node.numsurfaces; c++) {
@@ -609,22 +603,22 @@ RecursiveWorldNode(webglbrushmodel_t model, mleadornode_t anode) {
 		}
 		else if ((surf.texinfo.flags & (SURF_TRANS33 | SURF_TRANS66)) != 0) {
 			/* add to the translucent chain */
-			surf.texturechain = webgl_alpha_surfaces;
-			webgl_alpha_surfaces = surf;
-			webgl_alpha_surfaces.texinfo.image = TextureAnimation(surf.texinfo);
+			surf.texturechain = _webgl_alpha_surfaces;
+			_webgl_alpha_surfaces = surf;
+			_webgl_alpha_surfaces.texinfo.image = _TextureAnimation(surf.texinfo);
 		} else {
 			// calling RenderLightmappedPoly() here probably isn't optimal, rendering everything
 			// through texturechains should be faster, because far less glBindTexture() is needed
 			// (and it might allow batching the drawcalls of surfaces with the same texture)
       /* the polygon is visible, so add it to the texture sorted chain */
-      var image = TextureAnimation(surf.texinfo);
+      var image = _TextureAnimation(surf.texinfo);
       surf.texturechain = image.texturechain;
       image.texturechain = surf;
 		}
 	}
 
 	/* recurse down the back side */
-	RecursiveWorldNode(model, node.children[side ^ 1]);
+	_RecursiveWorldNode(model, node.children[side ^ 1]);
 }
 
 
@@ -650,8 +644,8 @@ WebGL_DrawWorld() {
 	glstate.currenttexture = null;
 
 	WebGL_ClearSkyBox();
-	RecursiveWorldNode(webgl_worldmodel, webgl_worldmodel.nodes[0]);
-	DrawTextureChains();
+	_RecursiveWorldNode(webgl_worldmodel, webgl_worldmodel.nodes[0]);
+	_DrawTextureChains();
 	WebGL_DrawSkyBox();
 	// DrawTriangleOutlines();
 
@@ -666,9 +660,9 @@ WebGL_DrawWorld() {
 WebGL_MarkLeaves() {
 
 	if ((webgl_oldviewcluster == webgl_viewcluster) &&
-		(webgl_oldviewcluster2 == webgl_viewcluster2) &&
-		!r_novis.boolean &&
-		(webgl_viewcluster != -1)) {
+		  (webgl_oldviewcluster2 == webgl_viewcluster2) &&
+		  !r_novis.boolean &&
+		  (webgl_viewcluster != -1)) {
 		return;
 	}
 

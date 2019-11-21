@@ -37,6 +37,7 @@ import 'local.dart';
 import 'webgl_main.dart';
 import 'webgl_image.dart';
 import 'webgl_light.dart';
+import 'webgl_misc.dart';
 import 'webgl_shaders.dart';
 
 const SHADEDOT_QUANT = 16;
@@ -134,8 +135,6 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 
 	// so first clear out the data from last call to this function
 	// (the buffers are static global so we don't have malloc()/free() for each rendered model)
-	// da_clear(vtxBuf);
-	// da_clear(idxBuf);
   List<double> vtxBuf = [];
   List<int> idxBuf = [];
 
@@ -582,9 +581,9 @@ WebGL_DrawAliasModel(entity_t entity) {
 		}
 	}
 
-	// if (skin == null) {
-	// 	skin = gl3_notexture; /* fallback... */
-	// }
+	if (skin == null) {
+		skin = webgl_notexture; /* fallback... */
+	}
 
 	WebGL_Bind(skin.texture);
 

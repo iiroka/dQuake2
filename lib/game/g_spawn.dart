@@ -35,14 +35,23 @@ import 'package:dQuakeWeb/server/sv_game.dart';
 import 'game.dart';
 import 'g_utils.dart';
 import 'g_items.dart';
+import 'g_misc.dart';
 import 'savegame/savegame.dart';
 import 'player/client.dart' show SP_info_player_start;
+import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
 
 final spawns = {
 
 	"info_player_start": SP_info_player_start,
 
 	"worldspawn": SP_worldspawn,
+
+	"path_corner": SP_path_corner,
+
+	"monster_soldier_light": SP_monster_soldier_light,
+	"monster_soldier": SP_monster_soldier,
+	"monster_soldier_ss": SP_monster_soldier_ss,
+
 };
 
 /*
@@ -69,7 +78,7 @@ ED_CallSpawn(edict_t ent) async {
 
 		if (item.classname == ent.classname) {
 			/* found it */
-	// 		SpawnItem(ent, item);
+			SpawnItem(ent, item);
 			return;
 		}
 	}
@@ -126,7 +135,7 @@ ED_ParseField(String key, String value, edict_t ent) {
 					break;
 				case fieldtype_t.F_ANGLEHACK:
           final v = double.parse(value);
-	          setProperty(b, fname, [ 0, v, 0]);
+          setProperty(b, fname, List<double>.from([ 0, v, 0]));
 					break;
 				case fieldtype_t.F_IGNORE:
 					break;
@@ -281,15 +290,15 @@ G_SpawnEntities(String mapname, String entities, String spawnpoint) async {
 	// 		ent->spawnflags &= ~SPAWNFLAG_NOT_HARD;
 	// 	}
 
-	// 	/*
-	// 	 * The 'monsters' count in city3.bsp is wrong.
-	// 	 * There're two monsters triggered in a hidden
-	// 	 * and unreachable room next to the security
-	// 	 * pass.
-	// 	 *
-	// 	 * We need to make sure that this hack is only
-	// 	 * applied once!
-	// 	 */
+		/*
+		 * The 'monsters' count in city3.bsp is wrong.
+		 * There're two monsters triggered in a hidden
+		 * and unreachable room next to the security
+		 * pass.
+		 *
+		 * We need to make sure that this hack is only
+		 * applied once!
+		 */
 	// 	if(!Q_stricmp(level.mapname, "city3") && !monster_count_city3)
 	// 	{
 	// 		level.total_monsters = level.total_monsters - 2;
@@ -504,7 +513,7 @@ SP_worldspawn(edict_t ent) async {
 	// InitBodyQue();
 
 	/* set configstrings for items */
-	// SetItemNames();
+	SetItemNames();
 
 	if (st.nextmap != null) {
 		level.nextmap = st.nextmap;
@@ -542,10 +551,10 @@ SP_worldspawn(edict_t ent) async {
 	/* --------------- */
 
 	/* help icon for statusbar */
-	// gi.imageindex("i_help");
-	// level.pic_health = gi.imageindex("i_health");
-	// gi.imageindex("help");
-	// gi.imageindex("field_3");
+	SV_ImageIndex("i_help");
+	level.pic_health = SV_ImageIndex("i_health");
+	SV_ImageIndex("help");
+	SV_ImageIndex("field_3");
 
 	// if (!st.gravity)
 	// {
@@ -556,43 +565,43 @@ SP_worldspawn(edict_t ent) async {
 	// 	gi.cvar_set("sv_gravity", st.gravity);
 	// }
 
-	// snd_fry = gi.soundindex("player/fry.wav"); /* standing in lava / slime */
+	// snd_fry = SV_SoundIndex("player/fry.wav"); /* standing in lava / slime */
 
-	// PrecacheItem(FindItem("Blaster"));
+	PrecacheItem(FindItem("Blaster"));
 
-	// gi.soundindex("player/lava1.wav");
-	// gi.soundindex("player/lava2.wav");
+	SV_SoundIndex("player/lava1.wav");
+	SV_SoundIndex("player/lava2.wav");
 
-	// gi.soundindex("misc/pc_up.wav");
-	// gi.soundindex("misc/talk1.wav");
+	SV_SoundIndex("misc/pc_up.wav");
+	SV_SoundIndex("misc/talk1.wav");
 
-	// gi.soundindex("misc/udeath.wav");
+	SV_SoundIndex("misc/udeath.wav");
 
-	// /* gibs */
-	// gi.soundindex("items/respawn1.wav");
+	/* gibs */
+	SV_SoundIndex("items/respawn1.wav");
 
-	// /* sexed sounds */
-	// gi.soundindex("*death1.wav");
-	// gi.soundindex("*death2.wav");
-	// gi.soundindex("*death3.wav");
-	// gi.soundindex("*death4.wav");
-	// gi.soundindex("*fall1.wav");
-	// gi.soundindex("*fall2.wav");
-	// gi.soundindex("*gurp1.wav"); /* drowning damage */
-	// gi.soundindex("*gurp2.wav");
-	// gi.soundindex("*jump1.wav"); /* player jump */
-	// gi.soundindex("*pain25_1.wav");
-	// gi.soundindex("*pain25_2.wav");
-	// gi.soundindex("*pain50_1.wav");
-	// gi.soundindex("*pain50_2.wav");
-	// gi.soundindex("*pain75_1.wav");
-	// gi.soundindex("*pain75_2.wav");
-	// gi.soundindex("*pain100_1.wav");
-	// gi.soundindex("*pain100_2.wav");
+	/* sexed sounds */
+	SV_SoundIndex("*death1.wav");
+	SV_SoundIndex("*death2.wav");
+	SV_SoundIndex("*death3.wav");
+	SV_SoundIndex("*death4.wav");
+	SV_SoundIndex("*fall1.wav");
+	SV_SoundIndex("*fall2.wav");
+	SV_SoundIndex("*gurp1.wav"); /* drowning damage */
+	SV_SoundIndex("*gurp2.wav");
+	SV_SoundIndex("*jump1.wav"); /* player jump */
+	SV_SoundIndex("*pain25_1.wav");
+	SV_SoundIndex("*pain25_2.wav");
+	SV_SoundIndex("*pain50_1.wav");
+	SV_SoundIndex("*pain50_2.wav");
+	SV_SoundIndex("*pain75_1.wav");
+	SV_SoundIndex("*pain75_2.wav");
+	SV_SoundIndex("*pain100_1.wav");
+	SV_SoundIndex("*pain100_2.wav");
 
-	// /* sexed models: THIS ORDER MUST MATCH THE DEFINES IN g_local.h
-	//    you can add more, max 19 (pete change)these models are only
-	//    loaded in coop or deathmatch. not singleplayer. */
+	/* sexed models: THIS ORDER MUST MATCH THE DEFINES IN g_local.h
+	   you can add more, max 19 (pete change)these models are only
+	   loaded in coop or deathmatch. not singleplayer. */
 	// if (coop->value || deathmatch->value)
 	// {
 	// 	gi.modelindex("#w_blaster.md2");
@@ -608,29 +617,29 @@ SP_worldspawn(edict_t ent) async {
 	// 	gi.modelindex("#w_bfg.md2");
 	// }
 
-	// /* ------------------- */
+	/* ------------------- */
 
-	// gi.soundindex("player/gasp1.wav"); /* gasping for air */
-	// gi.soundindex("player/gasp2.wav"); /* head breaking surface, not gasping */
+	SV_SoundIndex("player/gasp1.wav"); /* gasping for air */
+	SV_SoundIndex("player/gasp2.wav"); /* head breaking surface, not gasping */
 
-	// gi.soundindex("player/watr_in.wav"); /* feet hitting water */
-	// gi.soundindex("player/watr_out.wav"); /* feet leaving water */
+	SV_SoundIndex("player/watr_in.wav"); /* feet hitting water */
+	SV_SoundIndex("player/watr_out.wav"); /* feet leaving water */
 
-	// gi.soundindex("player/watr_un.wav"); /* head going underwater */
+	SV_SoundIndex("player/watr_un.wav"); /* head going underwater */
 
-	// gi.soundindex("player/u_breath1.wav");
-	// gi.soundindex("player/u_breath2.wav");
+	SV_SoundIndex("player/u_breath1.wav");
+	SV_SoundIndex("player/u_breath2.wav");
 
-	// gi.soundindex("items/pkup.wav"); /* bonus item pickup */
-	// gi.soundindex("world/land.wav"); /* landing thud */
-	// gi.soundindex("misc/h2ohit1.wav"); /* landing splash */
+	SV_SoundIndex("items/pkup.wav"); /* bonus item pickup */
+	SV_SoundIndex("world/land.wav"); /* landing thud */
+	SV_SoundIndex("misc/h2ohit1.wav"); /* landing splash */
 
-	// gi.soundindex("items/damage.wav");
-	// gi.soundindex("items/protect.wav");
-	// gi.soundindex("items/protect4.wav");
-	// gi.soundindex("weapons/noammo.wav");
+	SV_SoundIndex("items/damage.wav");
+	SV_SoundIndex("items/protect.wav");
+	SV_SoundIndex("items/protect4.wav");
+	SV_SoundIndex("weapons/noammo.wav");
 
-	// gi.soundindex("infantry/inflies1.wav");
+	SV_SoundIndex("infantry/inflies1.wav");
 
 	// sm_meat_index = gi.modelindex("models/objects/gibs/sm_meat/tris.md2");
 	SV_ModelIndex("models/objects/gibs/arm/tris.md2");

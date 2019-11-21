@@ -25,6 +25,7 @@
  *
  * =======================================================================
  */
+import 'dart:typed_data';
 import '../common/cvar.dart';
 import '../common/cmdparser.dart';
 import '../common/clientserver.dart';
@@ -44,6 +45,7 @@ import 'input.dart' show IN_Update, IN_Init;
 import 'cl_predict.dart' show CL_PredictMovement;
 import 'cl_download.dart' show CL_RequestNextDownload;
 import 'menu/menu.dart';
+import 'cl_input.dart';
 
 cvar_t freelook;
 
@@ -113,7 +115,7 @@ int precache_check = 0;
 int precache_spawncount = 0;
 int precache_tex = 0;
 int precache_model_skin = 0;
-// byte *precache_model;
+ByteBuffer precache_model = null;
 
 
 /*
@@ -134,7 +136,7 @@ CL_Precache_f(List<String> args) async {
 	precache_check = CS_MODELS;
 
 	precache_spawncount = int.parse(args[1]) & 0xFFFFFFFF;
-	// precache_model = 0;
+	precache_model = null;
 	precache_model_skin = 0;
 
 	await CL_RequestNextDownload();
@@ -159,14 +161,14 @@ void CL_InitLocal() {
 	cl_predict = Cvar_Get("cl_predict", "1", 0);
 	cl_showfps = Cvar_Get("cl_showfps", "0", CVAR_ARCHIVE);
 
-	// cl_upspeed = Cvar_Get("cl_upspeed", "200", 0);
-	// cl_forwardspeed = Cvar_Get("cl_forwardspeed", "200", 0);
-	// cl_sidespeed = Cvar_Get("cl_sidespeed", "200", 0);
-	// cl_yawspeed = Cvar_Get("cl_yawspeed", "140", 0);
-	// cl_pitchspeed = Cvar_Get("cl_pitchspeed", "150", 0);
-	// cl_anglespeedkey = Cvar_Get("cl_anglespeedkey", "1.5", 0);
+	cl_upspeed = Cvar_Get("cl_upspeed", "200", 0);
+	cl_forwardspeed = Cvar_Get("cl_forwardspeed", "200", 0);
+	cl_sidespeed = Cvar_Get("cl_sidespeed", "200", 0);
+	cl_yawspeed = Cvar_Get("cl_yawspeed", "140", 0);
+	cl_pitchspeed = Cvar_Get("cl_pitchspeed", "150", 0);
+	cl_anglespeedkey = Cvar_Get("cl_anglespeedkey", "1.5", 0);
 
-	// cl_run = Cvar_Get("cl_run", "0", CVAR_ARCHIVE);
+	cl_run = Cvar_Get("cl_run", "0", CVAR_ARCHIVE);
 	freelook = Cvar_Get("freelook", "1", CVAR_ARCHIVE);
 	lookstrafe = Cvar_Get("lookstrafe", "0", CVAR_ARCHIVE);
 	sensitivity = Cvar_Get("sensitivity", "3", CVAR_ARCHIVE);

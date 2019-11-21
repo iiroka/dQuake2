@@ -28,13 +28,14 @@
 import 'dart:typed_data';
 
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/collision.dart';
 import 'package:dQuakeWeb/common/frame.dart' show curtime;
 import 'package:dQuakeWeb/server/server.dart';
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/shared/writebuf.dart';
 import 'sv_user.dart' show SV_Nextserver;
-import 'sv_main.dart' show sv_paused;
+import 'sv_main.dart' show sv_paused, SV_DropClient;
 import 'sv_entities.dart' show SV_BuildClientFrame, SV_WriteFrameToClient;
 
 /*
@@ -52,8 +53,6 @@ SV_BroadcastCommand(String msg) {
 }
 
 bool SV_SendClientDatagram(client_t client) {
-	// byte msg_buf[MAX_MSGLEN];
-	// sizebuf_t msg;
 
 	SV_BuildClientFrame(client);
 
@@ -86,8 +85,8 @@ bool SV_SendClientDatagram(client_t client) {
 	/* send the datagram */
 	client.netchan.Transmit(msg.Data());
 
-	// /* record the size for rate estimation */
-	// client->message_size[sv.framenum % RATE_MESSAGES] = msg.cursize;
+	/* record the size for rate estimation */
+	client.message_size[sv.framenum % RATE_MESSAGES] = msg.cursize;
 
 	return true;
 }
@@ -99,6 +98,32 @@ SV_DemoCompleted() {
 }
 
 /*
+ * Returns true if the client is over its current
+ * bandwidth estimation and should not be sent another packet
+ */
+bool SV_RateDrop(client_t c) {
+
+	/* never drop over the loopback */
+	if (c.netchan.remote_address.type == netadrtype_t.NA_LOOPBACK) {
+		return false;
+	}
+
+	int total = 0;
+
+	for (int i = 0; i < RATE_MESSAGES; i++) {
+		total += c.message_size[i];
+	}
+
+	if (total > c.rate) {
+		c.surpressCount++;
+		c.message_size[sv.framenum % RATE_MESSAGES] = 0;
+		return true;
+	}
+
+	return false;
+}
+
+/*
  * Sends the contents of sv.multicast to a subset of the clients,
  * then clears sv.multicast.
  *
@@ -107,20 +132,13 @@ SV_DemoCompleted() {
  * MULTICAST_PHS	send to clients potentially hearable from org
  */
 SV_Multicast(List<double> origin, multicast_t to) {
-	// client_t *client;
-	// byte *mask;
-	// int leafnum = 0, cluster;
-	// int j;
-	// qboolean reliable;
-	// int area1, area2;
 
 	bool reliable = false;
+  int area1 = 0;
 
 	if ((to != multicast_t.MULTICAST_ALL_R) && (to != multicast_t.MULTICAST_ALL)) {
-	// 	leafnum = CM_PointLeafnum(origin);
-	// 	area1 = CM_LeafArea(leafnum);
-	} else {
-	// 	area1 = 0;
+		final leafnum = CM_PointLeafnum(origin);
+		area1 = CM_LeafArea(leafnum);
 	}
 
 	/* if doing a serverrecord, store everything */
@@ -128,6 +146,7 @@ SV_Multicast(List<double> origin, multicast_t to) {
 	// {
 	// 	SZ_Write(&svs.demo_multicast, sv.multicast.data, sv.multicast.cursize);
 	// }
+  Uint8List mask;
 
 	switch (to) {
 		case multicast_t.MULTICAST_ALL_R:
@@ -135,24 +154,28 @@ SV_Multicast(List<double> origin, multicast_t to) {
       continue multicast_all;
     multicast_all:
 		case multicast_t.MULTICAST_ALL:
-	// 		mask = NULL;
+			mask = null;
 			break;
 
-	// 	case MULTICAST_PHS_R:
-	// 		reliable = true; /* intentional fallthrough */
-	// 	case MULTICAST_PHS:
-	// 		leafnum = CM_PointLeafnum(origin);
-	// 		cluster = CM_LeafCluster(leafnum);
-	// 		mask = CM_ClusterPHS(cluster);
-	// 		break;
+		case multicast_t.MULTICAST_PHS_R:
+			reliable = true; /* intentional fallthrough */
+      continue multicast_phs;
+    multicast_phs:
+		case multicast_t.MULTICAST_PHS:
+			final leafnum = CM_PointLeafnum(origin);
+			final cluster = CM_LeafCluster(leafnum);
+			mask = CM_ClusterPHS(cluster);
+			break;
 
-	// 	case MULTICAST_PVS_R:
-	// 		reliable = true; /* intentional fallthrough */
-	// 	case MULTICAST_PVS:
-	// 		leafnum = CM_PointLeafnum(origin);
-	// 		cluster = CM_LeafCluster(leafnum);
-	// 		mask = CM_ClusterPVS(cluster);
-	// 		break;
+		case multicast_t.MULTICAST_PVS_R:
+			reliable = true; /* intentional fallthrough */
+      continue multicast_pvs;
+    multicast_pvs:
+		case multicast_t.MULTICAST_PVS:
+			final leafnum = CM_PointLeafnum(origin);
+			final cluster = CM_LeafCluster(leafnum);
+			mask = CM_ClusterPVS(cluster);
+			break;
 
 		default:
 			Com_Error(ERR_FATAL, "SV_Multicast: bad to:$to");
@@ -168,22 +191,19 @@ SV_Multicast(List<double> origin, multicast_t to) {
 			continue;
 		}
 
-	// 	if (mask)
-	// 	{
-	// 		leafnum = CM_PointLeafnum(client->edict->s.origin);
-	// 		cluster = CM_LeafCluster(leafnum);
-	// 		area2 = CM_LeafArea(leafnum);
+		if (mask != null) {
+			final leafnum = CM_PointLeafnum(client.edict.s.origin);
+			final cluster = CM_LeafCluster(leafnum);
+			final area2 = CM_LeafArea(leafnum);
 
-	// 		if (!CM_AreasConnected(area1, area2))
-	// 		{
-	// 			continue;
-	// 		}
+			if (!CM_AreasConnected(area1, area2)) {
+				continue;
+			}
 
-	// 		if (mask && (!(mask[cluster >> 3] & (1 << (cluster & 7)))))
-	// 		{
-	// 			continue;
-	// 		}
-	// 	}
+			if (mask != null && ((mask[cluster >> 3] & (1 << (cluster & 7))) == 0)) {
+				continue;
+			}
+		}
 
 		if (reliable) {
 			client.netchan.message.Write(sv.multicast.Data());
@@ -241,10 +261,10 @@ SV_SendClientMessages() {
 		   overflowed, drop the 
 		   client */
 		if (c.netchan.message.overflowed) {
-			// c.netchan.message.Clear()
-			// SZ_Clear(&c->datagram);
+			c.netchan.message.Clear();
+      c.datagram.Clear();
 			// SV_BroadcastPrintf(PRINT_HIGH, "%s overflowed\n", c->name);
-			// SV_DropClient(c);
+			SV_DropClient(c);
 		}
 
 		if ((sv.state == server_state_t.ss_cinematic) ||
@@ -253,10 +273,9 @@ SV_SendClientMessages() {
 			c.netchan.Transmit(msgbuf);
 		} else if (c.state == client_state_t.cs_spawned) {
 			/* don't overrun bandwidth */
-			// if (SV_RateDrop(c))
-			// {
-			// 	continue;
-			// }
+			if (SV_RateDrop(c)) {
+				continue;
+			}
 
 			SV_SendClientDatagram(c);
 		} else {

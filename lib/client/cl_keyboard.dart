@@ -32,6 +32,7 @@ import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'client.dart';
 import 'menu/menu.dart' show M_Keydown, M_Menu_Main_f;
+import 'cl_console.dart' show Con_ToggleConsole_f;
 
 /* number of console command lines saved in history,
  * must be a power of two, because we use & (NUM_KEY_LINES-1)
@@ -674,10 +675,8 @@ Key_Init() {
  */
 Key_Event(int key, bool down, bool special) async {
   if (key < 0) return;
-	// char cmd[1024];
-	// char *kb;
-	// cvar_t *fullscreen;
-	// unsigned int time = Sys_Milliseconds();
+
+	final time = Sys_Milliseconds();
 
 	// evil hack for the joystick key altselector, which turns K_JOYx into K_JOYx_ALT
 	// if(joy_altselector_pressed && key >= K_JOY1 && key <= K_JOY_LAST_REGULAR)
@@ -699,16 +698,15 @@ Key_Event(int key, bool down, bool special) async {
 	if (down) {
 		key_repeats[key]++;
 
-	// 	if ((key != K_BACKSPACE) &&
-	// 		(key != K_PAUSE) &&
-	// 		(key != K_PGUP) &&
-	// 		(key != K_KP_PGUP) &&
-	// 		(key != K_PGDN) &&
-	// 		(key != K_KP_PGDN) &&
-	// 		(key_repeats[key] > 1))
-	// 	{
-	// 		return;
-	// 	}
+		if ((key != K_BACKSPACE) &&
+			(key != K_PAUSE) &&
+			(key != K_PGUP) &&
+			(key != K_KP_PGUP) &&
+			(key != K_PGDN) &&
+			(key != K_KP_PGDN) &&
+			(key_repeats[key] > 1)) {
+			return;
+		}
 	} else {
 		key_repeats[key] = 0;
 	}
@@ -733,7 +731,7 @@ Key_Event(int key, bool down, bool special) async {
 
 	/* Toogle console though Shift + Escape */
 	if (down && keydown[K_SHIFT] && key == K_ESCAPE) {
-	// 	Con_ToggleConsole_f();
+		await Con_ToggleConsole_f([]);
 		return;
 	}
 
@@ -796,83 +794,65 @@ Key_Event(int key, bool down, bool special) async {
 		}
 	}
 
-	// /* This is one of the most ugly constructs I've
-	//    found so far in Quake II. When the game is in
-	//    the intermission, the player can press any key
-	//    to end it and advance into the next level. It
-	//    should be easy to figure out at server level if
-	//    a button is pressed. But somehow the developers
-	//    decided, that they'll need special move state
-	//    BUTTON_ANY to solve this problem. So there's
-	//    this global variable anykeydown. If it's not
-	//    0, CL_FinishMove() encodes BUTTON_ANY into the
-	//    button state. The server reads this value and
-	//    sends it to gi->ClientThink() where it's used
-	//    to determine if the intermission shall end.
-	//    Needless to say that this is the only consumer
-	//    of BUTTON_ANY.
+	/* This is one of the most ugly constructs I've
+	   found so far in Quake II. When the game is in
+	   the intermission, the player can press any key
+	   to end it and advance into the next level. It
+	   should be easy to figure out at server level if
+	   a button is pressed. But somehow the developers
+	   decided, that they'll need special move state
+	   BUTTON_ANY to solve this problem. So there's
+	   this global variable anykeydown. If it's not
+	   0, CL_FinishMove() encodes BUTTON_ANY into the
+	   button state. The server reads this value and
+	   sends it to gi->ClientThink() where it's used
+	   to determine if the intermission shall end.
+	   Needless to say that this is the only consumer
+	   of BUTTON_ANY.
 
-	//    Since we cannot alter the network protocol nor
-	//    the server <-> game API, I'll leave things alone
-	//    and try to forget. */
-	// if (down)
-	// {
-	// 	if (key_repeats[key] == 1)
-	// 	{
-	// 		anykeydown++;
-	// 	}
-	// }
-	// else
-	// {
-	// 	anykeydown--;
+	   Since we cannot alter the network protocol nor
+	   the server <-> game API, I'll leave things alone
+	   and try to forget. */
+	if (down) {
+		if (key_repeats[key] == 1) {
+			anykeydown++;
+		}
+	} else {
+		anykeydown--;
+		if (anykeydown < 0) {
+			anykeydown = 0;
+		}
+	}
 
-	// 	if (anykeydown < 0)
-	// 	{
-	// 		anykeydown = 0;
-	// 	}
-	// }
+	/* key up events only generate commands if the game key binding
+	   is a button command (leading+ sign). These will occur even in
+	   console mode, to keep the character from continuing an action
+	   started before a console switch. Button commands include the
+	   kenum as a parameter, so multiple downs can be matched with ups */
+	if (!down) {
+		final kb = keybindings[key];
+		if (kb != null && (kb[0] == '+')) {
+			final cmd = "-${kb.substring(1)} $key $time\n";
+			Cbuf_AddText(cmd);
+		}
+		return;
+	} else if (((cls.key_dest == keydest_t.key_menu) && menubound[key]) ||
+			((cls.key_dest == keydest_t.key_console) && !consolekeys[key]) ||
+			((cls.key_dest == keydest_t.key_game) && ((cls.state == connstate_t.ca_active) ||
+			  !consolekeys[key]))) {
+		final kb = keybindings[key];
+		if (kb != null) {
+			if (kb[0] == '+') {
+				/* button commands add keynum and time as a parm */
+				Cbuf_AddText("$kb $key $time");
+			} else {
+				Cbuf_AddText(kb);
+				Cbuf_AddText("\n");
+			}
+		}
 
-	// /* key up events only generate commands if the game key binding
-	//    is a button command (leading+ sign). These will occur even in
-	//    console mode, to keep the character from continuing an action
-	//    started before a console switch. Button commands include the
-	//    kenum as a parameter, so multiple downs can be matched with ups */
-	// if (!down)
-	// {
-	// 	kb = keybindings[key];
-
-	// 	if (kb && (kb[0] == '+'))
-	// 	{
-	// 		Com_sprintf(cmd, sizeof(cmd), "-%s %i %i\n", kb + 1, key, time);
-	// 		Cbuf_AddText(cmd);
-	// 	}
-
-	// 	return;
-	// }
-	// else if (((cls.key_dest == key_menu) && menubound[key]) ||
-	// 		((cls.key_dest == key_console) && !consolekeys[key]) ||
-	// 		((cls.key_dest == key_game) && ((cls.state == ca_active) ||
-	// 		  !consolekeys[key])))
-	// {
-	// 	kb = keybindings[key];
-
-	// 	if (kb)
-	// 	{
-	// 		if (kb[0] == '+')
-	// 		{
-	// 			/* button commands add keynum and time as a parm */
-	// 			Com_sprintf(cmd, sizeof(cmd), "%s %i %i\n", kb, key, time);
-	// 			Cbuf_AddText(cmd);
-	// 		}
-	// 		else
-	// 		{
-	// 			Cbuf_AddText(kb);
-	// 			Cbuf_AddText("\n");
-	// 		}
-	// 	}
-
-	// 	return;
-	// }
+		return;
+	}
 
 	/* All input subsystems handled after this
 	   point only care for key down events. */

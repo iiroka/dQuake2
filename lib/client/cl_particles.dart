@@ -76,6 +76,39 @@ CL_ParticleEffect(List<double> org, List<double> dir, int color, int count) {
 	}
 }
 
+CL_ParticleEffect2(List<double> org, List<double> dir, int color, int count) {
+
+	final time = cl.time.toDouble();
+
+	for (int i = 0; i < count; i++) {
+		if (free_particles == null) {
+			return;
+		}
+
+		final p = free_particles;
+		free_particles = p.next;
+		p.next = active_particles;
+		active_particles = p;
+
+		p.time = time;
+		p.color = (color + (randk() & 7)).toDouble();
+
+		final d = randk() & 7;
+
+		for (int j = 0; j < 3; j++) {
+			p.org[j] = org[j] + ((randk() & 7) - 4) + d * dir[j];
+			p.vel[j] = crandk() * 20;
+		}
+
+		p.accel[0] = p.accel[1] = 0;
+		p.accel[2] = (-PARTICLE_GRAVITY).toDouble();
+		p.alpha = 1.0;
+
+		p.alphavel = -1.0 / (0.5 + frandk() * 0.3);
+	}
+}
+
+
 CL_AddParticles() {
 	cparticle_t active, tail, next;
 

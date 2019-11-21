@@ -469,7 +469,7 @@ class dbrush_t {
   dbrush_t(ByteData data, int offset) {
     this.firstside = data.getInt32(offset, Endian.little);
     this.numsides = data.getInt32(offset + 4, Endian.little);
-    this.numsides = data.getInt32(offset + 8, Endian.little);
+    this.contents = data.getInt32(offset + 8, Endian.little);
   }
 }
 

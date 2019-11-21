@@ -23,7 +23,17 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/server/sv_game.dart';
+import 'package:dQuakeWeb/server/sv_init.dart';
+import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
+
+int jacket_armor_index = 0;
+int combat_armor_index = 0;
+int body_armor_index = 0;
+int _power_screen_index = 0;
+int _power_shield_index = 0;
 
 gitem_t FindItem(String pickup_name) {
 
@@ -44,6 +54,181 @@ gitem_t FindItem(String pickup_name) {
 	return null;
 }
 
+/*
+ * Precaches all data needed for a given item.
+ * This will be called for each item spawned in a level,
+ * and for each item in each client's inventory.
+ */
+PrecacheItem(gitem_t it) {
+	// char *s, *start;
+	// char data[MAX_QPATH];
+	// int len;
+	// gitem_t *ammo;
+
+	if (it == null) {
+		return;
+	}
+
+	if (it.pickup_sound != null) {
+	  SV_SoundIndex(it.pickup_sound);
+	}
+
+	if (it.world_model != null) {
+	  SV_ModelIndex(it.world_model);
+	}
+
+	if (it.view_model != null) {
+	  SV_ModelIndex(it.view_model);
+	}
+
+	if (it.icon != null) {
+		SV_ImageIndex(it.icon);
+	}
+
+	/* parse everything for its ammo */
+	if (it.ammo != null && it.ammo.isNotEmpty) {
+	// 	ammo = FindItem(it->ammo);
+
+	// 	if (ammo != it)
+	// 	{
+	// 		PrecacheItem(ammo);
+	// 	}
+	}
+
+	/* parse the space seperated precache string for other items */
+	String s = it.precaches;
+
+	if (s == null || s.isEmpty) {
+		return;
+	}
+  int index = 0;
+	while (index < s.length) {
+	// 	start = s;
+
+	// 	while (*s && *s != ' ')
+	// 	{
+	// 		s++;
+	// 	}
+
+	// 	len = s - start;
+
+	// 	if ((len >= MAX_QPATH) || (len < 5))
+	// 	{
+	// 		gi.error("PrecacheItem: %s has bad precache string", it->classname);
+	// 	}
+
+	// 	memcpy(data, start, len);
+	// 	data[len] = 0;
+
+	// 	if (*s)
+	// 	{
+	// 		s++;
+	// 	}
+
+		/* determine type based on extension */
+	// 	if (!strcmp(data + len - 3, "md2"))
+	// 	{
+	// 		gi.modelindex(data);
+	// 	}
+	// 	else if (!strcmp(data + len - 3, "sp2"))
+	// 	{
+	// 		gi.modelindex(data);
+	// 	}
+	// 	else if (!strcmp(data + len - 3, "wav"))
+	// 	{
+	// 		gi.soundindex(data);
+	// 	}
+
+	// 	if (!strcmp(data + len - 3, "pcx"))
+	// 	{
+	// 		gi.imageindex(data);
+	// 	}
+	}
+}
+
+/*
+ * ============
+ * Sets the clipping size and
+ * plants the object on the floor.
+ *
+ * Items can't be immediately dropped
+ * to floor, because they might be on
+ * an entity that hasn't spawned yet.
+ * ============
+ */
+SpawnItem(edict_t ent, gitem_t item) {
+	if (ent == null || item == null) {
+		return;
+	}
+
+	PrecacheItem(item);
+
+	if (ent.spawnflags != 0) {
+		if (ent.classname != "key_power_cube") {
+			ent.spawnflags = 0;
+			Com_Printf("${ent.classname} at ${ent.s.origin} has invalid spawnflags set\n");
+		}
+	}
+
+	/* some items will be prevented in deathmatch */
+	if (deathmatch.boolean) {
+		if ((dmflags.integer & DF_NO_ARMOR) != 0) {
+			// if ((item.pickup == Pickup_Armor) ||
+			// 	(item.pickup == Pickup_PowerArmor)) {
+			// 	G_FreeEdict(ent);
+			// 	return;
+			// }
+		}
+
+		if ((dmflags.integer & DF_NO_ITEMS) != 0) {
+			// if (item->pickup == Pickup_Powerup) {
+			// 	G_FreeEdict(ent);
+			// 	return;
+			// }
+		}
+
+		if ((dmflags.integer & DF_NO_HEALTH) != 0) {
+			// if ((item->pickup == Pickup_Health) ||
+			// 	(item->pickup == Pickup_Adrenaline) ||
+			// 	(item->pickup == Pickup_AncientHead)) {
+			// 	G_FreeEdict(ent);
+			// 	return;
+			// }
+		}
+
+		if ((dmflags.integer & DF_INFINITE_AMMO) != 0) {
+			// if ((item->flags == IT_AMMO) ||
+			// 	(strcmp(ent->classname, "weapon_bfg") == 0))
+			// {
+			// 	G_FreeEdict(ent);
+			// 	return;
+			// }
+		}
+	}
+
+	if (coop.boolean && (ent.classname == "key_power_cube")) {
+		ent.spawnflags |= (1 << (8 + level.power_cubes));
+		level.power_cubes++;
+	}
+
+	/* don't let them drop items that stay in a coop game */
+	// if ((coop.boolean) && ((item.flags & IT_STAY_COOP) != 0)) {
+	// 	item.drop = null;
+	// }
+
+	ent.item = item;
+	ent.nextthink = level.time + 2 * FRAMETIME; /* items start after other solids */
+	// ent.think = droptofloor;
+	ent.s.effects = item.world_model_flags;
+	ent.s.renderfx = RF_GLOW;
+
+	if (ent.model != null) {
+		SV_ModelIndex(ent.model);
+	}
+}
+
+/* ====================================================================== */
+
 final gameitemlist = [
 	glistitem_t.empty(), /* leave index 0 alone */
 
@@ -55,9 +240,9 @@ final gameitemlist = [
 		// null,
 		// null,
 		// "misc/ar1_pkup.wav",
-		// "models/items/armor/body/tris.md2", EF_ROTATE,
-		// null,
-		// "i_bodyarmor",
+		"models/items/armor/body/tris.md2", EF_ROTATE,
+		null,
+		"i_bodyarmor",
 		"Body Armor",
 		// 3,
 		// 0,
@@ -77,9 +262,9 @@ final gameitemlist = [
 		// NULL,
 		// NULL,
 		// "misc/ar1_pkup.wav",
-		// "models/items/armor/combat/tris.md2", EF_ROTATE,
-		// NULL,
-		// "i_combatarmor",
+		"models/items/armor/combat/tris.md2", EF_ROTATE,
+		null,
+		"i_combatarmor",
 		"Combat Armor",
 		// 3,
 		// 0,
@@ -99,9 +284,9 @@ final gameitemlist = [
 		// NULL,
 		// NULL,
 		// "misc/ar1_pkup.wav",
-		// "models/items/armor/jacket/tris.md2", EF_ROTATE,
-		// NULL,
-		// "i_jacketarmor",
+		"models/items/armor/jacket/tris.md2", EF_ROTATE,
+		null,
+		"i_jacketarmor",
 		"Jacket Armor",
 		// 3,
 		// 0,
@@ -121,9 +306,9 @@ final gameitemlist = [
 		// NULL,
 		// NULL,
 		// "misc/ar2_pkup.wav",
-		// "models/items/armor/shard/tris.md2", EF_ROTATE,
-		// NULL,
-		// "i_jacketarmor",
+		"models/items/armor/shard/tris.md2", EF_ROTATE,
+		null,
+		"i_jacketarmor",
 		"Armor Shard",
 		// 3,
 		// 0,
@@ -143,9 +328,9 @@ final gameitemlist = [
 		// Drop_PowerArmor,
 		// NULL,
 		// "misc/ar3_pkup.wav",
-		// "models/items/armor/screen/tris.md2", EF_ROTATE,
-		// NULL,
-		// "i_powerscreen",
+		"models/items/armor/screen/tris.md2", EF_ROTATE,
+		null,
+		"i_powerscreen",
 		"Power Screen",
 		// 0,
 		// 60,
@@ -165,9 +350,9 @@ final gameitemlist = [
 		// Drop_PowerArmor,
 		// NULL,
 		// "misc/ar3_pkup.wav",
-		// "models/items/armor/shield/tris.md2", EF_ROTATE,
-		// NULL,
-		// "i_powershield",
+		"models/items/armor/shield/tris.md2", EF_ROTATE,
+		null,
+		"i_powershield",
 		"Power Shield",
 		// 0,
 		// 60,
@@ -188,9 +373,9 @@ final gameitemlist = [
 		// NULL,
 		// Weapon_Blaster,
 		// "misc/w_pkup.wav",
-		// NULL, 0,
-		// "models/weapons/v_blast/tris.md2",
-		// "w_blaster",
+		null, 0,
+		"models/weapons/v_blast/tris.md2",
+		"w_blaster",
 		"Blaster",
 		// 0,
 		// 0,
@@ -210,9 +395,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_Shotgun,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_shotg/tris.md2", EF_ROTATE,
-		// "models/weapons/v_shotg/tris.md2",
-		// "w_shotgun",
+		"models/weapons/g_shotg/tris.md2", EF_ROTATE,
+		"models/weapons/v_shotg/tris.md2",
+		"w_shotgun",
 		"Shotgun",
 		// 0,
 		// 1,
@@ -232,9 +417,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_SuperShotgun,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_shotg2/tris.md2", EF_ROTATE,
-		// "models/weapons/v_shotg2/tris.md2",
-		// "w_sshotgun",
+		"models/weapons/g_shotg2/tris.md2", EF_ROTATE,
+		"models/weapons/v_shotg2/tris.md2",
+		"w_sshotgun",
 		"Super Shotgun",
 		// 0,
 		// 2,
@@ -254,9 +439,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_Machinegun,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_machn/tris.md2", EF_ROTATE,
-		// "models/weapons/v_machn/tris.md2",
-		// "w_machinegun",
+		"models/weapons/g_machn/tris.md2", EF_ROTATE,
+		"models/weapons/v_machn/tris.md2",
+		"w_machinegun",
 		"Machinegun",
 		// 0,
 		// 1,
@@ -276,9 +461,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_Chaingun,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_chain/tris.md2", EF_ROTATE,
-		// "models/weapons/v_chain/tris.md2",
-		// "w_chaingun",
+		"models/weapons/g_chain/tris.md2", EF_ROTATE,
+		"models/weapons/v_chain/tris.md2",
+		"w_chaingun",
 		"Chaingun",
 		// 0,
 		// 1,
@@ -298,9 +483,9 @@ final gameitemlist = [
 		// Drop_Ammo,
 		// Weapon_Grenade,
 		// "misc/am_pkup.wav",
-		// "models/items/ammo/grenades/medium/tris.md2", 0,
-		// "models/weapons/v_handgr/tris.md2",
-		// "a_grenades",
+		"models/items/ammo/grenades/medium/tris.md2", 0,
+		"models/weapons/v_handgr/tris.md2",
+		"a_grenades",
 		"Grenades",
 		// 3,
 		// 5,
@@ -320,9 +505,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_GrenadeLauncher,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_launch/tris.md2", EF_ROTATE,
-		// "models/weapons/v_launch/tris.md2",
-		// "w_glauncher",
+		"models/weapons/g_launch/tris.md2", EF_ROTATE,
+		"models/weapons/v_launch/tris.md2",
+		"w_glauncher",
 		"Grenade Launcher",
 		// 0,
 		// 1,
@@ -342,9 +527,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_RocketLauncher,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_rocket/tris.md2", EF_ROTATE,
-		// "models/weapons/v_rocket/tris.md2",
-		// "w_rlauncher",
+		"models/weapons/g_rocket/tris.md2", EF_ROTATE,
+		"models/weapons/v_rocket/tris.md2",
+		"w_rlauncher",
 		"Rocket Launcher",
 		// 0,
 		// 1,
@@ -364,9 +549,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_HyperBlaster,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_hyperb/tris.md2", EF_ROTATE,
-		// "models/weapons/v_hyperb/tris.md2",
-		// "w_hyperblaster",
+		"models/weapons/g_hyperb/tris.md2", EF_ROTATE,
+		"models/weapons/v_hyperb/tris.md2",
+		"w_hyperblaster",
 		"HyperBlaster",
 		// 0,
 		// 1,
@@ -386,9 +571,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_Railgun,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_rail/tris.md2", EF_ROTATE,
-		// "models/weapons/v_rail/tris.md2",
-		// "w_railgun",
+		"models/weapons/g_rail/tris.md2", EF_ROTATE,
+		"models/weapons/v_rail/tris.md2",
+		"w_railgun",
 		"Railgun",
 		// 0,
 		// 1,
@@ -408,9 +593,9 @@ final gameitemlist = [
 		// Drop_Weapon,
 		// Weapon_BFG,
 		// "misc/w_pkup.wav",
-		// "models/weapons/g_bfg/tris.md2", EF_ROTATE,
-		// "models/weapons/v_bfg/tris.md2",
-		// "w_bfg",
+		"models/weapons/g_bfg/tris.md2", EF_ROTATE,
+		"models/weapons/v_bfg/tris.md2",
+		"w_bfg",
 		"BFG10K",
 		// 0,
 		// 50,
@@ -430,9 +615,9 @@ final gameitemlist = [
 		// Drop_Ammo,
 		// NULL,
 		// "misc/am_pkup.wav",
-		// "models/items/ammo/shells/medium/tris.md2", 0,
-		// NULL,
-		// "a_shells",
+		"models/items/ammo/shells/medium/tris.md2", 0,
+		null,
+		"a_shells",
 		"Shells",
 		// 3,
 		// 10,
@@ -964,4 +1149,20 @@ List<gitem_t> itemlist;
 
 InitItems() {
 	itemlist = List.generate(gameitemlist.length, (i) => gitem_t(i, gameitemlist[i]));
+}
+
+/*
+ * Called by worldspawn
+ */
+SetItemNames() {
+
+	for (int i = 0; i < game.num_items; i++) {
+		PF_Configstring(CS_ITEMS + i, itemlist[i].pickup_name);
+	}
+
+	jacket_armor_index = FindItem("Jacket Armor").index;
+	combat_armor_index = FindItem("Combat Armor").index;
+	body_armor_index = FindItem("Body Armor").index;
+	_power_screen_index = FindItem("Power Screen").index;
+	_power_shield_index = FindItem("Power Shield").index;
 }

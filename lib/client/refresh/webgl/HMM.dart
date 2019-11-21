@@ -211,10 +211,9 @@ double HMM_LengthSquaredVec3(Float32List A) => HMM_DotVec3(A, A);
 double HMM_LengthVec3(Float32List A) => sqrt(HMM_LengthSquaredVec3(A));
 
 
-Float32List HMM_Mat4d(double Diagonal)
-{
+Float32List HMM_Mat4d(double Diagonal) {
     Float32List Result = Float32List(16);
-    
+  
     Result[0 * 4 + 0] = Diagonal;
     Result[1 * 4 + 1] = Diagonal;
     Result[2 * 4 + 2] = Diagonal;
@@ -223,8 +222,7 @@ Float32List HMM_Mat4d(double Diagonal)
     return (Result);
 }
 
-Float32List HMM_NormalizeVec3(Float32List A)
-{
+Float32List HMM_NormalizeVec3(Float32List A) {
     Float32List Result = Float32List(3);
 
     double VectorLength = HMM_LengthVec3(A);
@@ -245,8 +243,7 @@ Float32List HMM_NormalizeVec3(Float32List A)
  */
 
 
-Float32List HMM_Orthographic(double Left, double Right, double Bottom, double Top, double Near, double Far)
-{
+Float32List HMM_Orthographic(double Left, double Right, double Bottom, double Top, double Near, double Far) {
   Float32List Result = Float32List(16);
 
   Result[0 * 4 + 0] = 2.0 / (Right - Left);
@@ -304,15 +301,12 @@ Float32List HMM_MultiplyMat4(Float32List Left, Float32List Right) {
   Float32List Result = Float32List(16);
 
   int Columns;
-  for(Columns = 0; Columns < 4; ++Columns)
-  {
+  for(Columns = 0; Columns < 4; ++Columns) {
       int Rows;
-      for(Rows = 0; Rows < 4; ++Rows)
-      {
+      for(Rows = 0; Rows < 4; ++Rows) {
           double Sum = 0;
           int CurrentMatrice;
-          for(CurrentMatrice = 0; CurrentMatrice < 4; ++CurrentMatrice)
-          {
+          for(CurrentMatrice = 0; CurrentMatrice < 4; ++CurrentMatrice) {
               Sum += Left[CurrentMatrice * 4 + Rows] * Right[Columns * 4 + CurrentMatrice];
           }
 

@@ -25,9 +25,13 @@
  * =======================================================================
  */
 import 'dart:typed_data';
-import './vid/vid.dart' show viddef, re;
-import './cl_screen.dart' show SCR_GetConsoleScale, SCR_AddDirtyPoint;
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/cmdparser.dart';
+import 'package:dQuakeWeb/common/cvar.dart';
+import 'vid/vid.dart' show viddef, re;
+import 'menu/menu.dart';
+import 'client.dart';
+import 'cl_screen.dart' show SCR_GetConsoleScale, SCR_AddDirtyPoint;
 
 const	NUM_CON_TIMES = 4;
 const	CON_TEXTSIZE	= 32768;
@@ -58,6 +62,42 @@ DrawStringScaled(int x, int y, String s, double factor) {
 	for (int i = 0; i < s.length; i++) {
 		re.DrawCharScaled(x, y, s.codeUnitAt(i), factor);
 		x += (8*factor).toInt();
+	}
+}
+
+Con_ToggleConsole_f(List<String> args) async {
+	// SCR_EndLoadingPlaque(); /* get rid of loading plaque */
+
+	if (cl.attractloop) {
+		Cbuf_AddText("killserver\n");
+		return;
+	}
+
+	if (cls.state == connstate_t.ca_disconnected) {
+		/* start the demo loop again */
+		Cbuf_AddText("d1\n");
+		return;
+	}
+
+	// Key_ClearTyping();
+	// Con_ClearNotify();
+
+	// if (cl.cinematic_file)
+	// {
+	// 	AL_UnqueueRawSamples();
+	// }
+
+	if (cls.key_dest == keydest_t.key_console) {
+		M_ForceMenuOff();
+		Cvar_Set("paused", "0");
+	} else {
+		M_ForceMenuOff();
+		cls.key_dest = keydest_t.key_console;
+
+		if ((Cvar_VariableValue("maxclients") == 1) &&
+			Com_ServerState() != 0) {
+			Cvar_Set("paused", "1");
+		}
 	}
 }
 
@@ -140,7 +180,7 @@ Con_Init() {
 	/* register our commands */
 	// con_notifytime = Cvar_Get("con_notifytime", "3", 0);
 
-	// Cmd_AddCommand("toggleconsole", Con_ToggleConsole_f);
+	Cmd_AddCommand("toggleconsole", Con_ToggleConsole_f);
 	// Cmd_AddCommand("togglechat", Con_ToggleChat_f);
 	// Cmd_AddCommand("messagemode", Con_MessageMode_f);
 	// Cmd_AddCommand("messagemode2", Con_MessageMode2_f);

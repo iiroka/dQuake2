@@ -107,13 +107,11 @@ IN_Init() {
 	Com_Printf("------- input initialization -------\n");
 
   window.onKeyUp.listen((KeyboardEvent e) {
-    print("KeyUp ${e.key} ${e.keyCode}");
     e.stopPropagation();
     keyEvent.add(QKeyEvent(e.keyCode, false));
   });
 
   window.onKeyDown.listen((KeyboardEvent e) {
-    print("KeyDown ${e.key} ${e.keyCode}");
     e.stopPropagation();
     keyEvent.add(QKeyEvent(e.keyCode, true));
   });

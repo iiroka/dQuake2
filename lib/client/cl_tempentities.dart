@@ -184,14 +184,6 @@ CL_SmokeAndFlash(List<double> origin) {
 final splash_color = [0x00, 0xe0, 0xb0, 0x50, 0xd0, 0xe0, 0xe8];
 
 CL_ParseTEnt(Readbuf msg) {
-	// int type;
-	// vec3_t pos, pos2, dir;
-	// explosion_t *ex;
-	// int cnt;
-	// int color;
-	// int r;
-	// int ent;
-	// int magnitude;
 
 	final type = msg.ReadByte();
 
@@ -325,7 +317,7 @@ CL_ParseTEnt(Readbuf msg) {
 			pos = msg.ReadPos();
 			dir = msg.ReadDir();
 			color = msg.ReadByte();
-			// CL_ParticleEffect2(pos, dir, color, cnt);
+			CL_ParticleEffect2(pos, dir, color, cnt);
 			break;
 
 		case temp_event_t.TE_BLUEHYPERBLASTER:
@@ -397,7 +389,7 @@ CL_ParseTEnt(Readbuf msg) {
 			ex.frames = 19;
 			ex.baseframe = 30;
 			ex.ent.angles[1] = (randk() % 360).toDouble();
-			// CL_ExplosionParticles(pos);
+			CL_ExplosionParticles(pos);
 
 			// if (type == TE_GRENADE_EXPLOSION_WATER)
 			// {
@@ -425,13 +417,12 @@ CL_ParseTEnt(Readbuf msg) {
 			ex.ent.angles[1] = (randk() % 360).toDouble();
 			ex.ent.model = cl_mod_explo4;
 
-			// if (frandk() < 0.5)
-			// {
-			// 	ex->baseframe = 15;
-			// }
+			if (frandk() < 0.5) {
+				ex.baseframe = 15;
+			}
 
 			ex.frames = 15;
-			// CL_ExplosionParticles(pos);
+			CL_ExplosionParticles(pos);
 			// S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, ATTN_NORM, 0);
 			break;
 
@@ -452,27 +443,21 @@ CL_ParseTEnt(Readbuf msg) {
 			ex.lightcolor[2] = 0.5;
 			ex.ent.angles[1] = (randk() % 360).toDouble();
 
-			// if (type != TE_EXPLOSION1_BIG)
-			// {
-			// 	ex->ent.model = cl_mod_explo4;
-			// }
+			if (type != temp_event_t.TE_EXPLOSION1_BIG) {
+				ex.ent.model = cl_mod_explo4;
+			} else {
+				ex.ent.model = cl_mod_explo4_big;
+			}
 
-			// else
-			// {
-			// 	ex->ent.model = cl_mod_explo4_big;
-			// }
-
-			// if (frandk() < 0.5)
-			// {
-			// 	ex->baseframe = 15;
-			// }
+			if (frandk() < 0.5) {
+				ex.baseframe = 15;
+			}
 
 			ex.frames = 15;
 
-			// if ((type != TE_EXPLOSION1_BIG) && (type != TE_EXPLOSION1_NP))
-			// {
-			// 	EXPLOSION_PARTICLES(pos);
-			// }
+			if ((type != temp_event_t.TE_EXPLOSION1_BIG) && (type != temp_event_t.TE_EXPLOSION1_NP)) {
+				CL_ExplosionParticles(pos);
+			}
 
 			// if (type == TE_ROCKET_EXPLOSION_WATER)
 			// {
@@ -534,44 +519,44 @@ CL_ParseTEnt(Readbuf msg) {
 		// 	CL_ParseBeam2(cl_mod_grapple_cable);
 		// 	break;
 
-		// case temp_event_t.TE_WELDING_SPARKS:
-		// 	cnt = msg.ReadByte();
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadDir(, dir);
-		// 	color = msg.ReadByte();
-		// 	CL_ParticleEffect2(pos, dir, color, cnt);
+		case temp_event_t.TE_WELDING_SPARKS:
+			cnt = msg.ReadByte();
+			pos = msg.ReadPos();
+			dir = msg.ReadDir();
+			color = msg.ReadByte();
+			CL_ParticleEffect2(pos, dir, color, cnt);
 
-		// 	ex = CL_AllocExplosion();
-		// 	VectorCopy(pos, ex->ent.origin);
-		// 	ex->type = ex_flash;
-		// 	ex->ent.flags = RF_BEAM;
-		// 	ex->start = cl.frame.servertime - 0.1f;
-		// 	ex->light = 100 + (float)(randk() % 75);
-		// 	ex->lightcolor[0] = 1.0f;
-		// 	ex->lightcolor[1] = 1.0f;
-		// 	ex->lightcolor[2] = 0.3f;
-		// 	ex->ent.model = cl_mod_flash;
-		// 	ex->frames = 2;
-		// 	break;
+			final ex = CL_AllocExplosion();
+      ex.ent.origin.setAll(0, pos);
+			ex.type = exptype_t.ex_flash;
+			ex.ent.flags = RF_BEAM;
+			ex.start = cl.frame.servertime - 0.1;
+			ex.light = 100 + (randk() % 75).toDouble();
+			ex.lightcolor[0] = 1.0;
+			ex.lightcolor[1] = 1.0;
+			ex.lightcolor[2] = 0.3;
+			ex.ent.model = cl_mod_flash;
+			ex.frames = 2;
+			break;
 
-		// case temp_event_t.TE_GREENBLOOD:
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadDir(, dir);
-		// 	CL_ParticleEffect2(pos, dir, 0xdf, 30);
-		// 	break;
+		case temp_event_t.TE_GREENBLOOD:
+			pos = msg.ReadPos();
+			dir = msg.ReadDir();
+			CL_ParticleEffect2(pos, dir, 0xdf, 30);
+			break;
 
 		// case temp_event_t.TE_TUNNEL_SPARKS:
 		// 	cnt = msg.ReadByte();
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadDir(, dir);
+		// 	pos = msg.ReadPos();
+		// 	dir = msg.ReadDir();
 		// 	color = msg.ReadByte();
 		// 	CL_ParticleEffect3(pos, dir, color, cnt);
 		// 	break;
 
 		// case temp_event_t.TE_BLASTER2:
 		// case temp_event_t.TE_FLECHETTE:
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadDir(, dir);
+		// 	pos = msg.ReadPos();
+		// 	dir = msg.ReadDir();
 
 		// 	if (type == TE_BLASTER2)
 		// 	{
@@ -648,32 +633,31 @@ CL_ParseTEnt(Readbuf msg) {
 		// 	break;
 
 		// case temp_event_t.TE_DEBUGTRAIL:
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadPos(, pos2);
+		// 	pos = msg.ReadPos();
+		// 	pos2 = msg.ReadPos();
 		// 	CL_DebugTrail(pos, pos2);
 		// 	break;
 
-		// case temp_event_t.TE_PLAIN_EXPLOSION:
-		// 	msg.ReadPos(, pos);
+		case temp_event_t.TE_PLAIN_EXPLOSION:
+			pos = msg.ReadPos();
 
-		// 	ex = CL_AllocExplosion();
-		// 	VectorCopy(pos, ex->ent.origin);
-		// 	ex->type = ex_poly;
-		// 	ex->ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
-		// 	ex->start = cl.frame.servertime - 100.0f;
-		// 	ex->light = 350;
-		// 	ex->lightcolor[0] = 1.0;
-		// 	ex->lightcolor[1] = 0.5;
-		// 	ex->lightcolor[2] = 0.5;
-		// 	ex->ent.angles[1] = randk() % 360;
-		// 	ex->ent.model = cl_mod_explo4;
+			final ex = CL_AllocExplosion();
+      ex.ent.origin.setAll(0, pos);
+			ex.type = exptype_t.ex_poly;
+			ex.ent.flags = RF_FULLBRIGHT | RF_NOSHADOW;
+			ex.start = cl.frame.servertime - 100.0;
+			ex.light = 350;
+			ex.lightcolor[0] = 1.0;
+			ex.lightcolor[1] = 0.5;
+			ex.lightcolor[2] = 0.5;
+			ex.ent.angles[1] = (randk() % 360).toDouble();
+			ex.ent.model = cl_mod_explo4;
 
-		// 	if (frandk() < 0.5)
-		// 	{
-		// 		ex->baseframe = 15;
-		// 	}
+			if (frandk() < 0.5) {
+				ex.baseframe = 15;
+			}
 
-		// 	ex->frames = 15;
+			ex.frames = 15;
 
 		// 	if (type == TE_ROCKET_EXPLOSION_WATER)
 		// 	{
@@ -685,17 +669,17 @@ CL_ParseTEnt(Readbuf msg) {
 		// 		S_StartSound(pos, 0, 0, cl_sfx_rockexp, 1, ATTN_NORM, 0);
 		// 	}
 
-		// 	break;
+			break;
 
 		// case temp_event_t.TE_FLASHLIGHT:
-		// 	msg.ReadPos(, pos);
+		// 	pos = msg.ReadPos();
 		// 	ent = msg.ReadShort();
 		// 	CL_Flashlight(ent, pos);
 		// 	break;
 
 		// case temp_event_t.TE_FORCEWALL:
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadPos(, pos2);
+		// 	pos = msg.ReadPos();
+		// 	pos2 = msg.ReadPos();
 		// 	color = msg.ReadByte();
 		// 	CL_ForceWall(pos, pos2, color);
 		// 	break;
@@ -740,11 +724,11 @@ CL_ParseTEnt(Readbuf msg) {
 		// 	S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, ATTN_NORM, 0);
 		// 	break;
 
-		// case temp_event_t.TE_MOREBLOOD:
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadDir(, dir);
-		// 	CL_ParticleEffect(pos, dir, 0xe8, 250);
-		// 	break;
+		case temp_event_t.TE_MOREBLOOD:
+			pos = msg.ReadPos();
+			dir = msg.ReadDir();
+			CL_ParticleEffect(pos, dir, 0xe8, 250);
+			break;
 
 		// case temp_event_t.TE_CHAINFIST_SMOKE:
 		// 	dir[0] = 0;
@@ -754,12 +738,12 @@ CL_ParseTEnt(Readbuf msg) {
 		// 	CL_ParticleSmokeEffect(pos, dir, 0, 20, 20);
 		// 	break;
 
-		// case temp_event_t.TE_ELECTRIC_SPARKS:
-		// 	msg.ReadPos(, pos);
-		// 	msg.ReadDir(, dir);
-		// 	CL_ParticleEffect(pos, dir, 0x75, 40);
-		// 	S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, ATTN_NORM, 0);
-		// 	break;
+		case temp_event_t.TE_ELECTRIC_SPARKS:
+			pos = msg.ReadPos();
+			dir = msg.ReadDir();
+			CL_ParticleEffect(pos, dir, 0x75, 40);
+			// S_StartSound(pos, 0, 0, cl_sfx_lashit, 1, ATTN_NORM, 0);
+			break;
 
 		// case temp_event_t.TE_TRACKER_EXPLOSION:
 		// 	msg.ReadPos(, pos);

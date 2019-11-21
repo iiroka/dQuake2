@@ -34,7 +34,7 @@ import 'cl_main.dart';
 import 'cl_view.dart' show V_AddEntity, V_AddLight, gun_frame, gun_model;
 import 'cl_lights.dart' show CL_AddLightStyles;
 import 'cl_particles.dart' show CL_AddParticles;
-import 'cl_tempentities.dart' show CL_AddTEnts;
+import 'cl_tempentities.dart' show CL_AddTEnts, cl_mod_powerscreen;
 import 'cl_lights.dart' show CL_AddDLights;
 
 CL_AddPacketEntities(frame_t frame) {
@@ -188,22 +188,16 @@ CL_AddPacketEntities(frame_t frame) {
 			ent.angles[0] = 0;
 			ent.angles[1] = autorotate;
 			ent.angles[2] = 0;
-		}
-	// 	else if (effects & EF_SPINNINGLIGHTS)
-	// 	{
-	// 		ent.angles[0] = 0;
-	// 		ent.angles[1] = anglemod(cl.time / 2) + s1->angles[1];
-	// 		ent.angles[2] = 180;
-	// 		{
-	// 			vec3_t forward;
-	// 			vec3_t start;
-
-	// 			AngleVectors(ent.angles, forward, NULL, NULL);
-	// 			VectorMA(ent.origin, 64, forward, start);
-	// 			V_AddLight(start, 100, 1, 0, 0);
-	// 		}
-	// 	}
-		else {
+		} else if ((effects & EF_SPINNINGLIGHTS) != 0) {
+			ent.angles[0] = 0;
+			ent.angles[1] = anglemod(cl.time / 2) + s1.angles[1];
+			ent.angles[2] = 180;
+      List<double> forward = [0,0,0];
+      AngleVectors(ent.angles, forward, null, null);
+      List<double> start = [0,0,0];
+      VectorMA(ent.origin, 64, forward, start);
+      V_AddLight(start, 100, 1, 0, 0);
+		} else {
 			/* interpolate angles */
 			for (int i = 0; i < 3; i++) {
 				final a1 = cent.current.angles[i];
@@ -268,8 +262,7 @@ CL_AddPacketEntities(frame_t frame) {
 			   the combinations that look bad (double & half) and turn
 			   them into the appropriate color, and make double/quad
 			   something special */
-	// 		if (renderfx & RF_SHELL_HALF_DAM)
-	// 		{
+			if ((renderfx & RF_SHELL_HALF_DAM) != 0) {
 	// 			if (strcmp(game->string, "rogue") == 0)
 	// 			{
 	// 				/* ditch the half damage shell if any of red, blue, or double are on */
@@ -278,10 +271,9 @@ CL_AddPacketEntities(frame_t frame) {
 	// 					renderfx &= ~RF_SHELL_HALF_DAM;
 	// 				}
 	// 			}
-	// 		}
+			}
 
-	// 		if (renderfx & RF_SHELL_DOUBLE)
-	// 		{
+			if ((renderfx & RF_SHELL_DOUBLE) != 0) {
 	// 			if (strcmp(game->string, "rogue") == 0)
 	// 			{
 	// 				/* lose the yellow shell if we have a red, blue, or green shell */
@@ -313,7 +305,7 @@ CL_AddPacketEntities(frame_t frame) {
 	// 					}
 	// 				}
 	// 			}
-	// 		}
+			}
 
 			ent.flags = renderfx | RF_TRANSLUCENT;
 			ent.alpha = 0.30;
@@ -379,27 +371,26 @@ CL_AddPacketEntities(frame_t frame) {
 			V_AddEntity(ent);
 		}
 
-		// if ((effects & EF_POWERSCREEN) != 0) {
-		// 	ent.model = cl_mod_powerscreen;
-		// 	ent.oldframe = 0;
-		// 	ent.frame = 0;
-		// 	ent.flags |= (RF_TRANSLUCENT | RF_SHELL_GREEN);
-		// 	ent.alpha = 0.30f;
-		// 	V_AddEntity(&ent);
-		// }
+		if ((effects & EF_POWERSCREEN) != 0) {
+			ent.model = cl_mod_powerscreen;
+			ent.oldframe = 0;
+			ent.frame = 0;
+			ent.flags |= (RF_TRANSLUCENT | RF_SHELL_GREEN);
+			ent.alpha = 0.30;
+			V_AddEntity(ent);
+		}
 
 	// 	/* add automatic particle trails */
-	// 	if ((effects & ~EF_ROTATE))
-	// 	{
+		if ((effects & ~EF_ROTATE) != 0) {
 	// 		if (effects & EF_ROCKET)
 	// 		{
 	// 			CL_RocketTrail(cent->lerp_origin, ent.origin, cent);
 	// 			V_AddLight(ent.origin, 200, 1, 0.25f, 0);
 	// 		}
 
-	// 		/* Do not reorder EF_BLASTER and EF_HYPERBLASTER.
-	// 		   EF_BLASTER | EF_TRACKER is a special case for
-	// 		   EF_BLASTER2 */
+			/* Do not reorder EF_BLASTER and EF_HYPERBLASTER.
+			   EF_BLASTER | EF_TRACKER is a special case for
+			   EF_BLASTER2 */
 	// 		else if (effects & EF_BLASTER)
 	// 		{
 	// 			if (effects & EF_TRACKER)
@@ -515,7 +506,7 @@ CL_AddPacketEntities(frame_t frame) {
 
 	// 			V_AddLight(ent.origin, 130, 1, 0.5, 0.5);
 	// 		}
-	// 	}
+		}
 
     cent.lerp_origin.setAll(0, ent.origin);
 	}

@@ -44,6 +44,7 @@ class xcommandHolder {
 
 bool cmd_wait = false;
 String cmd_text = "";
+String defer_text_buf = "";
 int alias_count = 0;
 var cmd_functions = Map<String, xcommandHolder>();
 var cmd_alias = Map<String, String>();
@@ -70,6 +71,16 @@ Cbuf_AddText(String text) {
  */
 Cbuf_InsertText(String text) {
   cmd_text = text + '\n' + cmd_text;
+}
+
+Cbuf_CopyToDefer() {
+	defer_text_buf = cmd_text;
+	cmd_text = "";
+}
+
+Cbuf_InsertFromDefer() {
+	Cbuf_InsertText(defer_text_buf);
+	defer_text_buf = "";
 }
 
 Cbuf_Execute() async {

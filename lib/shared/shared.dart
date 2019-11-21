@@ -26,6 +26,7 @@
  */
 import 'dart:math';
 import 'game.dart' show edict_s;
+import 'files.dart';
 
 /* angle indexes */
 const PITCH = 0;                     /* up / down */
@@ -67,6 +68,30 @@ enum multicast_t {
 	MULTICAST_PVS_R
 }
 
+/* content masks */
+const MASK_ALL = -1;
+const MASK_SOLID = CONTENTS_SOLID | CONTENTS_WINDOW;
+const MASK_PLAYERSOLID =
+	CONTENTS_SOLID | CONTENTS_PLAYERCLIP |
+	 CONTENTS_WINDOW | CONTENTS_MONSTER;
+const MASK_DEADSOLID  = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_WINDOW;
+const MASK_MONSTERSOLID =
+	(CONTENTS_SOLID | CONTENTS_MONSTERCLIP |
+	 CONTENTS_WINDOW | CONTENTS_MONSTER);
+const MASK_WATER = (CONTENTS_WATER | CONTENTS_LAVA | CONTENTS_SLIME);
+const MASK_OPAQUE = (CONTENTS_SOLID | CONTENTS_SLIME | CONTENTS_LAVA);
+const MASK_SHOT =
+	(CONTENTS_SOLID | CONTENTS_MONSTER | CONTENTS_WINDOW |
+	 CONTENTS_DEADMONSTER);
+const MASK_CURRENT =
+	(CONTENTS_CURRENT_0 | CONTENTS_CURRENT_90 |
+	 CONTENTS_CURRENT_180 | CONTENTS_CURRENT_270 |
+	 CONTENTS_CURRENT_UP |
+	 CONTENTS_CURRENT_DOWN);
+
+/* gi.BoxEdicts() can return a list of either solid or trigger entities */
+const AREA_SOLID = 1;
+const AREA_TRIGGERS = 2;
 
 /* plane_t structure */
 class cplane_t {
@@ -75,6 +100,13 @@ class cplane_t {
 	int type; /* for fast side tests */
 	int signbits; /* signx + (signy<<1) + (signz<<2) */
 	// byte pad[2];
+
+  copy(cplane_t other) {
+    this.normal.setAll(0, other.normal);
+    this.dist = other.dist;
+    this.type = other.type;
+    this.signbits = other.signbits;
+  }
 }
 
 /* structure offset for asm code */
@@ -103,6 +135,19 @@ class mapsurface_t {  /* used internally due to name len probs */
 	csurface_t c = csurface_t();
 	String rname = "";
 }
+
+/* a trace is returned when a box is swept through the world */
+class trace_t {
+	bool allsolid = false;      /* if true, plane is not valid */
+	bool startsolid = false;    /* if true, the initial point was in a solid area */
+	double fraction = 0;         /* time completed, 1.0 = didn't hit anything */
+	List<double> endpos = [0,0,0];          /* final position */
+	cplane_t plane = cplane_t();         /* surface normal at impact */
+	csurface_t surface;    /* surface hit */
+	int contents = 0;           /* contents on other side of surface hit */
+	edict_s ent;    /* not set by CM_*() functions */
+}
+
 
 /* pmove_state_t is the information necessary for client side movement */
 /* prediction */
@@ -743,9 +788,9 @@ class entity_state_t {
     this.solid = 0;
     this.sound = 0;
     this.event = 0;
-    this.origin.fillRange(0, 3);
-    this.angles.fillRange(0, 3);
-    this.old_origin.fillRange(0, 3);
+    this.origin.fillRange(0, 3, 0);
+    this.angles.fillRange(0, 3, 0);
+    this.old_origin.fillRange(0, 3, 0);
   }
 
   copy(entity_state_t other) {

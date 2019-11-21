@@ -28,10 +28,30 @@ import 'package:dQuakeWeb/shared/game.dart';
 import 'game.dart';
 import 'g_spawn.dart' show G_SpawnEntities;
 import 'g_items.dart';
+import 'g_monster.dart';
 import 'g_phys.dart';
 import 'player/client.dart' show G_ClientConnect, ClientBeginServerFrame, G_ClientBegin;
+import 'player/view.dart';
 
 Quake2Game globals;
+
+/* ====================================================================== */
+
+ClientEndServerFrames() {
+
+	/* calc the player views now that all
+	   pushing  and damage has been added */
+	for (int i = 0; i < maxclients.integer; i++) {
+		final ent = g_edicts[1 + i];
+
+		if (!ent.inuse || ent.client == null) {
+			continue;
+		}
+
+		ClientEndServerFrame(ent);
+	}
+}
+
 
 class Quake2Game extends game_export_t{
 
@@ -85,7 +105,7 @@ class Quake2Game extends game_export_t{
     /* dm map list */
     sv_maplist = Cvar_Get("sv_maplist", "", 0);
 
-    // /* items */
+    /* items */
     InitItems();
 
     game.helpmessage1 = "";
@@ -145,7 +165,7 @@ class Quake2Game extends game_export_t{
 
         if ((ent.flags & (FL_SWIM | FL_FLY)) == 0 &&
           (ent.svflags & SVF_MONSTER) != 0) {
-          // M_CheckGround(ent);
+          M_CheckGround(ent);
         }
       }
 
@@ -164,7 +184,7 @@ class Quake2Game extends game_export_t{
     // CheckNeedPass();
 
     /* build the playerstate_t structures for all players */
-    // ClientEndServerFrames();
+    ClientEndServerFrames();
   }
 
 

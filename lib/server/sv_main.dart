@@ -60,6 +60,30 @@ cvar_t sv_entfile; /* External entity files. */
 cvar_t sv_downloadserver; /* Download server. */
 
 /*
+ * Called when the player is totally leaving the server, either willingly
+ * or unwillingly.  This is NOT called if the entire server is quiting
+ * or crashing.
+ */
+SV_DropClient(client_t drop) {
+	/* add the disconnect */
+	drop.netchan.message.WriteByte(svc_ops_e.svc_disconnect.index);
+
+	if (drop.state == client_state_t.cs_spawned) {
+		/* call the prog function for removing a client
+		   this will remove the body, among other things */
+		// ge.ClientDisconnect(drop.edict);
+	}
+
+	// if (drop.download) {
+	// 	FS_FreeFile(drop->download);
+	// 	drop->download = NULL;
+	// }
+
+	drop.state = client_state_t.cs_zombie; /* become free in a few seconds */
+	drop.name = "";
+}
+
+/*
  * Pull specific info from a newly changed userinfo string
  * into a more C freindly form.
  */
@@ -196,6 +220,19 @@ SV_ReadPackets() async {
 	}
 }
 
+/*
+ * This has to be done before the world logic, because
+ * player processing happens outside RunWorldFrame
+ */
+SV_PrepWorldFrame() {
+
+	for (int i = 0; i < ge.num_edicts; i++) {
+		var ent = ge.edicts[i];
+		/* events only last for a single message */
+		ent.s.event = 0;
+	}
+}
+
 SV_RunGameFrame() async {
 // #ifndef DEDICATED_ONLY
 // 	if (host_speeds->value)
@@ -262,7 +299,6 @@ SV_Frame(int msec) async {
 			if (sv_showclamp.boolean) {
 				Com_Printf("sv lowclamp\n");
 			}
-
 			svs.realtime = sv.time - 100;
 		}
 
@@ -290,7 +326,7 @@ SV_Frame(int msec) async {
 	// Master_Heartbeat();
 
 	/* clear teleport flags, etc for next frame */
-	// SV_PrepWorldFrame();
+	SV_PrepWorldFrame();
 }
 
 /*

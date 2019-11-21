@@ -35,11 +35,8 @@ import 'webgl_shaders.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 
-// unsigned d_8to24table[256];
-
 webglimage_t draw_chars;
 
-// static GLuint vbo2D = 0, vao2D = 0, vao2Dcolor = 0; // vao2D is for textured rendering, vao2Dcolor for color-only
 VertexArrayObject vao2D, vao2Dcolor;
 Buffer vbo2D;
 

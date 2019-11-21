@@ -72,7 +72,7 @@ edict_t G_Find(edict_t from, String field, String match) {
 G_InitEdict(edict_t e) {
 	e.inuse = true;
 	e.classname = "noclass";
-	// e.gravity = 1.0;
+	e.gravity = 1.0;
   e.s.number = e.index;
 }
 

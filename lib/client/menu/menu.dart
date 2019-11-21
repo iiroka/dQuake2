@@ -171,12 +171,38 @@ M_PushMenu(MenuDrawFunction draw, MenuKeyFunction key) {
 }
 
 /*
+ * Draws one solid graphics character cx and cy are in 320*240
+ * coordinates, and will be centered on higher res screens.
+ */
+_M_DrawCharacter(int cx, int cy, int num) {
+	final scale = SCR_GetMenuScale();
+	re.DrawCharScaled(cx + ((viddef.width - 320 * scale).toInt() >> 1), cy + ((viddef.height - 240 * scale).toInt() >> 1), num, scale);
+}
+
+_M_Print(int x, int y, String str) {
+	final scale = SCR_GetMenuScale();
+
+  int cx = x;
+  int cy = y;
+  int index = 0;
+  while (index < str.length) {
+      if (str[index] == '\n') {
+          cx = x;
+          cy += 8;
+      } else {
+          _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), str.codeUnitAt(index) + 128);
+          cx += 8;
+      }
+      index++;
+  }
+}
+/*
  * Draws an animating cursor with the point at
  * x,y. The pic will extend to the left of x,
  * and both above and below y.
  */
 bool _mcurors_cached = false;
-M_DrawCursor(int x, int y, int f) async {
+_M_DrawCursor(int x, int y, int f) async {
 	  final scale = SCR_GetMenuScale();
 
     if (!_mcurors_cached) {
@@ -190,6 +216,94 @@ M_DrawCursor(int x, int y, int f) async {
 
     await re.DrawPicScaled((x * scale).toInt(), (y * scale).toInt(), "m_cursor$f", scale);
 }
+
+_M_DrawTextBox(int x, int y, int width, int lines) {
+	final scale = SCR_GetMenuScale();
+
+  /* draw left side */
+  int cx = x;
+  int cy = y;
+  _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), 1);
+
+  for (int n = 0; n < lines; n++) {
+      cy += 8;
+      _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), 4);
+  }
+
+  _M_DrawCharacter((cx * scale).toInt(), (cy * scale + 8 * scale).toInt(), 7);
+
+  /* draw middle */
+  cx += 8;
+
+  while (width > 0) {
+      cy = y;
+      _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), 2);
+
+      for (int n = 0; n < lines; n++) {
+          cy += 8;
+          _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), 5);
+      }
+
+      _M_DrawCharacter((cx * scale).toInt(), (cy *scale + 8 * scale).toInt(), 8);
+      width -= 1;
+      cx += 8;
+  }
+
+  /* draw right side */
+  cy = y;
+  _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), 3);
+
+  for (int n = 0; n < lines; n++) {
+      cy += 8;
+      _M_DrawCharacter((cx * scale).toInt(), (cy * scale).toInt(), 6);
+  }
+
+  _M_DrawCharacter((cx * scale).toInt(), (cy * scale + 8 * scale).toInt(), 9);
+}
+
+String _m_popup_string;
+int _m_popup_endtime = 0;
+
+_M_Popup() {
+
+    if (_m_popup_string == null) {
+        return;
+    }
+
+    if (_m_popup_endtime != 0 && _m_popup_endtime < cls.realtime) {
+        _m_popup_string = null;
+        return;
+    }
+
+    int width = 0;
+    int lines = 0;
+    int n = 0;
+    for (int index = 0; index < _m_popup_string.length; index++) {
+        if (_m_popup_string[index] == '\n') {
+            lines++;
+            n = 0;
+        } else {
+            n++;
+            if (n > width) {
+                width = n;
+            }
+        }
+    }
+    if (n != 0) {
+        lines++;
+    }
+
+    if (width != 0) {
+        width += 2;
+
+        int x = (320 - (width + 2) * 8) ~/ 2;
+        int y = (240 - (lines + 2) * 8) ~/ 3;
+
+        _M_DrawTextBox(x, y, width, lines);
+        _M_Print(x + 16, y + 8, _m_popup_string);
+    }
+}
+
 
 int Key_GetMenuKey(int key) {
 	switch (key) {
@@ -338,14 +452,14 @@ Future<String> Default_MenuKey(menuframework_s m, int key) async {
 
     case K_LEFTARROW:
         if (m != null) {
-            // Menu_SlideItem(m, -1);
+            await m.SlideItem(-1);
             sound = menu_move_sound;
         }
         break;
 
     case K_RIGHTARROW:
         if (m != null) {
-            // Menu_SlideItem(m, 1);
+            await m.SlideItem(1);
             sound = menu_move_sound;
         }
         break;
@@ -399,7 +513,7 @@ Future<void> _M_Main_Draw() async {
 
   await re.DrawPicScaled((xoffset * scale).toInt(), ((ystart + m_main_cursor * 40 + 13) * scale).toInt(), names[m_main_cursor] + "_sel", scale);
 
-  await M_DrawCursor(xoffset - 25, ystart + m_main_cursor * 40 + 11,
+  await _M_DrawCursor(xoffset - 25, ystart + m_main_cursor * 40 + 11,
                 (cls.realtime ~/ 100) % NUM_CURSOR_FRAMES);
 
   final size = await re.DrawGetPicSize("m_main_plaque");
@@ -434,16 +548,16 @@ Future<String> _M_Main_Key(int key) async  {
 
         switch (m_main_cursor) {
         case 0:
-            M_Menu_Game_f([]);
+            await M_Menu_Game_f([]);
             break;
 
   //       case 1:
   //           M_Menu_Multiplayer_f();
   //           break;
 
-  //       case 2:
-  //           M_Menu_Options_f();
-  //           break;
+        case 2:
+            await M_Menu_Options_f([]);
+            break;
 
   //       case 3:
   //           M_Menu_Video_f();
@@ -461,6 +575,229 @@ Future<String> _M_Main_Key(int key) async  {
 
 M_Menu_Main_f(List<String> args) async {
     await M_PushMenu(_M_Main_Draw, _M_Main_Key);
+}
+
+/*
+ * CONTROLS MENU
+ */
+
+menuframework_s _s_options_menu = menuframework_s();
+menuaction_s _s_options_defaults_action = menuaction_s("reset defaults");
+menuslider_s _s_options_sfxvolume_slider = menuslider_s("effects volume");
+
+_ControlsSetMenuItemValues() {
+    _s_options_sfxvolume_slider.curvalue = Cvar_VariableValue("s_volume") * 10;
+    // s_options_oggshuffle_box.curvalue = (Cvar_VariableValue("ogg_shuffle") != 0);
+    // s_options_oggvolume_slider.curvalue = Cvar_VariableValue("ogg_volume") * 10;
+    // s_options_oggenable_box.curvalue = (Cvar_VariableValue("ogg_enable") != 0);
+    // s_options_quality_list.curvalue = (Cvar_VariableValue("s_loadas8bit") == 0);
+    // s_options_sensitivity_slider.curvalue = sensitivity->value * 2;
+    // s_options_alwaysrun_box.curvalue = (cl_run->value != 0);
+    // s_options_invertmouse_box.curvalue = (m_pitch->value < 0);
+    // s_options_lookstrafe_box.curvalue = (lookstrafe->value != 0);
+    // s_options_freelook_box.curvalue = (freelook->value != 0);
+    // s_options_crosshair_box.curvalue = ClampCvar(0, 3, crosshair->value);
+    // s_options_haptic_slider.curvalue = Cvar_VariableValue("joy_haptic_magnitude") * 10.0F;
+}
+
+Future<void> _ControlsResetDefaultsFunc(menucommon_s) async {
+    Cbuf_AddText("exec default.cfg\n");
+    Cbuf_AddText("exec yq2.cfg\n");
+    await Cbuf_Execute();
+    _ControlsSetMenuItemValues();
+}
+
+Future<void> _UpdateVolumeFunc(menucommon_s) async {
+    Cvar_Set("s_volume", (_s_options_sfxvolume_slider.curvalue / 10).toString());
+}
+
+_Options_MenuInit() {
+    // static const char *ogg_music_items[] =
+    // {
+    //     "disabled",
+    //     "enabled",
+    //     0
+    // };
+
+    // static const char *ogg_shuffle[] =
+    // {
+    //     "disabled",
+    //     "enabled",
+    //     0
+    // };
+
+    // static const char *quality_items[] =
+    // {
+    //     "normal", "high", 0
+    // };
+
+    // static const char *yesno_names[] =
+    // {
+    //     "no",
+    //     "yes",
+    //     0
+    // };
+
+    // static const char *crosshair_names[] =
+    // {
+    //     "none",
+    //     "cross",
+    //     "dot",
+    //     "angle",
+    //     0
+    // };
+
+    final scale = SCR_GetMenuScale();
+    // extern qboolean show_haptic;
+
+    /* configure controls menu and menu items */
+    _s_options_menu.x = viddef.width ~/ 2;
+    _s_options_menu.y = viddef.height ~/ (2 * scale) - 58;
+    // s_options_menu.nitems = 0;
+
+    _s_options_sfxvolume_slider.x = 0;
+    _s_options_sfxvolume_slider.y = 0;
+    _s_options_sfxvolume_slider.callback = _UpdateVolumeFunc;
+    _s_options_sfxvolume_slider.minvalue = 0;
+    _s_options_sfxvolume_slider.maxvalue = 10;
+
+    // s_options_oggvolume_slider.generic.type = MTYPE_SLIDER;
+    // s_options_oggvolume_slider.generic.x = 0;
+    // s_options_oggvolume_slider.generic.y = 10;
+    // s_options_oggvolume_slider.generic.name = "OGG volume";
+    // s_options_oggvolume_slider.generic.callback = UpdateOggVolumeFunc;
+    // s_options_oggvolume_slider.minvalue = 0;
+    // s_options_oggvolume_slider.maxvalue = 10;
+
+    // s_options_oggenable_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_oggenable_box.generic.x = 0;
+    // s_options_oggenable_box.generic.y = 20;
+    // s_options_oggenable_box.generic.name = "OGG music";
+    // s_options_oggenable_box.generic.callback = EnableOGGMusic;
+    // s_options_oggenable_box.itemnames = ogg_music_items;
+
+    // s_options_oggshuffle_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_oggshuffle_box.generic.x = 0;
+    // s_options_oggshuffle_box.generic.y = 30;
+    // s_options_oggshuffle_box.generic.name = "Shuffle";
+    // s_options_oggshuffle_box.generic.callback = OGGShuffleFunc;
+    // s_options_oggshuffle_box.itemnames = ogg_shuffle;
+
+    // s_options_quality_list.generic.type = MTYPE_SPINCONTROL;
+    // s_options_quality_list.generic.x = 0;
+    // s_options_quality_list.generic.y = 40;
+    // s_options_quality_list.generic.name = "sound quality";
+    // s_options_quality_list.generic.callback = UpdateSoundQualityFunc;
+    // s_options_quality_list.itemnames = quality_items;
+
+    // s_options_sensitivity_slider.generic.type = MTYPE_SLIDER;
+    // s_options_sensitivity_slider.generic.x = 0;
+    // s_options_sensitivity_slider.generic.y = 60;
+    // s_options_sensitivity_slider.generic.name = "mouse speed";
+    // s_options_sensitivity_slider.generic.callback = MouseSpeedFunc;
+    // s_options_sensitivity_slider.minvalue = 2;
+    // s_options_sensitivity_slider.maxvalue = 22;
+
+    // s_options_alwaysrun_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_alwaysrun_box.generic.x = 0;
+    // s_options_alwaysrun_box.generic.y = 70;
+    // s_options_alwaysrun_box.generic.name = "always run";
+    // s_options_alwaysrun_box.generic.callback = AlwaysRunFunc;
+    // s_options_alwaysrun_box.itemnames = yesno_names;
+
+    // s_options_invertmouse_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_invertmouse_box.generic.x = 0;
+    // s_options_invertmouse_box.generic.y = 80;
+    // s_options_invertmouse_box.generic.name = "invert mouse";
+    // s_options_invertmouse_box.generic.callback = InvertMouseFunc;
+    // s_options_invertmouse_box.itemnames = yesno_names;
+
+    // s_options_lookstrafe_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_lookstrafe_box.generic.x = 0;
+    // s_options_lookstrafe_box.generic.y = 90;
+    // s_options_lookstrafe_box.generic.name = "lookstrafe";
+    // s_options_lookstrafe_box.generic.callback = LookstrafeFunc;
+    // s_options_lookstrafe_box.itemnames = yesno_names;
+
+    // s_options_freelook_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_freelook_box.generic.x = 0;
+    // s_options_freelook_box.generic.y = 100;
+    // s_options_freelook_box.generic.name = "free look";
+    // s_options_freelook_box.generic.callback = FreeLookFunc;
+    // s_options_freelook_box.itemnames = yesno_names;
+
+    // s_options_crosshair_box.generic.type = MTYPE_SPINCONTROL;
+    // s_options_crosshair_box.generic.x = 0;
+    // s_options_crosshair_box.generic.y = 110;
+    // s_options_crosshair_box.generic.name = "crosshair";
+    // s_options_crosshair_box.generic.callback = CrosshairFunc;
+    // s_options_crosshair_box.itemnames = crosshair_names;
+
+    // s_options_haptic_slider.generic.type = MTYPE_SLIDER;
+    // s_options_haptic_slider.generic.x = 0;
+    // s_options_haptic_slider.generic.y = 120;
+    // s_options_haptic_slider.generic.name = "haptic magnitude";
+    // s_options_haptic_slider.generic.callback = HapticMagnitudeFunc;
+    // s_options_haptic_slider.minvalue = 0;
+    // s_options_haptic_slider.maxvalue = 22;
+
+    // s_options_customize_options_action.generic.type = MTYPE_ACTION;
+    // s_options_customize_options_action.generic.x = 0;
+    // s_options_customize_options_action.generic.y = 140;
+    // s_options_customize_options_action.generic.name = "customize controls";
+    // s_options_customize_options_action.generic.callback = CustomizeControlsFunc;
+
+    _s_options_defaults_action.x = 0;
+    _s_options_defaults_action.y = 150;
+    _s_options_defaults_action.callback = _ControlsResetDefaultsFunc;
+
+    // s_options_console_action.generic.type = MTYPE_ACTION;
+    // s_options_console_action.generic.x = 0;
+    // s_options_console_action.generic.y = 160;
+    // s_options_console_action.generic.name = "go to console";
+    // s_options_console_action.generic.callback = ConsoleFunc;
+
+    // ControlsSetMenuItemValues();
+
+    _s_options_menu.AddItem(_s_options_sfxvolume_slider);
+
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_oggvolume_slider);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_oggenable_box);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_oggshuffle_box);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_quality_list);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_sensitivity_slider);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_alwaysrun_box);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_invertmouse_box);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_lookstrafe_box);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_freelook_box);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_crosshair_box);
+
+    // if (show_haptic)
+    //     Menu_AddItem(&s_options_menu, (void *)&s_options_haptic_slider);
+
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_customize_options_action);
+    _s_options_menu.AddItem(_s_options_defaults_action);
+    // Menu_AddItem(&s_options_menu, (void *)&s_options_console_action);
+}
+
+Future<void> _Options_MenuDraw() async {
+    await M_Banner("m_banner_options");
+    _s_options_menu.AdjustCursor(1);
+    await _s_options_menu.Draw();
+    _M_Popup();
+}
+
+Future<String> _Options_MenuKey(int key) async  {
+    if (_m_popup_string != null) {
+        _m_popup_string = null;
+        return null;
+    }
+    return Default_MenuKey(_s_options_menu, key);
+}
+
+M_Menu_Options_f(List<String> args) async {
+    _Options_MenuInit();
+    M_PushMenu(_Options_MenuDraw, _Options_MenuKey);
 }
 
 /*
@@ -625,7 +962,7 @@ M_Init() {
     // Cmd_AddCommand("menu_credits", M_Menu_Credits_f);
     // Cmd_AddCommand("menu_multiplayer", M_Menu_Multiplayer_f);
     // Cmd_AddCommand("menu_video", M_Menu_Video_f);
-    // Cmd_AddCommand("menu_options", M_Menu_Options_f);
+    Cmd_AddCommand("menu_options", M_Menu_Options_f);
     // Cmd_AddCommand("menu_keys", M_Menu_Keys_f);
     // Cmd_AddCommand("menu_quit", M_Menu_Quit_f);
 

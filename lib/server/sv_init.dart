@@ -26,6 +26,7 @@
  */
 import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/cmdparser.dart';
 import 'package:dQuakeWeb/common/collision.dart';
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -363,7 +364,7 @@ SV_Map(bool attractloop, String levelstring, bool loadgame) async {
 		SV_BroadcastCommand("changing\n");
 // 		SV_SendClientMessages();
 		await SV_SpawnServer(level, spawnpoint, server_state_t.ss_game, attractloop, loadgame);
-// 		Cbuf_CopyToDefer();
+		Cbuf_CopyToDefer();
 	}
 
 	SV_BroadcastCommand("reconnect\n");

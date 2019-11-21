@@ -23,10 +23,13 @@
  *
  * =======================================================================
  */
+import 'dart:typed_data';
 import 'package:dQuakeWeb/common/filesystem.dart';
 import 'package:dQuakeWeb/shared/common.dart';
+import 'package:dQuakeWeb/shared/files.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
-import 'package:dQuakeWeb/server/sv_main.dart' show allow_download, allow_download_maps;
+import 'package:dQuakeWeb/server/sv_main.dart' show allow_download, allow_download_maps, 
+  allow_download_models, precache_model;
 import 'client.dart';
 import 'cl_main.dart';
 import 'cl_view.dart' show CL_PrepRefresh;
@@ -97,31 +100,26 @@ CL_RequestNextDownload() async {
 		}
 	}
 
-// 	if ((precache_check >= CS_MODELS) &&
-// 		(precache_check < CS_MODELS + MAX_MODELS))
-// 	{
-// 		if (allow_download_models->value)
-// 		{
-// 			while (precache_check < CS_MODELS + MAX_MODELS &&
-// 				   cl.configstrings[precache_check][0])
-// 			{
-// 				if ((cl.configstrings[precache_check][0] == '*') ||
-// 					(cl.configstrings[precache_check][0] == '#'))
-// 				{
-// 					precache_check++;
-// 					continue;
-// 				}
+	if ((precache_check >= CS_MODELS) &&
+		(precache_check < CS_MODELS + MAX_MODELS)) {
+		if (allow_download_models.boolean) {
+			while (precache_check < CS_MODELS + MAX_MODELS &&
+				   cl.configstrings[precache_check].isNotEmpty) {
 
-// 				if (precache_model_skin == 0)
-// 				{
-// 					if (!CL_CheckOrDownloadFile(cl.configstrings[precache_check]))
-// 					{
-// 						precache_model_skin = 1;
-// 						return; /* started a download */
-// 					}
+				if ((cl.configstrings[precache_check][0] == '*') ||
+					(cl.configstrings[precache_check][0] == '#')) {
+					precache_check++;
+					continue;
+				}
 
-// 					precache_model_skin = 1;
-// 				}
+				if (precache_model_skin == 0) {
+					if (!await CL_CheckOrDownloadFile(cl.configstrings[precache_check])) {
+						precache_model_skin = 1;
+						return; /* started a download */
+					}
+
+					precache_model_skin = 1;
+				}
 
 // #ifdef USE_CURL
 // 				/* Wait for the models to download before checking * skins. */
@@ -131,69 +129,53 @@ CL_RequestNextDownload() async {
 // 				}
 // #endif
 
-// 				/* checking for skins in the model */
-// 				if (!precache_model)
-// 				{
-// 					FS_LoadFile(cl.configstrings[precache_check],
-// 							(void **)&precache_model);
+				/* checking for skins in the model */
+				if (precache_model == null) {
+          precache_model = await FS_LoadFile(cl.configstrings[precache_check]);
 
-// 					if (!precache_model)
-// 					{
-// 						precache_model_skin = 0;
-// 						precache_check++;
-// 						continue; /* couldn't load it */
-// 					}
+					if (precache_model == null) {
+						precache_model_skin = 0;
+						precache_check++;
+						continue; /* couldn't load it */
+					}
 
-// 					if (LittleLong(*(unsigned *)precache_model) !=
-// 						IDALIASHEADER)
-// 					{
-// 						/* not an alias model */
-// 						FS_FreeFile(precache_model);
-// 						precache_model = 0;
-// 						precache_model_skin = 0;
-// 						precache_check++;
-// 						continue;
-// 					}
+          if (precache_model.asByteData().getUint32(0, Endian.little) == IDALIASHEADER) {
+						/* not an alias model */
+						precache_model = null;
+						precache_model_skin = 0;
+						precache_check++;
+						continue;
+					}
 
-// 					pheader = (dmdl_t *)precache_model;
+					final pheader = dmdl_t(precache_model.asByteData(), 0);
+					if (pheader.version != ALIAS_VERSION) {
+						precache_check++;
+						precache_model_skin = 0;
+						continue; /* couldn't load it */
+					}
+				}
 
-// 					if (LittleLong(pheader->version) != ALIAS_VERSION)
-// 					{
-// 						precache_check++;
-// 						precache_model_skin = 0;
-// 						continue; /* couldn't load it */
-// 					}
-// 				}
+        final buffer = precache_model.asByteData();
+        final pheader = dmdl_t(buffer, 0);
 
-// 				pheader = (dmdl_t *)precache_model;
+ 				while (precache_model_skin - 1 < pheader.num_skins) {
+          if (!await CL_CheckOrDownloadFile(readString(buffer, 
+            pheader.ofs_skins + precache_model_skin * MAX_SKINNAME, MAX_SKINNAME))) {
+						precache_model_skin++;
+						return; /* started a download */
+          }
+					precache_model_skin++;
+				}
 
-// 				while (precache_model_skin - 1 < LittleLong(pheader->num_skins))
-// 				{
-// 					if (!CL_CheckOrDownloadFile((char *)precache_model +
-// 								LittleLong(pheader->ofs_skins) +
-// 								(precache_model_skin - 1) * MAX_SKINNAME))
-// 					{
-// 						precache_model_skin++;
-// 						return; /* started a download */
-// 					}
+        precache_model = null;
+				precache_model_skin = 0;
 
-// 					precache_model_skin++;
-// 				}
+				precache_check++;
+			}
+		}
 
-// 				if (precache_model)
-// 				{
-// 					FS_FreeFile(precache_model);
-// 					precache_model = 0;
-// 				}
-
-// 				precache_model_skin = 0;
-
-// 				precache_check++;
-// 			}
-// 		}
-
-// 		precache_check = CS_SOUNDS;
-// 	}
+		precache_check = CS_SOUNDS;
+	}
 
 // 	if ((precache_check >= CS_SOUNDS) &&
 // 		(precache_check < CS_SOUNDS + MAX_SOUNDS))
@@ -250,9 +232,9 @@ CL_RequestNextDownload() async {
 // 		precache_check = CS_PLAYERSKINS;
 // 	}
 
-// 	/* skins are special, since a player has three 
-// 	   things to download:  model, weapon model and
-// 	   skin so precache_check is now *3 */
+	/* skins are special, since a player has three 
+	   things to download:  model, weapon model and
+	   skin so precache_check is now *3 */
 // 	if ((precache_check >= CS_PLAYERSKINS) &&
 // 		(precache_check < CS_PLAYERSKINS + MAX_CLIENTS * PLAYER_MULT))
 // 	{
@@ -384,12 +366,11 @@ CL_RequestNextDownload() async {
 // 	}
 // #endif
 
-// 	/* precache phase completed */
-// 	precache_check = ENV_CNT;
+	/* precache phase completed */
+	precache_check = ENV_CNT;
 
-// 	if (precache_check == ENV_CNT)
-// 	{
-// 		precache_check = ENV_CNT + 1;
+	if (precache_check == ENV_CNT) {
+		precache_check = ENV_CNT + 1;
 
 // 		CM_LoadMap(cl.configstrings[CS_MODELS + 1], true, &map_checksum);
 
@@ -399,10 +380,9 @@ CL_RequestNextDownload() async {
 // 					map_checksum, cl.configstrings[CS_MAPCHECKSUM]);
 // 			return;
 // 		}
-// 	}
+	}
 
-// 	if ((precache_check > ENV_CNT) && (precache_check < TEXTURE_CNT))
-// 	{
+	if ((precache_check > ENV_CNT) && (precache_check < TEXTURE_CNT)) {
 // 		if (allow_download->value && allow_download_maps->value)
 // 		{
 // 			while (precache_check < TEXTURE_CNT)
@@ -427,16 +407,15 @@ CL_RequestNextDownload() async {
 // 			}
 // 		}
 
-// 		precache_check = TEXTURE_CNT;
-// 	}
+		precache_check = TEXTURE_CNT;
+	}
 
-// 	if (precache_check == TEXTURE_CNT)
-// 	{
-// 		precache_check = TEXTURE_CNT + 1;
-// 		precache_tex = 0;
-// 	}
+	if (precache_check == TEXTURE_CNT) {
+		precache_check = TEXTURE_CNT + 1;
+		precache_tex = 0;
+	}
 
-// 	/* confirm existance of textures, download any that don't exist */
+	/* confirm existance of textures, download any that don't exist */
 // 	if (precache_check == TEXTURE_CNT + 1)
 // 	{
 // 		extern int numtexinfo;
@@ -594,7 +573,7 @@ Future<bool> CL_CheckOrDownloadFile(String filename) async {
 // 		MSG_WriteString(&cls.netchan.message, va("download %s", cls.downloadname));
 // 	}
 
-// 	cls.downloadnumber++;
+	cls.downloadnumber++;
 	cls.forcePacket = true;
 
 	return false;

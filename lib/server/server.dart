@@ -33,6 +33,10 @@ import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/shared/writebuf.dart';
 
+const LATENCY_COUNTS = 16;
+const RATE_MESSAGES = 10;
+
+
 /* MAX_CHALLENGES is made large to prevent a denial
    of service attack that could cycle all of them
    out before legitimate users connected */
@@ -88,6 +92,14 @@ class client_frame_t {
 	int num_entities = 0;
 	int first_entity = 0;                       /* into the circular sv_packet_entities[] */
 	int senttime = 0;                           /* for ping calculations */
+
+  clear() {
+    this.areabytes = 0;
+    this.ps.clear();
+    this.num_entities = 0;
+    this.first_entity = 0;
+    this.senttime = 0;
+  }
 }
 
 class client_t {
@@ -102,10 +114,10 @@ class client_t {
 	int commandMsec = 0;                    /* every seconds this is reset, if user */
 										/* commands exhaust it, assume time cheating */
 
-	// int frame_latency[LATENCY_COUNTS];
+	List<int> frame_latency = List(LATENCY_COUNTS);
 	int ping = 0;
 
-	// int message_size[RATE_MESSAGES];    /* used to rate drop packets */
+	List<int> message_size = List(RATE_MESSAGES);    /* used to rate drop packets */
 	int rate = 0;
 	int surpressCount = 0;                  /* number of messages rate supressed */
 
@@ -139,15 +151,17 @@ class client_t {
     this.lastframe = 0;
 	  this.lastcmd.clear();
 	  this.commandMsec = 0;
-	// int frame_latency[LATENCY_COUNTS];
+    this.frame_latency.fillRange(0, this.frame_latency.length, 0);
 	  this.ping = 0;
-	// int message_size[RATE_MESSAGES];
+    this.message_size.fillRange(0, this.message_size.length, 0);
 	  this.rate = 0;
 	  this.surpressCount = 0;
 	  this.edict = null;
 	  this.name ="";
 	  this.messagelevel = 0;
-	// client_frame_t frames[UPDATE_BACKUP];     /* updates can be delta'd from here */
+    for (var f in frames) {
+      f.clear();
+    }
 	// byte *download;                     /* file being downloaded */
 	// int downloadsize;                   /* total bytes (can't use EOF because of paks) */
 	// int downloadcount;                  /* bytes sent */

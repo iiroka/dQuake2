@@ -209,10 +209,10 @@ class client_static_t {
 // 	FILE		*download; /* file transfer from server */
 // 	char		downloadtempname[MAX_OSPATH];
 // 	char		downloadname[MAX_OSPATH];
-// 	int			downloadnumber;
+	int			downloadnumber = 0;
 // 	dltype_t	downloadtype;
 // 	size_t		downloadposition;
-// 	int			downloadpercent;
+	int			downloadpercent = 0;
 
 	/* demo recording info must be here, so it isn't cleared on level change */
 // 	qboolean	demorecording;

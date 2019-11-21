@@ -71,7 +71,7 @@ class edict_s extends link_t {
 	// link_t area;                    /* linked to a division node or leaf */
 
 	int num_clusters = 0;               /* if -1, use headnode instead */
-	// int clusternums[MAX_ENT_CLUSTERS];
+	List<int> clusternums = List(MAX_ENT_CLUSTERS);
 	int headnode = 0;                   /* unused if num_clusters != -1 */
 	int areanum = 0, areanum2 = 0;
 

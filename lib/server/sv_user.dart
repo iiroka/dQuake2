@@ -208,7 +208,7 @@ SV_Begin_f(List<String> args) async {
 	/* call the game begin function */
 	ge.ClientBegin(sv_player);
 
-	// Cbuf_InsertFromDefer();
+	Cbuf_InsertFromDefer();
 }
 
 SV_Nextserver() {
@@ -305,7 +305,7 @@ SV_ExecuteClientMessage(client_t cl, Readbuf msg) async {
 	{
 		if (msg.readcount > msg.data.lengthInBytes) {
 			Com_Printf("SV_ReadClientMessage: badread\n");
-			// SV_DropClient(cl);
+			SV_DropClient(cl);
 			return;
 		}
 
@@ -339,8 +339,8 @@ SV_ExecuteClientMessage(client_t cl, Readbuf msg) async {
 					cl.lastframe = lastframe;
 
 					if (cl.lastframe > 0) {
-			// 			cl->frame_latency[cl->lastframe & (LATENCY_COUNTS - 1)] =
-			// 				svs.realtime - cl->frames[cl->lastframe & UPDATE_MASK].senttime;
+						cl.frame_latency[cl.lastframe & (LATENCY_COUNTS - 1)] =
+							svs.realtime - cl.frames[cl.lastframe & UPDATE_MASK].senttime;
 					}
 				}
 
@@ -410,7 +410,7 @@ SV_ExecuteClientMessage(client_t cl, Readbuf msg) async {
 
 			default:
 				Com_Printf("SV_ReadClientMessage: unknown command char\n");
-				// SV_DropClient(cl);
+				SV_DropClient(cl);
 				return;
 
 		}

@@ -120,7 +120,7 @@ bool initShader2D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc)
 
 	//shaderInfo->uniColor = shaderInfo->uniProjMatrix = shaderInfo->uniModelViewMatrix = -1;
 	shaderInfo.shaderProgram = null;
-	// shaderInfo->uniLmScales = -1;
+  shaderInfo.uniLmScales = null;
 
   List<Shader> shaders2D = [null, null];
 	shaders2D[0] = CompileShader(WebGL.VERTEX_SHADER, vertSrc, null);

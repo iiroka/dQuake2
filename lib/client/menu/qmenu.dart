@@ -199,6 +199,13 @@ class menuframework_s {
     return false;
   }
 
+  SlideItem(int dir) async {
+	  final item = this.ItemAtCursor();
+    if (item != null) {
+      await item.DoSlide(dir);
+    }
+  }
+
   int _TallySlots() {
     int total = 0;
 
@@ -254,6 +261,7 @@ abstract class menucommon_s {
 
   Future<void> draw();
   Future<bool> DoEnter() async { return false; }
+  Future<void> DoSlide(int dir) async {}
 }
 
 class menuaction_s extends menucommon_s {
@@ -292,6 +300,65 @@ class menuaction_s extends menucommon_s {
     }
     return true;
     }
+}
+
+  const _SLIDER_RANGE = 10;
+
+class menuslider_s extends menucommon_s {
+	double minvalue = 0;
+	double maxvalue = 0;
+	double curvalue = 0;
+
+	double range = 0;
+
+  menuslider_s(String name) : super(name, MTYPE_SLIDER);
+
+  Future<void> draw() async {
+    int i;
+    final scale = SCR_GetMenuScale();
+
+    Menu_DrawStringR2LDark((this.x + this.parent.x + LCOLUMN_OFFSET * scale).toInt(),
+      this.y + this.parent.y, this.name);
+
+    this.range = (this.curvalue - this.minvalue) / (this.maxvalue - this.minvalue).toDouble();
+
+    if (this.range < 0) {
+      this.range = 0;
+    }
+
+    if (this.range > 1) {
+      this.range = 1;
+    }
+
+    re.DrawCharScaled(this.x + (this.parent.x + RCOLUMN_OFFSET * scale).toInt(),
+        ((this.y + this.parent.y) * scale).toInt(), 128, scale);
+
+    for (i = 0; i < _SLIDER_RANGE * scale; i++) {
+      re.DrawCharScaled((RCOLUMN_OFFSET * scale + this.x + i * 8 + this.parent.x + 8).toInt(),
+            ((this.y + this.parent.y) * scale).toInt(), 129, scale);
+    }
+
+    re.DrawCharScaled((RCOLUMN_OFFSET * scale + this.x + i * 8 + this.parent.x + 8).toInt(), 
+        ((this.y + this.parent.y) * scale).toInt(), 130, scale);
+    re.DrawCharScaled(((8 + RCOLUMN_OFFSET * scale + this.parent.x + this.x + (_SLIDER_RANGE * scale - 1) * 8 * this.range)).toInt(),
+        ((this.y + this.parent.y) * scale).toInt(), 131, scale);
+  }
+
+  @override
+  Future<void> DoSlide(int dir) async {
+    this.curvalue += dir;
+
+    if (this.curvalue > this.maxvalue) {
+      this.curvalue = this.maxvalue;
+    } else if (this.curvalue < this.minvalue) {
+      this.curvalue = this.minvalue;
+    }
+
+    if (this.callback != null) {
+      await this.callback(this);
+    }
+  }
+
 }
 
 Menu_DrawStatusBar(String string) {
