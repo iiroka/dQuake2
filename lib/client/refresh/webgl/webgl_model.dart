@@ -184,7 +184,7 @@ class msurface_t {
 	int dlight_s = 0, dlight_t = 0;         /* gl lightmap coordinates for dynamic lightmaps */
 
 	glpoly_t polys;                /* multiple if warped */
-	msurface_t texturechain = null;
+	msurface_t texturechain;
 	// struct  msurface_s *lightmapchain; not used/needed anymore
 
 	mtexinfo_t texinfo;
@@ -200,7 +200,7 @@ class msurface_t {
 	Uint8List samples;                          /* [numstyles*surfsize] */
 }
 
-class mleadornode_t {
+class mleafornode_t {
 	int contents;               /* wil be a negative contents number */
 	int visframe;               /* node needs to be traversed if current */
 
@@ -209,15 +209,15 @@ class mleadornode_t {
 	mnode_t parent;
 }
 
-class mnode_t extends mleadornode_t {
+class mnode_t extends mleafornode_t {
 	cplane_t plane;
-	List<mleadornode_t> children = [null, null];
+	List<mleafornode_t> children = [null, null];
 
 	int firstsurface;
 	int numsurfaces;
 }
 
-class mleaf_t extends mleadornode_t {
+class mleaf_t extends mleafornode_t {
 	/* leaf specific */
 	int cluster = 0;
 	int area = 0;
@@ -614,7 +614,7 @@ class webglbrushmodel_t extends webglmodel_t {
     WebGL_LM_EndBuildingLightmaps();
   }
 
-  static SetParent(mleadornode_t anode, mnode_t parent) {
+  static SetParent(mleafornode_t anode, mnode_t parent) {
     anode.parent = parent;
 
     if (anode.contents != -1) {
@@ -1002,7 +1002,7 @@ mleaf_t WebGL_Mod_PointInLeaf(List<double> p, webglbrushmodel_t model) {
 		Com_Error(ERR_DROP, "WebGL_Mod_PointInLeaf: bad model");
 	}
 
-	mleadornode_t anode = model.nodes[0];
+	mleafornode_t anode = model.nodes[0];
 
 	while (true) {
 		if (anode.contents != -1) {

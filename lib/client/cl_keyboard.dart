@@ -844,7 +844,7 @@ Key_Event(int key, bool down, bool special) async {
 		if (kb != null) {
 			if (kb[0] == '+') {
 				/* button commands add keynum and time as a parm */
-				Cbuf_AddText("$kb $key $time");
+				Cbuf_AddText("$kb $key $time\n");
 			} else {
 				Cbuf_AddText(kb);
 				Cbuf_AddText("\n");

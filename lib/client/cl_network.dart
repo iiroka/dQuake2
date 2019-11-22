@@ -38,7 +38,7 @@ import 'package:dQuakeWeb/shared/common.dart';
 import 'menu/menu.dart' show M_ForceMenuOff;
 import 'cl_parse.dart' show CL_ParseServerMessage;
 import 'cl_main.dart' show CL_ClearState, cl_timeout;
-import 'cl_screen.dart' show SCR_EndLoadingPlaque;
+import 'cl_screen.dart' show SCR_EndLoadingPlaque, SCR_BeginLoadingPlaque;
 
 CL_ForwardToServer_f(List<String> args) async {
 	if ((cls.state != connstate_t.ca_connected) && (cls.state != connstate_t.ca_active)) {
@@ -233,7 +233,7 @@ CL_Changing_f(List<String> args) async {
 	// 	return;
 	// }
 
-	// SCR_BeginLoadingPlaque();
+	await SCR_BeginLoadingPlaque();
 	cls.state = connstate_t.ca_connected; /* not active anymore, but not disconnected */
 	Com_Printf("\nChanging map...\n");
 

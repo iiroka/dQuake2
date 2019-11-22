@@ -300,7 +300,7 @@ enum imagetype_t {
  *        in ref_gl should be ok)
  */
 class webglimage_t {
-	String name;               /* game path, including extension */
+	final String name;               /* game path, including extension */
 	imagetype_t type;
 	int width, height;                  /* source image */
 	//int upload_width, upload_height;    /* after power of two and picmip */
@@ -309,7 +309,9 @@ class webglimage_t {
 	Texture texture;                      /* gl texture binding */
 	double sl, tl, sh, th;               /* 0,0 - 1,1 unless part of the scrap */
 	// qboolean scrap; // currently unused
-	bool has_alpha;
+	// bool has_alpha;
+
+  webglimage_t(this.name);
 }
 
 const MAX_WEBGLTEXTURES = 1024;

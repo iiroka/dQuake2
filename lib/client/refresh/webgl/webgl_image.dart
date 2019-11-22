@@ -36,19 +36,15 @@ import 'local.dart';
 import 'webgl_model.dart' show registration_sequence;
 
 class glmode_t {
-	String name;
-	int minimize, maximize;
+	final String name;
+	final int minimize, maximize;
 
-  glmode_t(String n, int mi, int ma) {
-    this.name = n;
-    this.minimize = mi;
-    this.maximize = ma;
-  }
+  const glmode_t(this.name, this.minimize, this.maximize);
 }
 
 List<webglimage_t> gltextures = List();
 
-List<glmode_t> modes = [
+const modes = [
 	glmode_t("GL_NEAREST", WebGL.NEAREST, WebGL.NEAREST),
 	glmode_t("GL_LINEAR", WebGL.LINEAR, WebGL.LINEAR),
 	glmode_t("GL_NEAREST_MIPMAP_NEAREST", WebGL.NEAREST_MIPMAP_NEAREST, WebGL.NEAREST),
@@ -205,28 +201,27 @@ webglimage_t WebGL_LoadPic(String name, Uint8List pic, int width, int realwidth,
 	}
 
 	/* find a free gl3image_t */
-  int index = -1;
-	for (int i = 0; i < gltextures.length; i++) {
-    if (gltextures[i] == null) {
-      index = i;
+  int i;
+	for (i = 0; i < gltextures.length; i++) {
+    if (gltextures[i] == null || gltextures[i].texture == null) {
       break;
     }
 	}
 
-  webglimage_t image = webglimage_t();
+  webglimage_t image = webglimage_t(name);
 
-	if (index < 0) {
+	if (i >= gltextures.length) {
 		if (gltextures.length == MAX_WEBGLTEXTURES) {
 			Com_Error(ERR_DROP, "MAX_WEBGLTEXTURES");
 		}
 
 		gltextures.add(image);
 	} else {
-    gltextures[index] = image;
+    gltextures[i] = image;
   }
 
-	image.name = name;
 	image.registration_sequence = registration_sequence;
+  image.texturechain = null;
 
 	image.width = width;
 	image.height = height;

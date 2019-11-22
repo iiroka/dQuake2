@@ -26,6 +26,7 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/collision.dart';
 import 'package:dQuakeWeb/common/pmove.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'cl_main.dart';
@@ -69,6 +70,108 @@ CL_CheckPredictionError() {
 	}
 }
 
+_CL_ClipMoveToEntities(List<double> start, List<double> mins, List<double> maxs,
+		List<double> end, trace_t tr) {
+
+	for (int i = 0; i < cl.frame.num_entities; i++) {
+		int anum = (cl.frame.parse_entities + i) & (MAX_PARSE_ENTITIES - 1);
+		var ent = cl_parse_entities[anum];
+
+		if (ent.solid == 0) {
+			continue;
+		}
+
+		if (ent.number == cl.playernum + 1) {
+			continue;
+		}
+
+    int headnode;
+    List<double> angles;
+
+		if (ent.solid == 31) {
+			/* special value for bmodel */
+			var cmodel = cl.model_clip[ent.modelindex];
+			if (cmodel == null) {
+				continue;
+			}
+
+			headnode = cmodel.headnode;
+			angles = ent.angles;
+		} else {
+			/* encoded bbox */
+			int x = 8 * (ent.solid & 31);
+			int zd = 8 * ((ent.solid >> 5) & 31);
+			int zu = 8 * ((ent.solid >> 10) & 63) - 32;
+
+      List<double> bmins = [(-x).toDouble(), (-x).toDouble(), (-zd).toDouble()];
+      List<double> bmaxs = [x.toDouble(), x.toDouble(), zu.toDouble()];
+
+			headnode = CM_HeadnodeForBox(bmins, bmaxs);
+			angles = [0,0,0]; /* boxes don't rotate */
+		}
+
+		if (tr.allsolid) {
+			return;
+		}
+
+		final trace = CM_TransformedBoxTrace(start, end, mins, maxs, headnode, MASK_PLAYERSOLID, ent.origin, angles);
+
+		if (trace.allsolid || trace.startsolid ||
+			(trace.fraction < tr.fraction)) {
+			trace.ent = ent;
+
+			if (tr.startsolid) {
+				tr.copy(trace);
+				tr.startsolid = true;
+			} else {
+				tr.copy(trace);
+			}
+		}
+		else if (trace.startsolid)
+		{
+			tr.startsolid = true;
+		}
+	}
+}
+
+trace_t _CL_PMTrace(List<double> start, List<double> mins, List<double> maxs, List<double> end) {
+
+	/* check against world */
+	var t = CM_BoxTrace(start, end, mins, maxs, 0, MASK_PLAYERSOLID);
+
+	if (t.fraction < 1.0) {
+		t.ent = 1;
+	}
+
+	/* check all other solid models */
+	_CL_ClipMoveToEntities(start, mins, maxs, end, t);
+
+	return t;
+}
+
+int _CL_PMpointcontents(List<double> point) {
+
+	int contents = CM_PointContents(point, 0);
+
+	for (int i = 0; i < cl.frame.num_entities; i++) {
+		int anum = (cl.frame.parse_entities + i) & (MAX_PARSE_ENTITIES - 1);
+		var ent = cl_parse_entities[anum];
+
+		if (ent.solid != 31) { /* special value for bmodel */
+			continue;
+		}
+
+		var cmodel = cl.model_clip[ent.modelindex];
+		if (cmodel == null) {
+			continue;
+		}
+
+		contents |= CM_TransformedPointContents(point, cmodel.headnode, ent.origin, ent.angles);
+	}
+
+	return contents;
+}
+
 /*
  * Sets cl.predicted_origin and cl.predicted_angles
  */
@@ -107,9 +210,9 @@ CL_PredictMovement() {
 
 	/* copy current state to pmove */
   final pm = pmove_t();
-	// pm.trace = CL_PMTrace;
-	// pm.pointcontents = CL_PMpointcontents;
-	// pm_airaccelerate = atof(cl.configstrings[CS_AIRACCEL]);
+	pm.trace = _CL_PMTrace;
+	pm.pointcontents = _CL_PMpointcontents;
+	pm_airaccelerate = double.tryParse(cl.configstrings[CS_AIRACCEL]) ?? 0;
 	pm.s.copy(cl.frame.playerstate.pmove);
 
 	/* run frames */

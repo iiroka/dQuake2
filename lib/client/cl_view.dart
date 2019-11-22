@@ -274,7 +274,7 @@ V_RenderView() async {
 		   v_forward, etc. */
 		CL_AddEntities();
 
-	// 	// before changing viewport we should trace the crosshair position
+		// before changing viewport we should trace the crosshair position
 	// 	V_Render3dCrosshair();
 
 	// 	if (cl_testparticles->value)
@@ -300,8 +300,8 @@ V_RenderView() async {
 	// 		cl.refdef.blend[3] = 0.5;
 	// 	}
 
-	// 	/* offset vieworg appropriately if
-	// 	   we're doing stereo separation */
+		/* offset vieworg appropriately if
+		   we're doing stereo separation */
 
 	// 	if (stereo_separation != 0)
 	// 	{

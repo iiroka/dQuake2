@@ -157,20 +157,15 @@ VID_Init() async {
 // ----------------
 
 class vidmode_t {
-	String description;
-	int width, height;
-	int mode;
+	final String description;
+	final int width, height;
+	final int mode;
 
-  vidmode_t(String d, int w, int h, int m) {
-    this.description = d;
-    this.width = w;
-    this.height = h;
-    this.mode = m;
-  }
+  const vidmode_t(this.description, this.width, this.height, this.mode);
 }
 
 // This must be the same as VID_MenuInit()->resolutions[] in videomenu.c!
-List<vidmode_t> vid_modes = [
+const vid_modes = [
 	vidmode_t("Mode  0:  320x240", 320, 240, 0),
 	vidmode_t("Mode  1:  400x300", 400, 300, 1),
 	vidmode_t("Mode  2:  512x384", 512, 384, 2),

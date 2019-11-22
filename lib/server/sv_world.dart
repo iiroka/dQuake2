@@ -387,6 +387,24 @@ List<edict_s> SV_AreaEdicts(List<double> mins, List<double> maxs, int areatype) 
 	return _area_list;
 }
 
+int SV_PointContents(List<double> p) {
+
+	/* get base contents from world */
+	int contents = CM_PointContents(p, sv.models[1].headnode);
+
+	/* or in contents from all the other entities */
+	final touch = SV_AreaEdicts(p, p, AREA_SOLID);
+	for (var hit in touch) {
+		/* might intersect, so do an exact clip */
+		int headnode = SV_HullForEntity(hit);
+		int c2 = CM_TransformedPointContents(p, headnode, hit.s.origin, hit.s.angles);
+		contents |= c2;
+	}
+
+	return contents;
+}
+
+
 class _moveclip_t {
 	List<double> boxmins = [0,0,0], boxmaxs = [0,0,0]; /* enclose the test object along entire move */
 	List<double> mins, maxs; /* size of the moving object */

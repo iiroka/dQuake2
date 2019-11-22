@@ -510,7 +510,7 @@ WebGL_DrawBrushModel(entity_t e) {
 	}
 }
 
-_RecursiveWorldNode(webglbrushmodel_t model, mleadornode_t anode) {
+_RecursiveWorldNode(webglbrushmodel_t model, mleafornode_t anode) {
 
 	if (anode.contents == CONTENTS_SOLID) {
 		return; /* solid */
@@ -713,7 +713,7 @@ WebGL_MarkLeaves() {
 		}
 
 		if ((vis[cluster >> 3] & (1 << (cluster & 7))) != 0) {
-			mleadornode_t node = leaf;
+			mleafornode_t node = leaf;
 
 			do
 			{

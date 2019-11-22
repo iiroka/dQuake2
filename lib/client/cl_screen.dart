@@ -27,6 +27,7 @@
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/cvar.dart';
+import 'package:dQuakeWeb/common/frame.dart' show developer;
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'vid/vid.dart';
 import 'cl_console.dart' show con, Con_CheckResize, Con_DrawConsole, DrawStringScaled;
@@ -42,7 +43,7 @@ bool scr_initialized = false; /* ready to draw */
 int scr_draw_loading = 0;
 
 class vrect_t {
-	int				x = 0,y = 0, width = 0,height = 0;
+	int x = 0,y = 0, width = 0,height = 0;
 }
 
 vrect_t scr_vrect = vrect_t(); /* position of render window on screen */
@@ -78,6 +79,44 @@ class dirty_t {
 
 dirty_t scr_dirty = dirty_t();
 List<dirty_t> scr_old_dirty = [dirty_t(), dirty_t()];
+
+SCR_BeginLoadingPlaque() async {
+	// S_StopAllSounds();
+	cl.sound_prepped = false; /* don't play ambients */
+
+	// OGG_Stop();
+
+	if (cls.disable_screen != 0) {
+		return;
+	}
+
+	if (developer.boolean) {
+		return;
+	}
+
+	if (cls.state == connstate_t.ca_disconnected) {
+		/* if at console, don't bring up the plaque */
+		return;
+	}
+
+	if (cls.key_dest == keydest_t.key_console) {
+		return;
+	}
+
+	if (cl.cinematictime > 0) {
+		scr_draw_loading = 2; /* clear to balack first */
+	} else {
+		scr_draw_loading = 1;
+	}
+
+	await SCR_UpdateScreen();
+
+	scr_draw_loading = 0;
+
+	// SCR_StopCinematic();
+	cls.disable_screen = Sys_Milliseconds().toDouble();
+	cls.disable_servercount = cl.servercount;
+}
 
 SCR_EndLoadingPlaque() {
 	cls.disable_screen = 0;
@@ -388,12 +427,6 @@ SCR_TouchPics() async {
 
 
 SCR_ExecuteLayoutString(String s) async {
-	// int x, y;
-	// int value;
-	// char *token;
-	// int width;
-	// int index;
-	// clientinfo_t *ci;
 
 	final scale = SCR_GetHUDScale();
 
@@ -777,21 +810,15 @@ SCR_DrawLayout() async {
  * explicitly to flush text to the screen.
  */
 SCR_UpdateScreen() async {
-	// int numframes;
-	// int i;
-	// float separation[2] = {0, 0};
 	final scale = SCR_GetMenuScale();
 
-	// /* if the screen is disabled (loading plaque is
-	//    up, or vid mode changing) do nothing at all */
-	// if (cls.disable_screen)
-	// {
-	// 	if (Sys_Milliseconds() - cls.disable_screen > 120000)
-	// 	{
+	/* if the screen is disabled (loading plaque is
+	   up, or vid mode changing) do nothing at all */
+	// if (cls.disable_screen != 0) {
+	// 	if (Sys_Milliseconds() - cls.disable_screen > 120000) {
 	// 		cls.disable_screen = 0;
 	// 		Com_Printf("Loading plaque timed out.\n");
 	// 	}
-
 	// 	return;
 	// }
 
@@ -803,58 +830,48 @@ SCR_UpdateScreen() async {
   re.BeginFrame();
 
   if (scr_draw_loading == 2) {
-// 		/* loading plaque over black screen */
-// 		int w, h;
-
+		/* loading plaque over black screen */
 // 		if(i == 0){
 // 			R_SetPalette(NULL);
 // 		}
 
-// 		if(i == numframes - 1){
-// 			scr_draw_loading = false;
-// 		}
+		// if(i == numframes - 1){
+			scr_draw_loading = 0;
+		// }
 
 		final size = await re.DrawGetPicSize("loading");
 		await re.DrawPicScaled((viddef.width - size[0] * scale) ~/ 2, (viddef.height - size[1] * scale) ~/ 2, "loading", scale);
   }
 
-// 	/* if a cinematic is supposed to be running,
-// 	   handle menus and console specially */
-// 	else if (cl.cinematictime > 0)
-// 	{
-// 		if (cls.key_dest == key_menu)
-// 		{
-// 			if (cl.cinematicpalette_active)
-// 			{
+	/* if a cinematic is supposed to be running,
+	   handle menus and console specially */
+	else if (cl.cinematictime > 0) {
+
+		if (cls.key_dest == keydest_t.key_menu) {
+			if (cl.cinematicpalette_active) {
 // 				R_SetPalette(NULL);
-// 				cl.cinematicpalette_active = false;
-// 			}
+				cl.cinematicpalette_active = false;
+			}
 
 // 			M_Draw();
-// 		}
-// 		else if (cls.key_dest == key_console)
-// 		{
-// 			if (cl.cinematicpalette_active)
-// 			{
+		} else if (cls.key_dest == keydest_t.key_console) {
+			if (cl.cinematicpalette_active) {
 // 				R_SetPalette(NULL);
-// 				cl.cinematicpalette_active = false;
-// 			}
+				cl.cinematicpalette_active = false;
+			}
 
-// 			SCR_DrawConsole();
-// 		}
-// 		else
-// 		{
+			SCR_DrawConsole();
+		} else {
 // 			SCR_DrawCinematic();
-// 		}
-  // }
-  else
-  {
-// 		/* make sure the game palette is active */
-// 		if (cl.cinematicpalette_active)
-// 		{
+		}
+
+  } else {
+
+		/* make sure the game palette is active */
+		if (cl.cinematicpalette_active) {
 // 			R_SetPalette(NULL);
-// 			cl.cinematicpalette_active = false;
-// 		}
+			cl.cinematicpalette_active = false;
+		}
 
     /* do 3D refresh drawing, and then update the screen */
     SCR_CalcVrect();

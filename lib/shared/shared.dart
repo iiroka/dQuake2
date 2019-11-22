@@ -96,9 +96,9 @@ const AREA_TRIGGERS = 2;
 /* plane_t structure */
 class cplane_t {
 	List<double> normal = [0,0,0];
-	double dist;
-	int type; /* for fast side tests */
-	int signbits; /* signx + (signy<<1) + (signz<<2) */
+	double dist = 0;
+	int type = 0; /* for fast side tests */
+	int signbits = 0; /* signx + (signy<<1) + (signz<<2) */
 	// byte pad[2];
 
   copy(cplane_t other) {
@@ -145,7 +145,18 @@ class trace_t {
 	cplane_t plane = cplane_t();         /* surface normal at impact */
 	csurface_t surface;    /* surface hit */
 	int contents = 0;           /* contents on other side of surface hit */
-	edict_s ent;    /* not set by CM_*() functions */
+	dynamic ent;    /* not set by CM_*() functions */
+
+  copy(trace_t other) {
+    this.allsolid = other.allsolid;
+    this.startsolid = other.startsolid;
+    this.fraction = other.fraction;
+    this.endpos.setAll(0, other.endpos);
+    this.plane.copy(other.plane);
+    this.surface = other.surface;
+    this.contents = other.contents;
+    this.ent = other.ent;
+  }
 }
 
 
@@ -204,6 +215,26 @@ class pmove_state_t {
     this.pm_time = other.pm_time;
     this.gravity = other.gravity;
     this.delta_angles.setAll(0, other.delta_angles);
+  }
+
+  @override
+  bool operator ==(dynamic other) {
+    if (other.runtimeType != runtimeType)
+      return false;
+    final pmove_state_t typedOther = other;
+    var diff = false;
+    for (int i = 0; !diff && i < 3; i++) {
+      diff = ((this.origin[i] != typedOther.origin[i]) ||
+              (this.velocity[i] != typedOther.velocity[i]) ||
+              (this.delta_angles[i] != typedOther.delta_angles[i]));
+    }
+    if (diff) {
+      return false;
+    }
+    return (this.pm_type == typedOther.pm_type) &&
+           (this.pm_flags == typedOther.pm_flags) &&
+           (this.pm_time == typedOther.pm_time) &&
+           (this.gravity == typedOther.gravity);
   }
 }
 
@@ -267,8 +298,8 @@ class pmove_t {
 	int waterlevel = 0;
 
 	/* callbacks to test the world */
-	// trace_t (*trace)(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end);
-	// int (*pointcontents)(vec3_t point);
+	trace_t Function(List<double>, List<double>, List<double>, List<double>) trace;
+	int Function(List<double>) pointcontents;
 }
 
 /* entity_state_t->effects
@@ -1277,6 +1308,22 @@ ParseResult COM_Parse(String data, int index) {
 	} while (index < data.length && data.codeUnitAt(index) > 32);
 
 	return ParseResult(token.toString(), index);
+}
+
+/*
+ * Some characters are illegal in info strings
+ * because they can mess up the server's parsing
+ */
+bool Info_Validate(String s) {
+	if (s.contains("\"")) {
+		return false;
+	}
+
+	if (s.contains(";")) {
+		return false;
+	}
+
+	return true;
 }
 
 String Info_ValueForKey(String s, String key) {

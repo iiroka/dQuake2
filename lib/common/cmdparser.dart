@@ -35,11 +35,8 @@ const ALIAS_LOOP_COUNT = 16;
 
 typedef xcommand_t = Function(List<String>);
 class xcommandHolder {
-  xcommand_t func;
-
-  xcommandHolder(xcommand_t func) {
-    this.func = func;
-  }
+  final xcommand_t func;
+  xcommandHolder(this.func);
 }
 
 bool cmd_wait = false;

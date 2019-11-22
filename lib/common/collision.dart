@@ -243,7 +243,6 @@ _CM_InitBoxHull() {
   map_leafs.add(box_leaf);
 
 	map_leafbrushes.add(map_brushes.length - 1);
-  final numplanes = map_planes.length;
 
 	for (int i = 0; i < 6; i++) {
 		int side = i & 1;
@@ -393,6 +392,45 @@ int CM_PointLeafnum(List<double> p) {
 		return 0; /* sound may call this without map loaded */
 	}
 	return _CM_PointLeafnum_r(p, 0);
+}
+
+int CM_PointContents(List<double> p, int headnode) {
+
+	if (map_nodes.isEmpty) { /* map not loaded */
+		return 0;
+	}
+
+	int l = _CM_PointLeafnum_r(p, headnode);
+	return map_leafs[l].contents;
+}
+
+/*
+ * Handles offseting and rotation of the end points for moving and
+ * rotating entities
+ */
+int CM_TransformedPointContents(List<double> p, int headnode,
+		List<double> origin, List<double> angles) {
+
+	/* subtract origin offset */
+  List<double> p_l = [0,0,0];
+	VectorSubtract(p, origin, p_l);
+
+	/* rotate start and end into the models frame of reference */
+	if ((headnode != box_headnode) &&
+		(angles[0] != 0 || angles[1] != 0 || angles[2] != 0)) {
+    List<double> forward = [0,0,0];
+    List<double> right = [0,0,0];
+    List<double> up = [0,0,0];
+		AngleVectors(angles, forward, right, up);
+
+    List<double> temp = [p_l[0],p_l[1],p_l[2]];
+		p_l[0] = DotProduct(temp, forward);
+		p_l[1] = -DotProduct(temp, right);
+		p_l[2] = DotProduct(temp, up);
+	}
+
+	int l = _CM_PointLeafnum_r(p_l, headnode);
+	return map_leafs[l].contents;
 }
 
 CM_ClipBoxToBrush(List<double> mins, List<double> maxs, List<double> p1,

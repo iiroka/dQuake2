@@ -257,7 +257,7 @@ final ucmds = {
   "nextserver": SV_Nextserver_f
 };
 
-SV_ExecuteUserCommand(String s) {
+SV_ExecuteUserCommand(String s) async {
 
 	/* Security Fix... This is being set to false so that client's can't
 	   macro expand variables on the server.  It seems unlikely that a
@@ -267,7 +267,7 @@ SV_ExecuteUserCommand(String s) {
 
   final u = ucmds[args[0]];
   if (u != null) {
-    u(args);
+    await u(args);
     return;
   }
 
@@ -286,7 +286,7 @@ SV_ClientThink(client_t cl, usercmd_t cmd) async {
 		return;
 	}
 
-	// ge->ClientThink(cl->edict, cmd);
+	ge.ClientThink(cl.edict, cmd);
 }
 
 /*
@@ -399,7 +399,7 @@ SV_ExecuteClientMessage(client_t cl, Readbuf msg) async {
 
 				/* malicious users may try using too many string commands */
 				if (++stringCmdCount < MAX_STRINGCMDS) {
-					SV_ExecuteUserCommand(s);
+					await SV_ExecuteUserCommand(s);
 				}
 
 				if (cl.state == client_state_t.cs_zombie) {

@@ -28,6 +28,8 @@ import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/cmdparser.dart';
 import 'package:dQuakeWeb/common/collision.dart';
+import 'package:dQuakeWeb/common/pmove.dart' show pm_airaccelerate;
+import 'package:dQuakeWeb/client/cl_screen.dart';
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'server.dart';
@@ -129,16 +131,13 @@ SV_SpawnServer(String server, String spawnpoint, server_state_t serverstate,
 	/* save name for levels that don't set message */
 	sv.configstrings[CS_NAME] = server;
 
-	// if (Cvar_VariableValue("deathmatch"))
-	// {
-	// 	sprintf(sv.configstrings[CS_AIRACCEL], "%g", sv_airaccelerate->value);
-	// 	pm_airaccelerate = sv_airaccelerate->value;
-	// }
-	// else
-	// {
-	// 	strcpy(sv.configstrings[CS_AIRACCEL], "0");
-	// 	pm_airaccelerate = 0;
-	// }
+	if (Cvar_VariableBool("deathmatch")) {
+	  sv.configstrings[CS_AIRACCEL] = sv_airaccelerate.string;
+		pm_airaccelerate = sv_airaccelerate.value;
+	} else {
+	  sv.configstrings[CS_AIRACCEL] = "0";
+		pm_airaccelerate = 0;
+	}
 
   sv.multicast.Init();
 
@@ -217,7 +216,7 @@ SV_SpawnServer(String server, String spawnpoint, server_state_t serverstate,
 /*
  * A brand new game has been started
  */
-SV_InitGame() {
+SV_InitGame() async {
 
 	if (svs.initialized) {
 		/* cause any connected clients to reconnect */
@@ -225,7 +224,7 @@ SV_InitGame() {
 	} else {
 		/* make sure the client is down */
 		// CL_Drop();
-		// SCR_BeginLoadingPlaque();
+		await SCR_BeginLoadingPlaque();
 	}
 
 	/* get any latched variable changes (maxclients, etc) */
@@ -312,7 +311,7 @@ SV_Map(bool attractloop, String levelstring, bool loadgame) async {
 	sv.attractloop = attractloop;
 
 	if ((sv.state == server_state_t.ss_dead) && !sv.loadgame) {
-		SV_InitGame(); /* the game is just starting */
+		await SV_InitGame(); /* the game is just starting */
 	}
 
 	var level = levelstring;
@@ -348,19 +347,19 @@ SV_Map(bool attractloop, String levelstring, bool loadgame) async {
 	}
 
   if (level.endsWith(".cin")) {
-// 		SCR_BeginLoadingPlaque(); /* for local system */
+		await SCR_BeginLoadingPlaque(); /* for local system */
 		SV_BroadcastCommand("changing\n");
 		await SV_SpawnServer(level, spawnpoint, server_state_t.ss_cinematic, attractloop, loadgame);
 	} else   if (level.endsWith(".dm2")) {
-// 		SCR_BeginLoadingPlaque(); /* for local system */
+		await SCR_BeginLoadingPlaque(); /* for local system */
 		SV_BroadcastCommand("changing\n");
 		await SV_SpawnServer(level, spawnpoint, server_state_t.ss_demo, attractloop, loadgame);
 	} else   if (level.endsWith(".pcx")) {
-// 		SCR_BeginLoadingPlaque(); /* for local system */
+		await SCR_BeginLoadingPlaque(); /* for local system */
 		SV_BroadcastCommand("changing\n");
 		await SV_SpawnServer(level, spawnpoint, server_state_t.ss_pic, attractloop, loadgame);
 	} else {
-// 		SCR_BeginLoadingPlaque(); /* for local system */
+		await SCR_BeginLoadingPlaque(); /* for local system */
 		SV_BroadcastCommand("changing\n");
 // 		SV_SendClientMessages();
 		await SV_SpawnServer(level, spawnpoint, server_state_t.ss_game, attractloop, loadgame);

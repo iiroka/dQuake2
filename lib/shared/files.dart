@@ -385,7 +385,7 @@ class dedge_t {
 	List<int> v; /* vertex numbers */
 
   dedge_t(ByteData data, int offset) {
-    this.v = List.generate(3, (i) => data.getUint16(offset + i * 2, Endian.little));
+    this.v = List.generate(2, (i) => data.getUint16(offset + i * 2, Endian.little));
   }
 }
 
@@ -491,7 +491,7 @@ class dvis_t {
   dvis_t(ByteData data, int offset) {
     this.numclusters = data.getInt32(offset, Endian.little);
     this.bitofs = List.generate(this.numclusters, (i) => 
-      [data.getInt32(offset + (i + 1) *4, Endian.little), data.getInt32(offset + (i + 2) *4, Endian.little)]);
+      [data.getInt32(offset + (i + 1) * 4, Endian.little), data.getInt32(offset + (i + 2) * 4, Endian.little)]);
   }
 }
 

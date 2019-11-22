@@ -124,7 +124,7 @@ class client_state_t {
 
 	/* transient data from server */
 	String layout = ""; /* general 2D overlay */
-	// int			inventory[MAX_ITEMS];
+	List<int> inventory = List(MAX_ITEMS);
 
 	// /* non-gameserver infornamtion */
 	// fileHandle_t cinematic_file;
@@ -133,7 +133,7 @@ class client_state_t {
 	int			cinematictime = 0; /* cls.realtime for first cinematic frame */
 	int			cinematicframe = 0;
 	// unsigned char	cinematicpalette[768];
-	bool	cinematicpalette_active;
+	bool	cinematicpalette_active = false;
 
 	/* server state information */
 	bool	attractloop = false; /* running the attract loop, any key will menu */

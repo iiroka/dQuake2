@@ -37,7 +37,7 @@ import 'g_utils.dart';
 import 'g_items.dart';
 import 'g_misc.dart';
 import 'savegame/savegame.dart';
-import 'player/client.dart' show SP_info_player_start;
+import 'player/client.dart' show SP_info_player_start, SaveClientData;
 import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
 
 final spawns = {
@@ -239,7 +239,7 @@ G_SpawnEntities(String mapname, String entities, String spawnpoint) async {
 		Cvar_ForceSet("skill", skill_level.toString());
 	}
 
-	// SaveClientData();
+	SaveClientData();
 
 	// gi.FreeTags(TAG_LEVEL);
 

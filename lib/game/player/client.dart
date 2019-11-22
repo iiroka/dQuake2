@@ -23,7 +23,9 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/client/client.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/pmove.dart' show Pmove;
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
@@ -32,6 +34,7 @@ import 'package:dQuakeWeb/server/sv_world.dart';
 import '../game.dart';
 import '../g_items.dart';
 import '../g_utils.dart';
+import 'view.dart';
 
 /*
  * QUAKED info_player_start (1 0 0) (-16 -16 -24) (16 16 32)
@@ -99,7 +102,46 @@ InitClientResp(gclient_t client) {
 
 	client.resp.clear();
 	client.resp.enterframe = level.framenum;
-	client.resp.coop_respawn = client.pers;
+	client.resp.coop_respawn.copy(client.pers);
+}
+
+/*
+ * Some information that should be persistant, like health,
+ * is still stored in the edict structure, so it needs to
+ * be mirrored out to the client structure before all the
+ * edicts are wiped.
+ */
+SaveClientData() {
+
+	for (int i = 0; i < game.maxclients; i++) {
+		var ent = g_edicts[1 + i];
+
+		if (!ent.inuse) {
+			continue;
+		}
+
+		game.clients[i].pers.health = ent.health;
+		game.clients[i].pers.max_health = ent.max_health;
+		game.clients[i].pers.savedFlags = (ent.flags & (FL_GODMODE | FL_NOTARGET | FL_POWER_ARMOR));
+
+		if (coop.boolean) {
+			game.clients[i].pers.score = (ent.client as gclient_t).resp.score;
+		}
+	}
+}
+
+FetchClientEntData(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	ent.health = (ent.client as gclient_t).pers.health;
+	ent.max_health = (ent.client as gclient_t).pers.max_health;
+	ent.flags |= (ent.client as gclient_t).pers.savedFlags;
+
+	if (coop.boolean) {
+		(ent.client as gclient_t).resp.score = (ent.client as gclient_t).pers.score;
+	}
 }
 
 /*
@@ -225,28 +267,26 @@ PutClientInServer(edict_t ent) {
 	var client = ent.client as gclient_t;
 
 	/* deathmatch wipes most client data every spawn */
+  var resp = client_respawn_t();
 	if (deathmatch.boolean) {
-		// resp = client->resp;
-		// memcpy(userinfo, client->pers.userinfo, sizeof(userinfo));
-		// InitClientPersistant(client);
-		// ClientUserinfoChanged(ent, userinfo);
+		resp.copy(client.resp);
+		var userinfo = String.fromCharCodes(client.pers.userinfo.codeUnits);
+		InitClientPersistant(client);
+		G_ClientUserinfoChanged(ent, userinfo);
 	} else if (coop.boolean) {
-		// resp = client->resp;
-		// memcpy(userinfo, client->pers.userinfo, sizeof(userinfo));
-		// resp.coop_respawn.game_helpchanged = client->pers.game_helpchanged;
-		// resp.coop_respawn.helpchanged = client->pers.helpchanged;
-		// client->pers = resp.coop_respawn;
-		// ClientUserinfoChanged(ent, userinfo);
+		resp.copy(client.resp);
+		var userinfo = String.fromCharCodes(client.pers.userinfo.codeUnits);
+		resp.coop_respawn.game_helpchanged = client.pers.game_helpchanged;
+		resp.coop_respawn.helpchanged = client.pers.helpchanged;
+		client.pers.copy(resp.coop_respawn);
+		G_ClientUserinfoChanged(ent, userinfo);
 
-		// if (resp.score > client->pers.score)
-		// {
-		// 	client->pers.score = resp.score;
-		// }
-	} else {
-		// memset(&resp, 0, sizeof(resp));
+		if (resp.score > client.pers.score) {
+			client.pers.score = resp.score;
+		}
 	}
 
-	String userinfo = client.pers.userinfo;
+  var userinfo = String.fromCharCodes(client.pers.userinfo.codeUnits);
 	G_ClientUserinfoChanged(ent, userinfo);
 
 	/* clear everything but the persistant data */
@@ -256,10 +296,10 @@ PutClientInServer(edict_t ent) {
 		InitClientPersistant(client);
 	}
 
-	// client->resp = resp;
+	client.resp.copy(resp);
 
-	// /* copy some data from the client to the entity */
-	// FetchClientEntData(ent);
+	/* copy some data from the client to the entity */
+	FetchClientEntData(ent);
 
 	/* clear entity values */
 	ent.groundentity = null;
@@ -293,20 +333,18 @@ PutClientInServer(edict_t ent) {
 	client.ps.pmove.origin[1] = (spawn_origin[1] * 8).toInt();
 	client.ps.pmove.origin[2] = (spawn_origin[2] * 8).toInt();
 
-	// if (deathmatch->value && ((int)dmflags->value & DF_FIXED_FOV))
-	// {
-	// 	client->ps.fov = 90;
-	// }
-	// else
-	// {
-		client.ps.fov = int.parse(Info_ValueForKey(client.pers.userinfo, "fov")).toDouble();
-
+	if (deathmatch.boolean && (dmflags.integer & DF_FIXED_FOV) != 0) {
+		client.ps.fov = 90;
+	}
+	else
+	{
+		client.ps.fov = (int.tryParse(Info_ValueForKey(client.pers.userinfo, "fov")) ?? 0).toDouble();
 		if (client.ps.fov < 1) {
 			client.ps.fov = 90;
 		} else if (client.ps.fov > 160) {
 			client.ps.fov = 160;
 		}
-	// }
+	}
 
 	client.ps.gunindex = SV_ModelIndex(client.pers.weapon.view_model);
 
@@ -402,7 +440,7 @@ G_ClientBegin(edict_t ent) {
 		G_InitEdict(ent);
 		ent.classname = "player";
 		InitClientResp(ent.client);
-		// PutClientInServer(ent);
+		PutClientInServer(ent);
 	}
 
 	if (level.intermissiontime != 0) {
@@ -421,7 +459,7 @@ G_ClientBegin(edict_t ent) {
 	}
 
 	/* make sure all view stuff is valid */
-	// ClientEndServerFrame(ent);
+	ClientEndServerFrame(ent);
 }
 
 
@@ -437,9 +475,9 @@ G_ClientUserinfoChanged(edict_t ent, String userinfo) {
 	}
 
 	/* check for malformed or illegal info strings */
-	// if (!Info_Validate(userinfo)) {
-	// 	strcpy(userinfo, "\\name\\badinfo\\skin\\male/grunt");
-	// }
+	if (!Info_Validate(userinfo)) {
+		userinfo = "\\name\\badinfo\\skin\\male/grunt";
+	}
 
 	/* set name */
 	var s = Info_ValueForKey(userinfo, "name");
@@ -471,7 +509,7 @@ G_ClientUserinfoChanged(edict_t ent, String userinfo) {
 	}
 	else
 	{
-		ent.client.ps.fov = int.parse(Info_ValueForKey(userinfo, "fov")).toDouble();
+    ent.client.ps.fov = (int.tryParse(Info_ValueForKey(userinfo, "fov")) ?? 0).toDouble();
 
 		if (ent.client.ps.fov < 1) {
 			ent.client.ps.fov = 90;
@@ -488,7 +526,7 @@ G_ClientUserinfoChanged(edict_t ent, String userinfo) {
 	}
 
 	/* save off the userinfo in case we want to check something later */
-	(ent.client as gclient_t).pers.userinfo = userinfo;
+	(ent.client as gclient_t).pers.userinfo = String.fromCharCodes(userinfo.codeUnits);
 }
 
 
@@ -583,6 +621,235 @@ Future<bool> G_ClientConnect(edict_t ent, String userinfo) async {
 	return true;
 }
 
+/* ============================================================== */
+
+edict_t pm_passent;
+
+/*
+ * pmove doesn't need to know
+ * about passent and contentmask
+ */
+trace_t PM_trace(List<double> start, List<double> mins, List<double> maxs, List<double> end) {
+	if (pm_passent.health > 0) {
+		return SV_Trace(start, mins, maxs, end, pm_passent, MASK_PLAYERSOLID);
+	} else {
+		return SV_Trace(start, mins, maxs, end, pm_passent, MASK_DEADSOLID);
+	}
+}
+
+/*
+ * This will be called once for each client frame, which will
+ * usually be a couple times for each server frame.
+ */
+G_ClientThink(edict_t ent, usercmd_t ucmd) {
+	// gclient_t *client;
+	// edict_t *other;
+	// int i, j;
+	// pmove_t pm;
+
+	if (ent == null || ucmd == null) {
+		return;
+	}
+
+	level.current_entity = ent;
+	final client = ent.client as gclient_t;
+
+	// if (level.intermissiontime)
+	// {
+	// 	client->ps.pmove.pm_type = PM_FREEZE;
+
+	// 	/* can exit intermission after five seconds */
+	// 	if ((level.time > level.intermissiontime + 5.0) &&
+	// 		(ucmd->buttons & BUTTON_ANY))
+	// 	{
+	// 		level.exitintermission = true;
+	// 	}
+
+	// 	return;
+	// }
+
+	pm_passent = ent;
+
+	if (client.chase_target != null) {
+		client.resp.cmd_angles[0] = SHORT2ANGLE(ucmd.angles[0]);
+		client.resp.cmd_angles[1] = SHORT2ANGLE(ucmd.angles[1]);
+		client.resp.cmd_angles[2] = SHORT2ANGLE(ucmd.angles[2]);
+	} else {
+		/* set up for pmove */
+    final pm = pmove_t();
+
+		if (ent.movetype == movetype_t.MOVETYPE_NOCLIP) {
+			client.ps.pmove.pm_type = pmtype_t.PM_SPECTATOR;
+		} else if (ent.s.modelindex != 255) {
+			client.ps.pmove.pm_type = pmtype_t.PM_GIB;
+		} else if (ent.deadflag != 0) {
+			client.ps.pmove.pm_type = pmtype_t.PM_DEAD;
+		} else {
+			client.ps.pmove.pm_type = pmtype_t.PM_NORMAL;
+		}
+
+		client.ps.pmove.gravity = sv_gravity.integer;
+		pm.s.copy(client.ps.pmove);
+
+		for (int i = 0; i < 3; i++) {
+			pm.s.origin[i] = (ent.s.origin[i] * 8).toInt();
+			/* save to an int first, in case the short overflows
+			 * so we get defined behavior (at least with -fwrapv) */
+			int tmpVel = (ent.velocity[i] * 8).toInt();
+			pm.s.velocity[i] = tmpVel;
+		}
+
+    if (client.old_pmove == pm.s) {
+      pm.snapinitial = true;
+    }
+
+		pm.cmd.copy(ucmd);
+
+		pm.trace = PM_trace; /* adds default parms */
+		pm.pointcontents = SV_PointContents;
+
+		/* perform a pmove */
+		Pmove(pm);
+
+		/* save results of pmove */
+		client.ps.pmove.copy(pm.s);
+		client.old_pmove.copy(pm.s);
+
+		for (int i = 0; i < 3; i++) {
+			ent.s.origin[i] = pm.s.origin[i] * 0.125;
+			ent.velocity[i] = pm.s.velocity[i] * 0.125;
+		}
+
+    ent.mins.setAll(0, pm.mins);
+    ent.maxs.setAll(0, pm.maxs);
+
+		client.resp.cmd_angles[0] = SHORT2ANGLE(ucmd.angles[0]);
+		client.resp.cmd_angles[1] = SHORT2ANGLE(ucmd.angles[1]);
+		client.resp.cmd_angles[2] = SHORT2ANGLE(ucmd.angles[2]);
+
+	// 	if (ent->groundentity && !pm.groundentity && (pm.cmd.upmove >= 10) &&
+	// 		(pm.waterlevel == 0))
+	// 	{
+	// 		gi.sound(ent, CHAN_VOICE, gi.soundindex(
+	// 						"*jump1.wav"), 1, ATTN_NORM, 0);
+	// 		PlayerNoise(ent, ent->s.origin, PNOISE_SELF);
+	// 	}
+
+		ent.viewheight = pm.viewheight.toInt();
+		ent.waterlevel = pm.waterlevel;
+		ent.watertype = pm.watertype;
+		ent.groundentity = pm.groundentity;
+
+		if (pm.groundentity != null) {
+			ent.groundentity_linkcount = pm.groundentity.linkcount;
+		}
+
+		if (ent.deadflag != 0) {
+			client.ps.viewangles[ROLL] = 40;
+			client.ps.viewangles[PITCH] = -15;
+			client.ps.viewangles[YAW] = client.killer_yaw;
+		} else {
+      client.v_angle.setAll(0, pm.viewangles);
+      client.ps.viewangles.setAll(0, pm.viewangles);
+		}
+
+		SV_LinkEdict(ent);
+
+		if (ent.movetype != movetype_t.MOVETYPE_NOCLIP){
+			// G_TouchTriggers(ent);
+		}
+
+		/* touch other objects */
+		for (int i = 0; i < pm.numtouch; i++) {
+			var other = pm.touchents[i] as edict_t;
+
+      int j;
+			for (j = 0; j < i; j++) {
+				if (pm.touchents[j] == other) {
+					break;
+				}
+			}
+
+			if (j != i) {
+				continue; /* duplicated */
+			}
+
+			if (other.touch == null) {
+				continue;
+			}
+
+			other.touch(other, ent, null, null);
+		}
+	}
+
+	client.oldbuttons = client.buttons;
+	client.buttons = ucmd.buttons;
+	client.latched_buttons |= client.buttons & ~client.oldbuttons;
+
+	/* save light level the player is standing
+	   on for monster sighting AI */
+	ent.light_level = ucmd.lightlevel;
+
+	// /* fire weapon from final position if needed */
+	// if (client->latched_buttons & BUTTON_ATTACK)
+	// {
+	// 	if (client->resp.spectator)
+	// 	{
+	// 		client->latched_buttons = 0;
+
+	// 		if (client->chase_target)
+	// 		{
+	// 			client->chase_target = NULL;
+	// 			client->ps.pmove.pm_flags &= ~PMF_NO_PREDICTION;
+	// 		}
+	// 		else
+	// 		{
+	// 			GetChaseTarget(ent);
+	// 		}
+	// 	}
+	// 	else if (!client->weapon_thunk)
+	// 	{
+	// 		client->weapon_thunk = true;
+	// 		Think_Weapon(ent);
+	// 	}
+	// }
+
+	// if (client->resp.spectator)
+	// {
+	// 	if (ucmd->upmove >= 10)
+	// 	{
+	// 		if (!(client->ps.pmove.pm_flags & PMF_JUMP_HELD))
+	// 		{
+	// 			client->ps.pmove.pm_flags |= PMF_JUMP_HELD;
+
+	// 			if (client->chase_target)
+	// 			{
+	// 				ChaseNext(ent);
+	// 			}
+	// 			else
+	// 			{
+	// 				GetChaseTarget(ent);
+	// 			}
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		client->ps.pmove.pm_flags &= ~PMF_JUMP_HELD;
+	// 	}
+	// }
+
+	/* update chase cam if being followed */
+	// for (i = 1; i <= maxclients->value; i++)
+	// {
+	// 	other = g_edicts + i;
+
+	// 	if (other->inuse && (other->client->chase_target == ent))
+	// 	{
+	// 		UpdateChaseCam(other);
+	// 	}
+	// }
+}
+
 /*
  * This will be called once for each server
  * frame, before running any other entities
@@ -608,11 +875,11 @@ ClientBeginServerFrame(edict_t ent) {
 	}
 
 	// /* run weapon animations if it hasn't been done by a ucmd_t */
-	// if (!client.weapon_thunk && !client.resp.spectator) {
+	if (!client.weapon_thunk && !client.resp.spectator) {
 	// 	Think_Weapon(ent);
-	// } else {
-	// 	client.weapon_thunk = false;
-	// }
+	} else {
+		client.weapon_thunk = false;
+	}
 
 	if (ent.deadflag != 0) {
 		/* wait for any button just going down */

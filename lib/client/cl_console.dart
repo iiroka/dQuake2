@@ -31,7 +31,7 @@ import 'package:dQuakeWeb/common/cvar.dart';
 import 'vid/vid.dart' show viddef, re;
 import 'menu/menu.dart';
 import 'client.dart';
-import 'cl_screen.dart' show SCR_GetConsoleScale, SCR_AddDirtyPoint;
+import 'cl_screen.dart' show SCR_GetConsoleScale, SCR_AddDirtyPoint, SCR_EndLoadingPlaque;
 
 const	NUM_CON_TIMES = 4;
 const	CON_TEXTSIZE	= 32768;
@@ -66,7 +66,7 @@ DrawStringScaled(int x, int y, String s, double factor) {
 }
 
 Con_ToggleConsole_f(List<String> args) async {
-	// SCR_EndLoadingPlaque(); /* get rid of loading plaque */
+	SCR_EndLoadingPlaque(); /* get rid of loading plaque */
 
 	if (cl.attractloop) {
 		Cbuf_AddText("killserver\n");
@@ -343,17 +343,15 @@ Con_DrawConsole(double frac) async {
 	var y = (lines - 30 * scale) ~/ scale;
 
 	/* draw from the bottom up */
-// 	if (con.display != con.current)
-// 	{
-// 		/* draw arrows to show the buffer is backscrolled */
-// 		for (x = 0; x < con.linewidth; x += 4)
-// 		{
-// 			Draw_CharScaled(((x + 1) << 3) * scale, y * scale, '^', scale);
-// 		}
+	if (con.display != con.current) {
+		/* draw arrows to show the buffer is backscrolled */
+		for (int x = 0; x < con.linewidth; x += 4) {
+			re.DrawCharScaled((((x + 1) << 3) * scale).toInt(), (y * scale).toInt(), '^'.codeUnitAt(0), scale);
+		}
 
-// 		y -= 8;
-// 		rows--;
-// 	}
+		y -= 8;
+		rows--;
+	}
 
 	var row = con.display;
 

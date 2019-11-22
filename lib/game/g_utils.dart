@@ -106,6 +106,7 @@ edict_t G_Spawn() {
 		Com_Error(ERR_DROP, "Game Error: ED_Alloc: no free edicts");
 	}
 
+  e = g_edicts[i];
 	globals.num_edicts++;
 	G_InitEdict(e);
 	return e;

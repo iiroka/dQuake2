@@ -388,6 +388,31 @@ class client_persistant_t {
 
 	bool spectator = false; /* client is a spectator */
 
+  copy(client_persistant_t other) {
+	  this.userinfo = String.fromCharCodes(other.userinfo.codeUnits);
+	  this.netname = String.fromCharCodes(other.netname.codeUnits);
+	  this.hand = other.hand;
+	  this.connected = other.connected;
+	  this.health = other.health;
+	  this.max_health = other.max_health;
+	  this.savedFlags = other.savedFlags;
+	  this.selected_item = other.selected_item;
+	// int inventory[MAX_ITEMS];
+	  this.max_bullets = other.max_bullets;
+	  this.max_shells = other.max_shells;
+	  this.max_rockets = other.max_rockets;
+	  this.max_grenades = other.max_grenades;
+	  this.max_cells = other.max_cells;
+	  this.max_slugs = other.max_slugs;
+	  this.weapon = other.weapon;
+	  this.lastweapon = other.lastweapon;
+	  this.power_cubes = other.power_cubes;
+	  this.score = other.score;
+	  this.game_helpchanged = other.game_helpchanged;
+	  this.helpchanged = other.helpchanged;
+	  this.spectator = other.spectator;
+  }
+
   clear() {
 	  this.userinfo = "";
 	  this.netname = "";
@@ -429,6 +454,14 @@ class client_respawn_t {
     this.score = 0;
     this.cmd_angles.fillRange(0, 3, 0);
     this.spectator = false;
+  }
+
+  copy(client_respawn_t other) {
+    this.coop_respawn.copy(other.coop_respawn);
+    this.enterframe = other.enterframe;
+    this.score = other.score;
+    this.cmd_angles.setAll(0, other.cmd_angles);
+    this.spectator = other.spectator;
   }
 }
 
@@ -503,7 +536,7 @@ class gclient_t extends gclient_s {
 	/* private to game */
 	client_persistant_t pers = client_persistant_t();
 	client_respawn_t resp = client_respawn_t();
-	// pmove_state_t old_pmove; /* for detecting out-of-pmove changes */
+	pmove_state_t old_pmove = pmove_state_t(); /* for detecting out-of-pmove changes */
 
 	bool showscores = false; /* set layout stat */
 	bool showinventory = false; /* set layout stat */
@@ -574,7 +607,7 @@ class gclient_t extends gclient_s {
 
 	double respawn_time = 0; /* can respawn when time > this */
 
-	// edict_t *chase_target; /* player we are chasing */
+	edict_t chase_target; /* player we are chasing */
 	// qboolean update_chase; /* need to update chase info? */
 
   gclient_t(this.index);
@@ -584,7 +617,7 @@ class gclient_t extends gclient_s {
 	  this.ping = 0;
 
 	  this.resp.clear();
-	// pmove_state_t old_pmove;
+	  this.old_pmove.clear();
 	  this.showscores = false;
 	  this.showinventory = false;
 	  this.showhelp = false;
@@ -633,7 +666,7 @@ class gclient_t extends gclient_s {
 	// // double flood_when[10]; /* when messages were said */
 	// // int flood_whenhead; /* head pointer for when said */
 	  this.respawn_time = 0;
-	// edict_t *chase_target; /* player we are chasing */
+	  this.chase_target = null; /* player we are chasing */
 	// qboolean update_chase; /* need to update chase info? */    
   }
 }

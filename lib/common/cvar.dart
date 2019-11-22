@@ -36,7 +36,7 @@ const CVAR_LATCH = 16;      /* save changes until server restart */
 
 /* nothing outside the Cvar_*() functions should modify these fields! */
 class cvar_t {
-	String name;
+	final String name;
 	String string;
 	String latched_string; /* for CVAR_LATCH vars */
 	int flags;
@@ -44,10 +44,8 @@ class cvar_t {
 	/* Added by YQ2. Must be at the end to preserve ABI. */
 	String default_string;
 
-  cvar_t(String name, String value, int flags) {
-    this.name = name;
+  cvar_t(this.name, String value, this.flags) {
     this.string = value;
-    this.flags = flags;
     this.modified = true;
     this.default_string = value;
     this.latched_string = null;

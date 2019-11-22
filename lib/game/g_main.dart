@@ -25,12 +25,14 @@
  */
 import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/shared/game.dart';
+import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
 import 'g_spawn.dart' show G_SpawnEntities;
 import 'g_items.dart';
 import 'g_monster.dart';
 import 'g_phys.dart';
-import 'player/client.dart' show G_ClientConnect, ClientBeginServerFrame, G_ClientBegin;
+import 'player/client.dart' show G_ClientConnect, ClientBeginServerFrame, 
+    G_ClientBegin, G_ClientThink, G_ClientUserinfoChanged;
 import 'player/view.dart';
 
 Quake2Game globals;
@@ -188,7 +190,9 @@ class Quake2Game extends game_export_t{
   }
 
 
-  Future<void> SpawnEntities(String mapname, String entstring, String spawnpoint) => G_SpawnEntities(mapname, entstring, spawnpoint);
-  Future<bool> ClientConnect(edict_s ent, String userinfo) => G_ClientConnect(ent as edict_t, userinfo);
+  Future<void> SpawnEntities(String mapname, String entstring, String spawnpoint) async => await G_SpawnEntities(mapname, entstring, spawnpoint);
+  Future<bool> ClientConnect(edict_s ent, String userinfo) async => await G_ClientConnect(ent as edict_t, userinfo);
+  void ClientUserinfoChanged(edict_s ent, String userinfo) => G_ClientUserinfoChanged(ent, userinfo);
   void ClientBegin(edict_s ent) => G_ClientBegin(ent as edict_t);
+  void ClientThink(edict_s ent, usercmd_t cmd) => G_ClientThink(ent as edict_t, cmd);
 }

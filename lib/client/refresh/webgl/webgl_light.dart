@@ -42,7 +42,7 @@ cplane_t _lightplane = null;
 List<double> lightspot = [0,0,0];
 
 // bit: 1 << i for light number i, will be or'ed into msurface_t::dlightbits if surface is affected by this light
-WebGL_MarkLights(dlight_t light, int bit, mleadornode_t anode) {
+WebGL_MarkLights(dlight_t light, int bit, mleafornode_t anode) {
 
 	if (anode.contents != -1) {
 		return;
@@ -123,7 +123,7 @@ WebGL_PushDlights() {
 	WebGL_UpdateUBOLights();
 }
 
-int _RecursiveLightPoint(mleadornode_t anode, List<double> start, List<double> end) {
+int _RecursiveLightPoint(mleafornode_t anode, List<double> start, List<double> end) {
 
 	if (anode.contents != -1) {
 		return -1;     /* didn't hit anything */

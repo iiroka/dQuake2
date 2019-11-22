@@ -90,7 +90,7 @@ SV_DropClient(client_t drop) {
 SV_UserinfoChanged(client_t cl) {
 
 	/* call prog code to allow overrides */
-	// ge.ClientUserinfoChanged(cl->edict, cl->userinfo);
+	ge.ClientUserinfoChanged(cl.edict, cl.userinfo);
 
 	/* name for C code */
 	cl.name = Info_ValueForKey(cl.userinfo, "name");
