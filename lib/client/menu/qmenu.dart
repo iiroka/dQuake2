@@ -264,6 +264,50 @@ abstract class menucommon_s {
   Future<void> DoSlide(int dir) async {}
 }
 
+class menulist_s extends menucommon_s {
+  menulist_s(String name) : super(name, MTYPE_SPINCONTROL);
+
+	int curvalue = 0;
+	List<String> itemnames = [];
+
+  Future<void> draw() async {
+    final scale = SCR_GetMenuScale();
+
+    if (this.name != null) {
+      Menu_DrawStringR2LDark(this.x + this.parent.x + (LCOLUMN_OFFSET * scale).toInt(), 
+        this.y + this.parent.y, this.name);
+    }
+
+    if (!this.itemnames[this.curvalue].contains('\n')) {
+      Menu_DrawString((RCOLUMN_OFFSET * scale).toInt() + this.x + this.parent.x, 
+          this.y + this.parent.y, this.itemnames[this.curvalue]);
+    }
+    else
+    {
+      final buffers = this.itemnames[this.curvalue].split('\n');
+      Menu_DrawString((RCOLUMN_OFFSET * scale).toInt() + this.x + this.parent.x, 
+          this.y + this.parent.y, buffers[0]);
+      Menu_DrawString((RCOLUMN_OFFSET * scale).toInt() + this.x + this.parent.x, 
+          this.y + this.parent.y + 10, buffers[1]);
+    }  
+  }
+
+  @override
+  Future<void> DoSlide(int dir) async {
+    this.curvalue += dir;
+
+    if (this.curvalue < 0) {
+      this.curvalue = 0;
+    } else if (this.curvalue >= this.itemnames.length) {
+      this.curvalue--;
+    }
+
+    if (this.callback != null) {
+      await this.callback(this);
+    }
+  }
+}
+
 class menuaction_s extends menucommon_s {
   menuaction_s(String name) : super(name, MTYPE_ACTION);
 
@@ -360,6 +404,18 @@ class menuslider_s extends menucommon_s {
   }
 
 }
+
+class menuseparator_s extends menucommon_s {
+  menuseparator_s(String name) : super(name, MTYPE_SEPARATOR);
+
+  Future<void> draw() async {
+    if (this.name != null) {
+      Menu_DrawStringR2LDark(this.x + this.parent.x,
+          this.y + this.parent.y, this.name);
+    }
+  }  
+}
+
 
 Menu_DrawStatusBar(String string) {
 	final scale = SCR_GetMenuScale();

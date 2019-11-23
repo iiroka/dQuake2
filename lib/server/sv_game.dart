@@ -24,12 +24,15 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/collision.dart' show CM_InlineModel;
 import 'package:dQuakeWeb/game/g_main.dart' show Quake2Game;
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'server.dart';
 import 'sv_send.dart';
+import 'sv_init.dart' show SV_ModelIndex;
+import 'sv_world.dart';
 
 game_export_t ge;
 
@@ -55,6 +58,30 @@ PF_Configstring(int index, String val) {
 		SV_Multicast([0,0,0], multicast_t.MULTICAST_ALL_R);
 	}
 }
+
+/*
+ * Also sets mins and maxs for inline bmodels
+ */
+PF_setmodel(edict_s ent, String name) {
+
+	if (name == null) {
+		Com_Error(ERR_DROP, "PF_setmodel: NULL");
+	}
+
+	int i = SV_ModelIndex(name);
+
+	ent.s.modelindex = i;
+
+	/* if it is an inline model, get
+	   the size information for it */
+	if (name[0] == '*') {
+		final mod = CM_InlineModel(name);
+    ent.mins.setAll(0, mod.mins);
+    ent.maxs.setAll(0, mod.maxs);
+		SV_LinkEdict(ent);
+	}
+}
+
 
 /*
  * Init the game subsystem for a new map

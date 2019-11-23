@@ -33,6 +33,12 @@ const	MAX_PARTICLES	= 4096;
 
 const POWERSUIT_SCALE		= 4.0;
 
+class model_s {
+  String name;
+
+  model_s(this.name);
+}
+
 class dlight_t {
 	List<double>	origin = [0,0,0];
 	List<double>	color = [0,0,0];
@@ -51,7 +57,7 @@ class lightstyle_t {
 }
 
 class entity_t {
-	Object model; /* opaque type outside refresh */
+	model_s model; /* opaque type outside refresh */
 	List<double>			angles = [0,0,0];
 
 	/* most recent data */
@@ -171,7 +177,7 @@ abstract class refexport_t {
 	// an implicit "pics/" prepended to the name. (a pic name that starts with a
 	// slash will not use the "pics/" prefix or the ".pcx" postfix)
 	Future<void>	BeginRegistration (String map);
-	Future<Object> RegisterModel (String name);
+	Future<model_s> RegisterModel (String name);
 	Future<Object> RegisterSkin (String name);
 
 	Future<void> SetSky (String name, double rotate, List<double> axis);

@@ -66,7 +66,7 @@ class webglconfig_t {
 class gl3ShaderInfo_t {
 	Program shaderProgram;
 	UniformLocation uniLmScales;
-  List<double> lmScales = List(16);
+  List<double> lmScales = List(MAX_LIGHTMAPS_PER_SURFACE * 4);
 }
 
 class gl3UniCommon_t {
@@ -89,11 +89,10 @@ class gl3UniCommon_t {
       return this.data[2]; 
    }   
 
-		// entries of std140 UBOs are aligned to multiples of their own size
-		// so we'll need to pad accordingly for following vec4
-		// GLfloat _padding;
+  // entries of std140 UBOs are aligned to multiples of their own size
+  // so we'll need to pad accordingly for following vec4
+  // GLfloat _padding;
 
-	// hmm_vec4 color;
    set color(List<double> value) { 
       this.data[4] = value[0];
       this.data[5] = value[1];
@@ -120,6 +119,7 @@ class gl3Uni3D_t {
   Float32List get transProjMat4 {
     return this.data.sublist(0, 16);
   }
+
 	set transViewMat4 (Float32List val)  {
     assert(val.length == 16);
     this.data.setAll(16, val);
@@ -127,6 +127,7 @@ class gl3Uni3D_t {
   Float32List get transViewMat4 {
     return this.data.sublist(16, 2*16);
   }
+
 	set transModelMat4 (Float32List val)  {
     assert(val.length == 16);
     this.data.setAll(32, val);
@@ -137,28 +138,31 @@ class gl3Uni3D_t {
 
    set scroll(double value) {  // for SURF_FLOWING
       this.data[3 * 16] = value; 
-   }   
+   }
    double get scroll {
       return this.data[3 * 16]; 
-   }   
+   }
+
    set time(double value) {  // for warping surfaces like water & possibly other things
       this.data[3 * 16 + 1] = value; 
-   }   
+   }
    double get time {
       return this.data[3 * 16 + 1]; 
-   }   
+   }
+
    set alpha(double value) {  // for translucent surfaces (water, glass, ..)
       this.data[3 * 16 + 2] = value; 
-   }   
+   }
    double get alpha {
       return this.data[3 * 16 + 2]; 
-   }   
+   }
+
    set overbrightbits(double value) {  // gl3_overbrightbits, applied to lightmaps (and elsewhere to models)
       this.data[3 * 16 + 3] = value; 
-   }   
+   }
    set particleFadeFactor(double value) {  // gl3_particle_fade_factor, higher => less fading out towards edges
       this.data[3 * 16 + 4] = value; 
-   }   
+   }
 
 	// 	GLfloat _padding[3]; // again, some padding to ensure this has right size
 
@@ -170,20 +174,20 @@ class gl3UniDynLight {
     assert(val.length == 3);
     this.data.setAll(0, val);
   }
+  // GLfloat _padding;
 	set color (List<double> val)  {
     assert(val.length == 3);
     this.data.setAll(4, val);
   }
-   set intensity(double value) {
-      this.data[7] = value; 
-   }   
-   double get intensity {
-      return this.data[7]; 
-   }   
+  set intensity(double value) {
+    this.data[7] = value; 
+  }   
+  double get intensity {
+    return this.data[7]; 
+  }   
 
   Float32List data = Float32List(gl3UniDynLightSize);
 }
-
 const gl3UniDynLightSize = 8;
 
 class gl3UniLights_t {
@@ -200,7 +204,6 @@ class gl3UniLights_t {
 
   Float32List data = Float32List(MAX_DLIGHTS * gl3UniDynLightSize + 4);
 }
-
 
 const BLOCK_WIDTH = 1024;
 const BLOCK_HEIGHT = 512;
@@ -258,7 +261,6 @@ class webglstate_t {
   // for brushes etc, using 10 floats and one uint as vertex input (x,y,z, s,t, lms,lmt, normX,normY,normZ ; lightFlags)
   VertexArrayObject vao3D;
   Buffer vbo3D;
-	// GLuint vao3D, vbo3D; // for brushes etc, using 10 floats and one uint as vertex input (x,y,z, s,t, lms,lmt, normX,normY,normZ ; lightFlags)
 
 	// the next two are for gl3config.useBigVBO == true
 	// int vbo3Dsize;
@@ -267,11 +269,9 @@ class webglstate_t {
   // for models, using 9 floats as (x,y,z, s,t, r,g,b,a)
   VertexArrayObject vaoAlias;
   Buffer vboAlias, eboAlias;
-	// GLuint vaoAlias, vboAlias, eboAlias; // for models, using 9 floats as (x,y,z, s,t, r,g,b,a)
   // for particles, using 9 floats (x,y,z, size,distance, r,g,b,a)
   VertexArrayObject vaoParticle;
   Buffer vboParticle;
-	// GLuint vaoParticle, vboParticle; // for particles, using 9 floats (x,y,z, size,distance, r,g,b,a)
 
 	// UBOs and their data
 	gl3UniCommon_t uniCommonData = gl3UniCommon_t();
@@ -301,8 +301,8 @@ enum imagetype_t {
  */
 class webglimage_t {
 	final String name;               /* game path, including extension */
-	imagetype_t type;
-	int width, height;                  /* source image */
+	final imagetype_t type;
+	final int width, height;                  /* source image */
 	//int upload_width, upload_height;    /* after power of two and picmip */
 	int registration_sequence;          /* 0 = free */
 	msurface_t texturechain;    /* for sort-by-texture world drawing */
@@ -311,7 +311,7 @@ class webglimage_t {
 	// qboolean scrap; // currently unused
 	// bool has_alpha;
 
-  webglimage_t(this.name);
+  webglimage_t(this.name, this.type, this.width, this.height);
 }
 
 const MAX_WEBGLTEXTURES = 1024;
@@ -367,7 +367,6 @@ void WebGL_SelectTMU(int tmu) {
 	}
 }
 
-
 CanvasElement canvas;
 RenderingContext2 gl;
 
@@ -407,7 +406,6 @@ Float32List webgl_identityMat4 = Float32List.fromList([
 
 webgllightmapstate_t webgl_lms = webgllightmapstate_t();
 
-cvar_t gl_msaa_samples;
 cvar_t r_vsync;
 cvar_t gl_retexturing;
 cvar_t vid_fullscreen;

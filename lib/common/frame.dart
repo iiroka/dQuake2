@@ -336,10 +336,8 @@ Future<void> Qcommon_Frame(int msec) async {
 	// 	Cvar_SetValue("cl_maxfps", 60);
 	// }
 
-
-	// // Save global time for network- und input code.
-	// curtime = Sys_Milliseconds();
-
+	// Save global time for network- und input code.
+	curtime = Sys_Milliseconds();
 
 	// Calculate target and renderframerate.
   int rfps;

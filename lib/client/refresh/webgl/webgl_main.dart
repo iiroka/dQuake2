@@ -115,7 +115,6 @@ WebGL_Register()
 
 	gl_drawbuffer = Cvar_Get("gl_drawbuffer", "GL_BACK", 0);
 	r_vsync = Cvar_Get("r_vsync", "1", CVAR_ARCHIVE);
-	gl_msaa_samples = Cvar_Get ( "gl_msaa_samples", "0", CVAR_ARCHIVE );
 	gl_retexturing = Cvar_Get("gl_retexturing", "1", CVAR_ARCHIVE);
 	gl3_debugcontext = Cvar_Get("gl3_debugcontext", "0", 0);
 	r_mode = Cvar_Get("r_mode", "4", CVAR_ARCHIVE);
@@ -260,6 +259,75 @@ class part_vtx {
   List<double> data = List(9);
 }
 
+_WebGL_DrawNullModel() {
+	List<double> shadelight = [1, 1, 1];
+
+	if ((currententity.flags & RF_FULLBRIGHT) == 0) {
+		WebGL_LightPoint(currententity.origin, shadelight);
+	}
+
+	final origModelMat = glstate.uni3DData.transModelMat4;
+	WebGL_RotateForEntity(currententity);
+
+	glstate.uniCommonData.color = [ shadelight[0], shadelight[1], shadelight[2], 1 ];
+	WebGL_UpdateUBOCommon();
+
+	WebGL_UseProgram(glstate.si3DcolorOnly.shaderProgram);
+
+	WebGL_BindVAO(glstate.vao3D);
+	WebGL_BindVBO(glstate.vbo3D);
+
+  // 11
+	List<double> vtxA = [];
+  var item = gl3_3D_vtx_t();
+  item.pos = Float32List.fromList([0,0,-16]);
+  item.lightFlags = 0;
+  vtxA.addAll(item.data);
+
+  var item1 = gl3_3D_vtx_t();
+  item1.pos = Float32List.fromList([16 * cos( 0 * pi / 2),16 * sin( 0 * pi / 2 ),0]);
+  item1.lightFlags = 0;
+  vtxA.addAll(item1.data);
+
+  var item2 = gl3_3D_vtx_t();
+  item2.pos = Float32List.fromList([16 * cos( 1 * pi / 2),16 * sin( 1 * pi / 2 ),0]);
+  item2.lightFlags = 0;
+  vtxA.addAll(item2.data);
+
+  var item3 = gl3_3D_vtx_t();
+  item3.pos = Float32List.fromList([16 * cos( 2 * pi / 2),16 * sin( 2 * pi / 2 ),0]);
+  item3.lightFlags = 0;
+  vtxA.addAll(item3.data);
+
+  var item4 = gl3_3D_vtx_t();
+  item4.pos = Float32List.fromList([16 * cos( 3 * pi / 2),16 * sin( 3 * pi / 2 ),0]);
+  item4.lightFlags = 0;
+  vtxA.addAll(item4.data);
+
+  var item5 = gl3_3D_vtx_t();
+  item5.pos = Float32List.fromList([16 * cos( 4 * pi / 2),16 * sin( 4 * pi / 2 ),0]);
+  item5.lightFlags = 0;
+  vtxA.addAll(item5.data);
+
+	WebGL_BufferAndDraw3D(Float32List.fromList(vtxA), 6, WebGL.TRIANGLE_FAN);
+
+	List<double> vtxB = [];
+  var itemx = gl3_3D_vtx_t();
+  itemx.pos = Float32List.fromList([0,0,16]);
+  itemx.lightFlags = 0;
+  vtxB.addAll(item.data);
+  vtxB.addAll(item5.data);
+  vtxB.addAll(item4.data);
+  vtxB.addAll(item3.data);
+  vtxB.addAll(item2.data);
+  vtxB.addAll(item1.data);
+
+	WebGL_BufferAndDraw3D(Float32List.fromList(vtxB), 6, WebGL.TRIANGLE_FAN);
+
+	glstate.uni3DData.transModelMat4 = origModelMat;
+	WebGL_UpdateUBO3D();
+}
+
 WebGL_DrawParticles() {
 
   if (webgl_newrefdef.particles.isEmpty) {
@@ -308,7 +376,6 @@ WebGL_DrawParticles() {
 			for(int j=0; j<3; ++j)  {
         col[j] = colorMap[(color * 3) + j] / 255.0;
       }
-
 			col[3] = p.alpha;
       cur.color = col;
       buf.addAll(cur.data);
@@ -349,7 +416,7 @@ WebGL_DrawEntitiesOnList() {
 			currentmodel = currententity.model;
 
 			if (currentmodel == null) {
-	// 			GL3_DrawNullModel();
+				_WebGL_DrawNullModel();
 				continue;
 			}
 
@@ -358,7 +425,7 @@ WebGL_DrawEntitiesOnList() {
 					WebGL_DrawAliasModel(currententity);
 					break;
 				case modtype_t.mod_brush:
-					// WebGL_DrawBrushModel(currententity);
+					WebGL_DrawBrushModel(currententity);
 					break;
 				// case modtype_t.mod_sprite:
 	// 				GL3_DrawSpriteModel(currententity);
@@ -388,7 +455,7 @@ WebGL_DrawEntitiesOnList() {
 			currentmodel = currententity.model;
 
 			if (currentmodel == null) {
-	// 			GL3_DrawNullModel();
+				_WebGL_DrawNullModel();
 				continue;
 			}
 
@@ -397,7 +464,7 @@ WebGL_DrawEntitiesOnList() {
 					WebGL_DrawAliasModel(currententity);
 					break;
 				case modtype_t.mod_brush:
-					// WebGL_DrawBrushModel(currententity);
+					WebGL_DrawBrushModel(currententity);
 					break;
 				// case mod_sprite:
 				// 	GL3_DrawSpriteModel(currententity);
@@ -668,10 +735,9 @@ WebGL_RenderView(refdef_t fd) {
 
 	WebGL_PushDlights();
 
-	// if (gl_finish->value)
-	// {
-	// 	glFinish();
-	// }
+	if (gl_finish.boolean) {
+		gl.finish();
+	}
 
 	SetupFrame();
 
@@ -697,6 +763,7 @@ WebGL_RenderView(refdef_t fd) {
 	if (r_speeds.boolean) {
 	  Com_Printf( "$c_brush_polys wpoly $c_alias_polys epoly $c_visible_textures tex $c_visible_lightmaps lmaps\n");
 	}
+  assert(webgl_worldmodel.nodes[226].firstsurface != 0);
 
 }
 
@@ -727,6 +794,34 @@ WebGL_Clear() {
 		gl.clear(WebGL.STENCIL_BUFFER_BIT);
 	}
 }
+
+WebGL_SetLightLevel() {
+
+	if ((webgl_newrefdef.rdflags & RDF_NOWORLDMODEL) != 0) {
+		return;
+	}
+
+	/* save off light value for server to look at */
+  List<double> shadelight = [0,0,0];
+	WebGL_LightPoint(webgl_newrefdef.vieworg, shadelight);
+
+	/* pick the greatest component, which should be the
+	 * same as the mono value returned by software */
+	if (shadelight[0] > shadelight[1]) {
+		if (shadelight[0] > shadelight[2]) {
+			r_lightlevel.string = (150 * shadelight[0]).toString();
+		} else {
+			r_lightlevel.string = (150 * shadelight[2]).toString();
+		}
+	} else {
+		if (shadelight[1] > shadelight[2]) {
+			r_lightlevel.string = (150 * shadelight[1]).toString();
+		} else {
+			r_lightlevel.string = (150 * shadelight[2]).toString();
+		}
+	}
+}
+
 
 class WebGLExports extends refexport_t {
 
@@ -764,7 +859,7 @@ class WebGLExports extends refexport_t {
     glconfig.anisotropic = (gl.getExtension('EXT_texture_filter_anisotropic') != null);
     glstate.glsync = gl.fenceSync(WebGL.SYNC_GPU_COMMANDS_COMPLETE, 0);
 
-    // /* Anisotropic */
+    /* Anisotropic */
     Com_Printf(" - Anisotropic Filtering: ");
 
     if(glconfig.anisotropic) {
@@ -857,13 +952,12 @@ class WebGLExports extends refexport_t {
     if (gl3_overbrightbits.modified) {
       gl3_overbrightbits.modified = false;
 
-      // if(gl3_overbrightbits->value < 0.0f)
-      // {
-      //   ri.Cvar_Set("gl3_overbrightbits", "0");
-      // }
+      if(gl3_overbrightbits.value < 0.0) {
+        Cvar_Set("gl3_overbrightbits", "0");
+      }
 
-      // gl3state.uni3DData.overbrightbits = (gl3_overbrightbits->value <= 0.0f) ? 1.0f : gl3_overbrightbits->value;
-      // GL3_UpdateUBO3D();
+      glstate.uni3DData.overbrightbits = (gl3_overbrightbits.value <= 0.0) ? 1.0 : gl3_overbrightbits.value;
+      WebGL_UpdateUBO3D();
     }
 
     if(gl3_particle_fade_factor.modified) {
@@ -898,8 +992,7 @@ class WebGLExports extends refexport_t {
     }
 
     /* texturemode stuff */
-    if (gl_texturemode.modified || (glconfig.anisotropic && gl_anisotropic.modified))
-    {
+    if (gl_texturemode.modified || (glconfig.anisotropic && gl_anisotropic.modified)) {
       WebGL_TextureMode(gl_texturemode.string);
       gl_texturemode.modified = false;
       gl_anisotropic.modified = false;
@@ -915,9 +1008,11 @@ class WebGLExports extends refexport_t {
     WebGL_Clear();
   }
 
+  bool _dumped = false;
+
   Future<void> RenderFrame (refdef_t fd) async {
     WebGL_RenderView(fd);
-	  // GL3_SetLightLevel();
+	  WebGL_SetLightLevel();
 	  WebGL_SetGL2D();
 
     // if(v_blend[3] != 0.0f) {
@@ -932,11 +1027,12 @@ class WebGLExports extends refexport_t {
   void DrawCharScaled(int x, int y, int num, double scale) => WebGL_Draw_CharScaled(x, y, num, scale);
 
   Future<void> EndFrame() async {
+    gl.flush();
     await gl.waitSync(glstate.glsync, 0, WebGL.TIMEOUT_IGNORED);
   }
 
   Future<void>	BeginRegistration (String map) => WebGL_BeginRegistration(map);
-  Future<Object> RegisterModel (String name) => WebGL_RegisterModel(name);
+  Future<model_s> RegisterModel (String name) => WebGL_RegisterModel(name);
   Future<Object> RegisterSkin (String name) => WebGL_FindImage(name, imagetype_t.it_skin);
   Future<Object> DrawFindPic(String name) => WebGL_Draw_FindPic(name);
   void DrawFill (int x, int y, int w, int h, int c) => WebGL_Draw_Fill(x, y, w, h, c);

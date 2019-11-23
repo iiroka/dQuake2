@@ -38,6 +38,7 @@ import '../cl_screen.dart' show SCR_DirtyScreen, SCR_GetMenuScale;
 import '../cl_keyboard.dart';
 import '../cl_network.dart' show CL_Disconnect;
 import 'qmenu.dart';
+import 'videomenu.dart';
 
 typedef MenuDrawFunction = Future<void> Function();
 typedef MenuKeyFunction = Future<String> Function(int);
@@ -559,9 +560,9 @@ Future<String> _M_Main_Key(int key) async  {
             await M_Menu_Options_f([]);
             break;
 
-  //       case 3:
-  //           M_Menu_Video_f();
-  //           break;
+        case 3:
+            await M_Menu_Video_f([]);
+            break;
 
   //       case 4:
   //           M_Menu_Quit_f();
@@ -801,6 +802,15 @@ M_Menu_Options_f(List<String> args) async {
 }
 
 /*
+ * VIDEO MENU
+ */
+
+M_Menu_Video_f(List<String> args) async {
+    VID_MenuInit();
+    M_PushMenu(VID_MenuDraw, VID_MenuKey);
+}
+
+/*
  * GAME MENU
  */
 
@@ -813,8 +823,8 @@ menuaction_s _s_hard_game_action = menuaction_s("hard");
 menuaction_s _s_hardp_game_action = menuaction_s("nightmare");
 // static menuaction_s s_load_game_action;
 // static menuaction_s s_save_game_action;
-// static menuaction_s s_credits_action;
-// static menuseparator_s s_blankline;
+menuaction_s _s_credits_action = menuaction_s("credits");
+menuseparator_s _s_blankline = menuseparator_s(null);
 
 _StartGame() {
 	if (cls.state != connstate_t.ca_disconnected && cls.state != connstate_t.ca_uninitialized) {
@@ -841,19 +851,15 @@ Future<void> _MediumGameFunc(menucommon_s) async {
     _StartGame();
 }
 
-// static void
-// HardGameFunc(void *data)
-// {
-//     Cvar_ForceSet("skill", "2");
-//     StartGame();
-// }
+Future<void> _HardGameFunc(menucommon_s) async {
+    Cvar_ForceSet("skill", "2");
+    _StartGame();
+}
 
-// static void
-// HardpGameFunc(void *data)
-// {
-//     Cvar_ForceSet("skill", "3");
-//     StartGame();
-// }
+Future<void> _HardpGameFunc(menucommon_s) async {
+    Cvar_ForceSet("skill", "3");
+    _StartGame();
+}
 
 // static void
 // LoadGameFunc(void *unused)
@@ -889,14 +895,12 @@ Game_MenuInit() {
     _s_hard_game_action.flags = QMF_LEFT_JUSTIFY;
     _s_hard_game_action.x = 0;
     _s_hard_game_action.y = 20;
-//     s_hard_game_action.generic.callback = HardGameFunc;
+    _s_hard_game_action.callback = _HardGameFunc;
 
     _s_hardp_game_action.flags = QMF_LEFT_JUSTIFY;
     _s_hardp_game_action.x = 0;
     _s_hardp_game_action.y = 30;
-//     s_hardp_game_action.generic.callback = HardpGameFunc;
-
-//     s_blankline.generic.type = MTYPE_SEPARATOR;
+    _s_hardp_game_action.callback = _HardpGameFunc;
 
 //     s_load_game_action.generic.type = MTYPE_ACTION;
 //     s_load_game_action.generic.flags = QMF_LEFT_JUSTIFY;
@@ -912,22 +916,20 @@ Game_MenuInit() {
 //     s_save_game_action.generic.name = "save game";
 //     s_save_game_action.generic.callback = SaveGameFunc;
 
-//     s_credits_action.generic.type = MTYPE_ACTION;
-//     s_credits_action.generic.flags = QMF_LEFT_JUSTIFY;
-//     s_credits_action.generic.x = 0;
-//     s_credits_action.generic.y = 70;
-//     s_credits_action.generic.name = "credits";
+    _s_credits_action.flags = QMF_LEFT_JUSTIFY;
+    _s_credits_action.x = 0;
+    _s_credits_action.y = 70;
 //     s_credits_action.generic.callback = CreditsFunc;
 
-  _s_game_menu.AddItem(_s_easy_game_action);
-  _s_game_menu.AddItem(_s_medium_game_action);
-  _s_game_menu.AddItem(_s_hard_game_action);
-  _s_game_menu.AddItem(_s_hardp_game_action);
-//     Menu_AddItem(&s_game_menu, (void *)&s_blankline);
+    _s_game_menu.AddItem(_s_easy_game_action);
+    _s_game_menu.AddItem(_s_medium_game_action);
+    _s_game_menu.AddItem(_s_hard_game_action);
+    _s_game_menu.AddItem(_s_hardp_game_action);
+    _s_game_menu.AddItem(_s_blankline);
 //     Menu_AddItem(&s_game_menu, (void *)&s_load_game_action);
 //     Menu_AddItem(&s_game_menu, (void *)&s_save_game_action);
 //     Menu_AddItem(&s_game_menu, (void *)&s_blankline);
-//     Menu_AddItem(&s_game_menu, (void *)&s_credits_action);
+    _s_game_menu.AddItem(_s_credits_action);
 
     _s_game_menu.Center();
 }
@@ -961,7 +963,7 @@ M_Init() {
     // Cmd_AddCommand("menu_downloadoptions", M_Menu_DownloadOptions_f);
     // Cmd_AddCommand("menu_credits", M_Menu_Credits_f);
     // Cmd_AddCommand("menu_multiplayer", M_Menu_Multiplayer_f);
-    // Cmd_AddCommand("menu_video", M_Menu_Video_f);
+    Cmd_AddCommand("menu_video", M_Menu_Video_f);
     Cmd_AddCommand("menu_options", M_Menu_Options_f);
     // Cmd_AddCommand("menu_keys", M_Menu_Keys_f);
     // Cmd_AddCommand("menu_quit", M_Menu_Quit_f);

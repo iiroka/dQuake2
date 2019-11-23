@@ -27,6 +27,7 @@
 
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/cmdparser.dart';
+import 'package:dQuakeWeb/common/collision.dart' show CM_InlineModel;
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/readbuf.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -73,21 +74,21 @@ const svc_strings = [
  */
 List<int> CL_ParseEntityBits(Readbuf msg) {
 
-	var total = msg.ReadByte();
+	var total = msg.ReadByte() & 0xFF;
 
 	if ((total & U_MOREBITS1) != 0) {
 		final b = msg.ReadByte();
-		total |= b << 8;
+		total |= (b << 8) & 0xFF00;
 	}
 
 	if ((total & U_MOREBITS2) != 0) {
 		final b = msg.ReadByte();
-		total |= b << 16;
+		total |= (b << 16) & 0xFF0000;
 	}
 
 	if ((total & U_MOREBITS3) != 0) {
 		final b = msg.ReadByte();
-		total |= b << 24;
+		total |= (b << 24) & 0xFF000000;
 	}
 
   int number;
@@ -315,7 +316,6 @@ CL_ParsePacketEntities(Readbuf msg, frame_t oldframe, frame_t newframe) {
 			CL_DeltaEntity(msg, newframe, oldnum, oldstate, 0);
 
 			oldindex++;
-
 			if (oldindex >= oldframe.num_entities) {
 				oldnum = 99999;
 			} else {
@@ -327,25 +327,18 @@ CL_ParsePacketEntities(Readbuf msg, frame_t oldframe, frame_t newframe) {
 
 		if ((bits & U_REMOVE) != 0) {
 			/* the entity present in oldframe is not in the current frame */
-			if (cl_shownet.integer == 3)
-			{
+			if (cl_shownet.integer == 3) {
 				Com_Printf("   remove: $newnum\n");
 			}
 
-			if (oldnum != newnum)
-			{
+			if (oldnum != newnum) {
 				Com_Printf("U_REMOVE: oldnum != newnum\n");
 			}
 
 			oldindex++;
-
-			if (oldindex >= oldframe.num_entities)
-			{
+			if (oldindex >= oldframe.num_entities) {
 				oldnum = 99999;
-			}
-
-			else
-			{
+			} else {
 				oldstate = cl_parse_entities[(oldframe.parse_entities +
 										oldindex) & (MAX_PARSE_ENTITIES - 1)];
 				oldnum = oldstate.number;
@@ -364,14 +357,9 @@ CL_ParsePacketEntities(Readbuf msg, frame_t oldframe, frame_t newframe) {
 			CL_DeltaEntity(msg, newframe, newnum, oldstate, bits);
 
 			oldindex++;
-
-			if (oldindex >= oldframe.num_entities)
-			{
+			if (oldindex >= oldframe.num_entities) {
 				oldnum = 99999;
-			}
-
-			else
-			{
+			} else {
 				oldstate = cl_parse_entities[(oldframe.parse_entities +
 										oldindex) & (MAX_PARSE_ENTITIES - 1)];
 				oldnum = oldstate.number;
@@ -380,11 +368,10 @@ CL_ParsePacketEntities(Readbuf msg, frame_t oldframe, frame_t newframe) {
 			continue;
 		}
 
-		if (oldnum > newnum)
-		{
+		if (oldnum > newnum) {
+
 			/* delta from baseline */
-			if (cl_shownet.integer == 3)
-			{
+			if (cl_shownet.integer == 3) {
 				Com_Printf("   baseline: $newnum\n");
 			}
 
@@ -396,32 +383,23 @@ CL_ParsePacketEntities(Readbuf msg, frame_t oldframe, frame_t newframe) {
 	}
 
 	/* any remaining entities in the old frame are copied over */
-	while (oldnum != 99999)
-	{
+	while (oldnum != 99999) {
 		/* one or more entities from the old packet are unchanged */
-		if (cl_shownet.integer == 3)
-		{
+		if (cl_shownet.integer == 3) {
 			Com_Printf("   unchanged: $oldnum\n");
 		}
 
 		CL_DeltaEntity(msg, newframe, oldnum, oldstate, 0);
-
 		oldindex++;
-
-		if (oldindex >= oldframe.num_entities)
-		{
+		if (oldindex >= oldframe.num_entities) {
 			oldnum = 99999;
-		}
-
-		else
-		{
+		} else {
 			oldstate = cl_parse_entities[(oldframe.parse_entities +
 									oldindex) & (MAX_PARSE_ENTITIES - 1)];
 			oldnum = oldstate.number;
 		}
 	}
 }
-
 
 CL_ParsePlayerstate(Readbuf msg, frame_t oldframe, frame_t newframe) {
 
@@ -533,7 +511,6 @@ CL_ParsePlayerstate(Readbuf msg, frame_t oldframe, frame_t newframe) {
 		}
 	}
 }
-
 
 CL_ParseFrame(Readbuf msg) {
 
@@ -712,9 +689,8 @@ CL_ParseServerData(Readbuf msg) async {
 	} else {
 		/* seperate the printfs so the server
 		 * message can have a color */
-		// Com_Printf("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n\n");
-		// Com_Printf("%c%s\n", 2, str);
-    Com_Printf("$str\n");
+    Com_Printf("\n\n" + String.fromCharCodes([35,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,37]) + "\n\n");
+    Com_Printf(String.fromCharCode(2) + "$str\n");
 
 		/* need to prep refresh at next oportunity */
 		cl.refresh_prepped = false;
@@ -734,7 +710,6 @@ CL_LoadClientinfo(clientinfo_t ci, String s) async {
 	ci.cinfo = s;
 
 	/* isolate the player's name */
-	// Q_strlcpy(ci->name, s, sizeof(ci->name));
   var t = s.indexOf('\\');
 	if (t >= 0) {
 		ci.name = s.substring(0, t);
@@ -765,7 +740,6 @@ CL_LoadClientinfo(clientinfo_t ci, String s) async {
 			model_name = s.substring(0, t);
       skin_name = s.substring(t + 1);
     }
-
 
 		/* model file */
 	  var model_filename = "players/$model_name/tris.md2";
@@ -853,14 +827,7 @@ CL_ParseConfigString(Readbuf msg) async {
 	}
 
 	final s = msg.ReadString();
-	// Q_strlcpy(olds, cl.configstrings[i], sizeof(olds));
-
-	// length = strlen(s);
-	// if (length > sizeof(cl.configstrings) - sizeof(cl.configstrings[0])*i - 1)
-	// {
-	// 	Com_Error(ERR_DROP, "CL_ParseConfigString: oversize configstring");
-	// }
-
+  final olds = cl.configstrings[i];
 	cl.configstrings[i] = s;
 
 	/* do something apropriate */
@@ -878,15 +845,11 @@ CL_ParseConfigString(Readbuf msg) async {
 		if (cl.refresh_prepped) {
 			cl.model_draw[i - CS_MODELS] = await re.RegisterModel(cl.configstrings[i]);
 
-	// 		if (cl.configstrings[i][0] == '*')
-	// 		{
-	// 			cl.model_clip[i - CS_MODELS] = CM_InlineModel(cl.configstrings[i]);
-	// 		}
-
-	// 		else
-	// 		{
-	// 			cl.model_clip[i - CS_MODELS] = NULL;
-	// 		}
+			if (cl.configstrings[i][0] == '*') {
+				cl.model_clip[i - CS_MODELS] = CM_InlineModel(cl.configstrings[i]);
+			} else {
+				cl.model_clip[i - CS_MODELS] = null;
+			}
 		}
 	}
 	// else if ((i >= CS_SOUNDS) && (i < CS_SOUNDS + MAX_MODELS))
@@ -897,20 +860,15 @@ CL_ParseConfigString(Readbuf msg) async {
 	// 			S_RegisterSound(cl.configstrings[i]);
 	// 	}
 	// }
-	// else if ((i >= CS_IMAGES) && (i < CS_IMAGES + MAX_MODELS))
-	// {
-	// 	if (cl.refresh_prepped)
-	// 	{
-	// 		cl.image_precache[i - CS_IMAGES] = Draw_FindPic(cl.configstrings[i]);
-	// 	}
-	// }
-	// else if ((i >= CS_PLAYERSKINS) && (i < CS_PLAYERSKINS + MAX_CLIENTS))
-	// {
-	// 	if (cl.refresh_prepped && strcmp(olds, s))
-	// 	{
-	// 		CL_ParseClientinfo(i - CS_PLAYERSKINS);
-	// 	}
-	// }
+	else if ((i >= CS_IMAGES) && (i < CS_IMAGES + MAX_MODELS)) {
+		if (cl.refresh_prepped) {
+			cl.image_precache[i - CS_IMAGES] = await re.DrawFindPic(cl.configstrings[i]);
+		}
+	} else if ((i >= CS_PLAYERSKINS) && (i < CS_PLAYERSKINS + MAX_CLIENTS)) {
+		if (cl.refresh_prepped && olds != s) {
+			await CL_ParseClientinfo(i - CS_PLAYERSKINS);
+		}
+	}
 }
 
 CL_ParseStartSoundPacket(Readbuf msg) {
@@ -977,8 +935,7 @@ CL_ParseServerMessage(Readbuf msg) async {
 		Com_Printf("${msg.data.lengthInBytes} ");
 	}
 
-	else if (cl_shownet.integer >= 2)
-	{
+	else if (cl_shownet.integer >= 2) {
 		Com_Printf("------------------\n");
 	}
 

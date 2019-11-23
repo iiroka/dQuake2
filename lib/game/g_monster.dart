@@ -131,12 +131,43 @@ bool monster_start(edict_t self) {
 	return true;
 }
 
+walkmonster_start_go(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	// if ((self.spawnflags & 2) == 0 && (level.time < 1)) {
+	// 	M_droptofloor(self);
+
+	// 	if (self.groundentity) {
+	// 		if (!M_walkmove(self, 0, 0)) {
+	// 			gi.dprintf("%s in solid at %s\n", self->classname,
+	// 					vtos(self->s.origin));
+	// 		}
+	// 	}
+	// }
+
+	if (self.yaw_speed == 0) {
+		self.yaw_speed = 20;
+	}
+
+	if (self.viewheight == 0) {
+		self.viewheight = 25;
+	}
+
+	// if ((self->spawnflags & 2) != 0) {
+	// 	monster_triggered_start(self);
+	// } else {
+	// 	monster_start_go(self);
+	// }
+}
+
 walkmonster_start(edict_t self)
 {
 	if (self == null) {
 		return;
 	}
 
-	// self->think = walkmonster_start_go;
+	self.think = walkmonster_start_go;
 	monster_start(self);
 }

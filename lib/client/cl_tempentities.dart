@@ -54,6 +54,10 @@ class explosion_t {
     this.type = exptype_t.ex_free;
     this.ent.clear();
     this.frames = 0;
+    this.light = 0;
+    this.lightcolor.fillRange(0, 3, 0);
+    this.start = 0;
+    this.baseframe = 0;
   }
 }
 
@@ -103,7 +107,7 @@ CL_RegisterTEntModels() async {
 	cl_mod_grapple_cable = await re.RegisterModel("models/ctf/segment/tris.md2");
 	cl_mod_parasite_tip = await re.RegisterModel("models/monsters/parasite/tip/tris.md2");
 	cl_mod_explo4 = await re.RegisterModel("models/objects/r_explode/tris.md2");
-	// cl_mod_bfg_explo = await re.RegisterModel("sprites/s_bfg2.sp2");
+	cl_mod_bfg_explo = await re.RegisterModel("sprites/s_bfg2.sp2");
 	cl_mod_powerscreen = await re.RegisterModel("models/items/armor/effect/tris.md2");
 
 	await re.RegisterModel("models/objects/laser/tris.md2");
@@ -128,7 +132,6 @@ CL_RegisterTEntModels() async {
 
 CL_ClearTEnts() {
 	// memset(cl_beams, 0, sizeof(cl_beams));
-	// memset(cl_explosions, 0, sizeof(cl_explosions));
   for (var ex in cl_explosions) {
     ex.clear();
   }
@@ -141,8 +144,7 @@ CL_ClearTEnts() {
 explosion_t CL_AllocExplosion() {
 
 	for (int i = 0; i < cl_explosions.length; i++) {
-		if (cl_explosions[i].type == exptype_t.ex_free)
-		{
+		if (cl_explosions[i].type == exptype_t.ex_free) {
 			cl_explosions[i].clear();
 			return cl_explosions[i];
 		}
@@ -787,7 +789,7 @@ CL_AddExplosions() {
 		double frac = (cl.time - ex.start) / 100.0;
 		int f = frac.floor();
 
-		var ent = ex.ent.clone();
+		var ent = ex.ent;
 
 		switch (ex.type) {
 			case exptype_t.ex_mflash:
@@ -879,6 +881,10 @@ CL_AddExplosions() {
 		ent.frame = ex.baseframe + f + 1;
 		ent.oldframe = ex.baseframe + f;
 		ent.backlerp = 1.0 - cl.lerpfrac;
+
+  // if (ent.model != null  && ent.model.name == "models/objects/flash/tris.md2") {
+  //     print(" expolsion ${cl_framecounter} ${ent.frame} ${ent.oldframe} $f ${ex.baseframe} ${ex.type}");
+  // }
 
 		V_AddEntity(ent);
 	}

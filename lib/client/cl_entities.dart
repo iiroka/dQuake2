@@ -309,6 +309,7 @@ CL_AddPacketEntities(frame_t frame) {
 
 			ent.flags = renderfx | RF_TRANSLUCENT;
 			ent.alpha = 0.30;
+
 			V_AddEntity(ent);
 		}
 
@@ -380,7 +381,7 @@ CL_AddPacketEntities(frame_t frame) {
 			V_AddEntity(ent);
 		}
 
-	// 	/* add automatic particle trails */
+		/* add automatic particle trails */
 		if ((effects & ~EF_ROTATE) != 0) {
 	// 		if (effects & EF_ROCKET)
 	// 		{
@@ -391,9 +392,9 @@ CL_AddPacketEntities(frame_t frame) {
 			/* Do not reorder EF_BLASTER and EF_HYPERBLASTER.
 			   EF_BLASTER | EF_TRACKER is a special case for
 			   EF_BLASTER2 */
-	// 		else if (effects & EF_BLASTER)
+	// 		else if ((effects & EF_BLASTER) != 0)
 	// 		{
-	// 			if (effects & EF_TRACKER)
+	// 			if ((effects & EF_TRACKER) != 0)
 	// 			{
 	// 				CL_BlasterTrail2(cent->lerp_origin, ent.origin);
 	// 				V_AddLight(ent.origin, 200, 0, 1, 0);
@@ -404,7 +405,7 @@ CL_AddPacketEntities(frame_t frame) {
 	// 				V_AddLight(ent.origin, 200, 1, 1, 0);
 	// 			}
 	// 		}
-	// 		else if (effects & EF_HYPERBLASTER)
+	// 		else if ((effects & EF_HYPERBLASTER) != 0)
 	// 		{
 	// 			if (effects & EF_TRACKER)
 	// 			{
@@ -416,21 +417,21 @@ CL_AddPacketEntities(frame_t frame) {
 	// 				V_AddLight(ent.origin, 200, 1, 1, 0);
 	// 			}
 	// 		}
-	// 		else if (effects & EF_GIB)
+	// 		else if ((effects & EF_GIB) != 0)
 	// 		{
 	// 			CL_DiminishingTrail(cent->lerp_origin, ent.origin,
 	// 					cent, effects);
 	// 		}
-	// 		else if (effects & EF_GRENADE)
+	// 		else if ((effects & EF_GRENADE) != 0)
 	// 		{
 	// 			CL_DiminishingTrail(cent->lerp_origin, ent.origin,
 	// 					cent, effects);
 	// 		}
-	// 		else if (effects & EF_FLIES)
+	// 		else if ((effects & EF_FLIES) != 0)
 	// 		{
 	// 			CL_FlyEffect(cent, ent.origin);
 	// 		}
-	// 		else if (effects & EF_BFG)
+	// 		else if ((effects & EF_BFG) != 0)
 	// 		{
 	// 			static int bfg_lightramp[6] = {300, 400, 600, 300, 150, 75};
 

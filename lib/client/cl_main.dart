@@ -301,6 +301,8 @@ void CL_Frame(int packetdelta, int renderdelta, int timedelta, bool packetframe,
 		cls.rframetime = 0.5;
 	}
 
+  cl_framecounter++;
+
 	// if in the debugger last frame, don't timeout.
 	// if (timedelta > 5000000) {
 	// 	cls.netchan.last_received = Sys_Milliseconds();
@@ -426,6 +428,7 @@ void CL_Init() async {
 // 	if (dedicated->value) {
 // 		return; /* nothing running on the client */
 // 	}
+  cl_framecounter = 0;
 
 	/* all archived variables will now be loaded */
 	Con_Init();

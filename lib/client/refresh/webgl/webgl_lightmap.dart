@@ -35,6 +35,8 @@ import 'webgl_image.dart';
 import 'webgl_light.dart';
 import 'local.dart';
 
+const _TEXNUM_LIGHTMAPS = 1024;
+
 WebGL_LM_InitBlock() {
 	webgl_lms.allocated.fillRange(0, BLOCK_WIDTH, 0);
 }
@@ -180,7 +182,6 @@ WebGL_LM_BuildPolygonFromSurface(msurface_t fa) {
 	poly.numverts = lnumverts;
   poly.data = Float32List.fromList(data);
 }
-
 
 WebGL_LM_CreateSurfaceLightmap(msurface_t surf) {
 

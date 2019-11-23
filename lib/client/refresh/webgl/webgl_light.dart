@@ -66,7 +66,7 @@ WebGL_MarkLights(dlight_t light, int bit, mleafornode_t anode) {
 
 	for (int i = 0; i < node.numsurfaces; i++)
 	{
-	  var surf = webgl_worldmodel.surfaces[node.firstsurface = i];
+	  var surf = webgl_worldmodel.surfaces[node.firstsurface + i];
 		if (surf.dlightframe != _r_dlightframecount) {
 			surf.dlightbits = 0;
 			surf.dlightframe = _r_dlightframecount;
@@ -218,7 +218,6 @@ int _RecursiveLightPoint(mleafornode_t anode, List<double> start, List<double> e
 	/* go down back side */
 	return _RecursiveLightPoint(node.children[side ^ 1], mid, end);
 }
-
 
 WebGL_LightPoint(List<double> p, List<double> color) {
 

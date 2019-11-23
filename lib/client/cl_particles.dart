@@ -31,7 +31,6 @@ import 'cl_view.dart' show V_AddParticle;
 
 cparticle_t active_particles, free_particles;
 List<cparticle_t> particles = List.generate(MAX_PARTICLES, (i) => cparticle_t());
-// int cl_numparticles = MAX_PARTICLES;
 
 CL_ClearParticles() {
 	int i;

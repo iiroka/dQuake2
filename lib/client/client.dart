@@ -249,3 +249,5 @@ client_static_t	cls = client_static_t();
 
 List<centity_t> cl_entities = List(MAX_EDICTS);
 List<entity_state_t> cl_parse_entities = List(MAX_PARSE_ENTITIES);
+
+int cl_framecounter = 0;

@@ -26,8 +26,11 @@
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/server/sv_init.dart';
+import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
+import 'package:dQuakeWeb/shared/game.dart';
 import 'game.dart';
+import 'g_utils.dart';
 
 int jacket_armor_index = 0;
 int combat_armor_index = 0;
@@ -53,6 +56,71 @@ gitem_t FindItem(String pickup_name) {
 
 	return null;
 }
+
+/* ====================================================================== */
+
+droptofloor(edict_t ent) {
+
+	if (ent == null) {
+		return;
+	}
+
+  ent.mins.setAll(0, [-15, -15, -15]);
+  ent.maxs.setAll(0, [15, 15, 15]);
+
+	if (ent.model != null) {
+		PF_setmodel(ent, ent.model);
+	} else {
+		PF_setmodel(ent, ent.item.world_model);
+	}
+
+	ent.solid = solid_t.SOLID_TRIGGER;
+	ent.movetype = movetype_t.MOVETYPE_TOSS;
+	// ent.touch = Touch_Item;
+
+  List<double> dest = [0,0,0];
+	VectorAdd(ent.s.origin, [0, 0, -128], dest);
+
+	final tr = SV_Trace(ent.s.origin, ent.mins, ent.maxs, dest, ent, MASK_SOLID);
+
+	if (tr.startsolid) {
+		Com_Printf("droptofloor: ${ent.classname} startsolid at ${ent.s.origin}\n");
+		G_FreeEdict(ent);
+		return;
+	}
+
+  ent.s.origin.setAll(0, tr.endpos);
+
+	if (ent.team != null) {
+		// ent->flags &= ~FL_TEAMSLAVE;
+		// ent->chain = ent->teamchain;
+		// ent->teamchain = NULL;
+
+		// ent->svflags |= SVF_NOCLIENT;
+		// ent->solid = SOLID_NOT;
+
+		// if (ent == ent->teammaster) {
+		// 	ent->nextthink = level.time + FRAMETIME;
+		// 	ent->think = DoRespawn;
+		// }
+	}
+
+	if ((ent.spawnflags & ITEM_NO_TOUCH) != 0) {
+		ent.solid = solid_t.SOLID_BBOX;
+		ent.touch = null;
+		ent.s.effects &= ~EF_ROTATE;
+		ent.s.renderfx &= ~RF_GLOW;
+	}
+
+	if ((ent.spawnflags & ITEM_TRIGGER_SPAWN) != 0) {
+		ent.svflags |= SVF_NOCLIENT;
+		ent.solid = solid_t.SOLID_NOT;
+		// ent.use = Use_Item;
+	}
+
+	SV_LinkEdict(ent);
+}
+
 
 /*
  * Precaches all data needed for a given item.
@@ -218,7 +286,7 @@ SpawnItem(edict_t ent, gitem_t item) {
 
 	ent.item = item;
 	ent.nextthink = level.time + 2 * FRAMETIME; /* items start after other solids */
-	// ent.think = droptofloor;
+	ent.think = droptofloor;
 	ent.s.effects = item.world_model_flags;
 	ent.s.renderfx = RF_GLOW;
 

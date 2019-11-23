@@ -37,6 +37,168 @@ import '../g_utils.dart';
 import 'view.dart';
 
 /*
+ * Some maps have no unnamed (e.g. generic)
+ * info_player_start. This is no problem in
+ * normal gameplay, but if the map is loaded
+ * via console there is a huge chance that
+ * the player will spawn in the wrong point.
+ * Therefore create an unnamed info_player_start
+ * at the correct point.
+ */
+_SP_CreateUnnamedSpawn(edict_t self) {
+	final spot = G_Spawn();
+	if (self == null) {
+		return;
+	}
+
+  print("_SP_CreateUnnamedSpawn ${level.mapname}");
+
+	/* mine1 */
+  // if (Q_stricmp(level.mapname, "mine1") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "mintro") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* mine2 */
+  //   if (Q_stricmp(level.mapname, "mine2") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "mine1") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* mine3 */
+  //   if (Q_stricmp(level.mapname, "mine3") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "mine2a") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* mine4 */
+  //   if (Q_stricmp(level.mapname, "mine4") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "mine3") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+ 	// /* power2 */
+  //   if (Q_stricmp(level.mapname, "power2") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "power1") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* waste1 */
+  //   if (Q_stricmp(level.mapname, "waste1") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "power2") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* waste2 */
+  //   if (Q_stricmp(level.mapname, "waste2") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "waste1") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* waste3 */
+  //   if (Q_stricmp(level.mapname, "waste3") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "waste2") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+
+	// /* city3 */
+  //   if (Q_stricmp(level.mapname, "city2") == 0)
+	// {
+	// 	if (Q_stricmp(self->targetname, "city2NL") == 0)
+	// 	{
+	// 		spot->classname = self->classname;
+	// 		spot->s.origin[0] = self->s.origin[0];
+	// 		spot->s.origin[1] = self->s.origin[1];
+	// 		spot->s.origin[2] = self->s.origin[2];
+	// 		spot->s.angles[1] = self->s.angles[1];
+	// 		spot->targetname = NULL;
+
+	// 		return;
+	// 	}
+	// }
+}
+
+/*
  * QUAKED info_player_start (1 0 0) (-16 -16 -24) (16 16 32)
  * The normal starting point for a level.
  */
@@ -46,7 +208,7 @@ SP_info_player_start(edict_t self) async {
 	}
 
     /* Call function to hack unnamed spawn points */
-	// self.think = SP_CreateUnnamedSpawn;
+	self.think = _SP_CreateUnnamedSpawn;
 	self.nextthink = level.time + FRAMETIME;
 
 	if (!coop.boolean) {
@@ -790,9 +952,8 @@ G_ClientThink(edict_t ent, usercmd_t ucmd) {
 	   on for monster sighting AI */
 	ent.light_level = ucmd.lightlevel;
 
-	// /* fire weapon from final position if needed */
-	// if (client->latched_buttons & BUTTON_ATTACK)
-	// {
+	/* fire weapon from final position if needed */
+	// if ((client.latched_buttons & BUTTON_ATTACK) != 0) {
 	// 	if (client->resp.spectator)
 	// 	{
 	// 		client->latched_buttons = 0;

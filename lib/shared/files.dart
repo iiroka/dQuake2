@@ -154,6 +154,39 @@ class dmdl_t {
 }
 const dmdlSize = 17 * 4;
 
+/* .SP2 sprite file format */
+
+const IDSPRITEHEADER = 0x32534449; // (('2' << 24) + ('S' << 16) + ('D' << 8) + 'I') /* little-endian "IDS2" */
+const SPRITE_VERSION = 2;
+
+class dsprframe_t {
+	int width, height;
+	int origin_x, origin_y;  /* raster coordinates inside pic */
+	String name; /* name of pcx file */
+
+  dsprframe_t(ByteData data, int offset) {
+    this.width = data.getInt32(offset, Endian.little);
+    this.height = data.getInt32(offset + 1 * 4, Endian.little);
+    this.origin_x = data.getInt32(offset + 2 * 4, Endian.little);
+    this.origin_y = data.getInt32(offset + 3 * 4, Endian.little);
+    this.name = readString(data, offset + 4 * 4, MAX_SKINNAME);
+  }
+}
+const dsprframeSize = 4 * 4 + MAX_SKINNAME;
+
+class dsprite_t {
+	int ident;
+	int version;
+	int numframes;
+
+  dsprite_t(ByteData data, int offset) {
+    this.ident = data.getInt32(offset, Endian.little);
+    this.version = data.getInt32(offset + 1 * 4, Endian.little);
+    this.numframes = data.getInt32(offset + 2 * 4, Endian.little);
+  }
+}
+const dspriteSize = 3 * 4;
+
 /* .BSP file format */
 
 const IDBSPHEADER = 0x50534249; // (('P' << 24) + ('S' << 16) + ('B' << 8) + 'I') /* little-endian "IBSP" */
@@ -253,9 +286,7 @@ class dmodel_t {
     this.firstface = data.getInt32(offset + 10 * 4, Endian.little);
     this.numfaces = data.getInt32(offset + 11 * 4, Endian.little);
   }
-
 }
-
 const dmodelSize = 12 * 4;
 
 class dvertex_t {
@@ -265,7 +296,6 @@ class dvertex_t {
     this.point = List.generate(3, (i) => data.getFloat32(offset + i * 4, Endian.little));
   }
 }
-
 const dvertexSize = 3 * 4;
 
 /* 0-2 are axial planes */
@@ -291,7 +321,6 @@ class dplane_t {
     this.type = data.getInt32(offset + 4 * 4, Endian.little);
   }
 }
-
 const dplaneSize = 5 * 4;
 
 /* contents flags are seperate bits
@@ -388,7 +417,6 @@ class dedge_t {
     this.v = List.generate(2, (i) => data.getUint16(offset + i * 2, Endian.little));
   }
 }
-
 const dedgeSize = 2 * 2;
 
 const MAXLIGHTMAPS = 4;
@@ -410,12 +438,11 @@ class dface_t {
     this.firstedge = data.getInt32(offset + 2 * 2, Endian.little);
     this.numedges = data.getInt16(offset + 2 * 2 + 4, Endian.little);
     this.texinfo = data.getInt16(offset + 3 * 2 + 4, Endian.little);
-    this.styles = data.buffer.asUint8List(offset + 4 * 2 +4, MAXLIGHTMAPS);
+    this.styles = Uint8List(MAXLIGHTMAPS);
+    this.styles.setAll(0, data.buffer.asUint8List(offset + 4 * 2 + 4, MAXLIGHTMAPS));
     this.lightofs = data.getInt32(offset + 4 * 2 + 4 + MAXLIGHTMAPS, Endian.little);
   }
-
 }
-
 const dfaceSize = 4 * 2 + 2 * 4 + MAXLIGHTMAPS;
 
 class dleaf_t {
@@ -445,7 +472,6 @@ class dleaf_t {
     this.numleafbrushes = data.getUint16(offset + 4 + 11 * 2, Endian.little);
   }
 }
-
 const dleafSize = 4 + 12 * 2;
 
 class dbrushside_t {
@@ -456,9 +482,7 @@ class dbrushside_t {
     this.planenum = data.getUint16(offset, Endian.little);
     this.texinfo = data.getInt16(offset + 2, Endian.little);
   }
-
 }
-
 const dbrushsideSize = 2 * 2;
 
 class dbrush_t {
@@ -469,15 +493,13 @@ class dbrush_t {
   dbrush_t(ByteData data, int offset) {
     this.firstside = data.getInt32(offset, Endian.little);
     this.numsides = data.getInt32(offset + 4, Endian.little);
-    this.contents = data.getInt32(offset + 8, Endian.little);
+    this.contents = data.getInt32(offset + 2 * 4, Endian.little);
   }
 }
-
 const dbrushSize = 3 * 4;
 
 const ANGLE_UP = -1;
 const ANGLE_DOWN = -2;
-
 
 /* the visibility lump consists of a header with a count, then 
  * byte offsets for the PVS and PHS of each cluster, then the raw 
@@ -491,7 +513,7 @@ class dvis_t {
   dvis_t(ByteData data, int offset) {
     this.numclusters = data.getInt32(offset, Endian.little);
     this.bitofs = List.generate(this.numclusters, (i) => 
-      [data.getInt32(offset + (i + 1) * 4, Endian.little), data.getInt32(offset + (i + 2) * 4, Endian.little)]);
+      [data.getInt32(offset + ((i * 2)  + 1) * 4, Endian.little), data.getInt32(offset + ((i * 2) + 2) * 4, Endian.little)]);
   }
 }
 

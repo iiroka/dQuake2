@@ -208,7 +208,7 @@ webglimage_t WebGL_LoadPic(String name, Uint8List pic, int width, int realwidth,
     }
 	}
 
-  webglimage_t image = webglimage_t(name);
+  webglimage_t image = webglimage_t(name, type, width, height);
 
 	if (i >= gltextures.length) {
 		if (gltextures.length == MAX_WEBGLTEXTURES) {
@@ -222,10 +222,6 @@ webglimage_t WebGL_LoadPic(String name, Uint8List pic, int width, int realwidth,
 
 	image.registration_sequence = registration_sequence;
   image.texturechain = null;
-
-	image.width = width;
-	image.height = height;
-	image.type = type;
 
   image.texture = gl.createTexture();
 

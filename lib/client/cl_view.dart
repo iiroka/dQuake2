@@ -65,7 +65,6 @@ V_AddEntity(Ref.entity_t ent) {
 	if (r_entities.length >= Ref.MAX_ENTITIES) {
 		return;
 	}
-
 	r_entities.add(ent.clone());
 }
 

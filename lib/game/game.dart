@@ -223,6 +223,15 @@ class gitem_t extends glistitem_t {
 
 }
 
+/* item spawnflags */
+const ITEM_TRIGGER_SPAWN = 0x00000001;
+const ITEM_NO_TOUCH = 0x00000002;
+/* 6 bits reserved for editor flags */
+/* 8 bits used as power cube id bits for coop games */
+const DROPPED_ITEM = 0x00010000;
+const DROPPED_PLAYER_ITEM = 0x00020000;
+const ITEM_TARGETS_USED = 0x00040000;
+
 /* fields are needed for spawning from the entity
    string and saving / loading games */
 const FFL_SPAWNTEMP = 1;
@@ -254,6 +263,17 @@ class field_t {
 
   field_t(this.name, this.type, { this.flags = 0, this.fname });
 }
+
+/* ============================================================================ */
+
+/* client_t->anim_priority */
+const ANIM_BASIC = 0; /* stand / run */
+const ANIM_WAVE = 1;
+const ANIM_JUMP = 2;
+const ANIM_PAIN = 3;
+const ANIM_ATTACK = 4;
+const ANIM_DEATH = 5;
+const ANIM_REVERSE = 6;
 
 /* this structure is left intact through an entire game
    it should be initialized at dll load time, and read/written to
@@ -465,65 +485,82 @@ class client_respawn_t {
   }
 }
 
-class monsterinfo_t {
-	// mmove_t *currentmove;
-	int aiflags = 0;
-	// int nextframe;
-	// float scale;
+class mframe_t {
+  void Function(edict_t, double) aifunc;
+	double dist;
+  void Function(edict_t) thinkfunc;
 
-	// void (*stand)(edict_t *self);
-	// void (*idle)(edict_t *self);
-	// void (*search)(edict_t *self);
-	// void (*walk)(edict_t *self);
-	// void (*run)(edict_t *self);
+  mframe_t(this.aifunc, this.dist, this.thinkfunc);
+}
+
+class mmove_t {
+	int firstframe = 0;
+	int lastframe = 0;
+	List<mframe_t> frame;
+  void Function(edict_t) endfunc;
+
+  mmove_t(this.firstframe, this.lastframe, this.frame, this.endfunc);
+}
+
+class monsterinfo_t {
+	mmove_t currentmove;
+	int aiflags = 0;
+	int nextframe = 0;
+	double scale = 0;
+
+  void Function(edict_t) stand;
+  void Function(edict_t) idle;
+  void Function(edict_t) search;
+  void Function(edict_t) walk;
+  void Function(edict_t) run;
 	// void (*dodge)(edict_t *self, edict_t *other, float eta);
-	// void (*attack)(edict_t *self);
-	// void (*melee)(edict_t *self);
+  void Function(edict_t) attack;
+  void Function(edict_t) melee;
 	// void (*sight)(edict_t *self, edict_t *other);
 	// qboolean (*checkattack)(edict_t *self);
 
-	// float pausetime;
-	// float attack_finished;
+	double pausetime = 0;
+	double attack_finished = 0;
 
 	// vec3_t saved_goal;
-	// float search_time;
-	// float trail_time;
+	double search_time = 0;
+	double trail_time = 0;
 	// vec3_t last_sighting;
-	// int attack_state;
-	// int lefty;
-	// float idle_time;
-	// int linkcount;
+	int attack_state = 0;
+	int lefty = 0;
+	double idle_time = 0;
+	int linkcount = 0;
 
-	// int power_armor_type;
-	// int power_armor_power;
+	int power_armor_type = 0;
+	int power_armor_power = 0;
 
   clear() {
-    // mmove_t *currentmove;
+    this.currentmove = null;
     this.aiflags = 0;
-    // int nextframe;
-    // float scale;
-    // void (*stand)(edict_t *self);
-    // void (*idle)(edict_t *self);
-    // void (*search)(edict_t *self);
-    // void (*walk)(edict_t *self);
-    // void (*run)(edict_t *self);
+    this.nextframe = 0;
+    this.scale = 0;
+    this.stand = null;
+    this.idle = null;
+    this.search = null;
+    this.walk = null;
+    this.run = null;
     // void (*dodge)(edict_t *self, edict_t *other, float eta);
-    // void (*attack)(edict_t *self);
-    // void (*melee)(edict_t *self);
+    this.attack = null;
+    this.melee = null;
     // void (*sight)(edict_t *self, edict_t *other);
     // qboolean (*checkattack)(edict_t *self);
-    // float pausetime;
-    // float attack_finished;
+    this.pausetime = 0;
+    this.attack_finished = 0;
     // vec3_t saved_goal;
-    // float search_time;
-    // float trail_time;
+    this.search_time = 0;
+    this.trail_time = 0;
     // vec3_t last_sighting;
-    // int attack_state;
-    // int lefty;
-    // float idle_time;
-    // int linkcount;
-    // int power_armor_type;
-    // int power_armor_power;
+    this.attack_state = 0;
+    this.lefty = 0;
+    this.idle_time = 0;
+    this.linkcount = 0;
+    this.power_armor_type = 0;
+    this.power_armor_power = 0;
   }
 }
 
@@ -564,8 +601,8 @@ class gclient_t extends gclient_s {
 	double killer_yaw = 0; /* when dead, look at killer */
 
 	weaponstate_t weaponstate = weaponstate_t.WEAPON_READY;
-	// vec3_t kick_angles; /* weapon kicks */
-	// vec3_t kick_origin;
+	List<double> kick_angles = [0,0,0]; /* weapon kicks */
+	List<double> kick_origin = [0,0,0];
 	double v_dmg_roll = 0, v_dmg_pitch = 0, v_dmg_time = 0; /* damage kicks */
 	double fall_time = 0, fall_value = 0; /* for view drop on fall */
 	double damage_alpha = 0;
@@ -573,8 +610,8 @@ class gclient_t extends gclient_s {
 	// vec3_t damage_blend;
 	List<double> v_angle = [0,0,0]; /* aiming direction */
 	double bobtime = 0; /* so off-ground doesn't change it */
-	// vec3_t oldviewangles;
-	// vec3_t oldvelocity;
+	List<double> oldviewangles = [0,0,0];
+	List<double> oldvelocity = [0,0,0];
 
 	double next_drown_time = 0;
 	int old_waterlevel = 0;
@@ -585,8 +622,8 @@ class gclient_t extends gclient_s {
 	/* animation vars */
 	int anim_end = 0;
 	int anim_priority = 0;
-	// bool anim_duck;
-	// bool anim_run;
+	bool anim_duck = false;
+	bool anim_run = false;
 
 	/* powerup timers */
 	// double quad_framenum;
@@ -631,8 +668,8 @@ class gclient_t extends gclient_s {
 	// // vec3_t damage_from; /* origin for vector calculation */
 	  this.killer_yaw = 0;
     this.weaponstate = weaponstate_t.WEAPON_READY;
-	// // vec3_t kick_angles; /* weapon kicks */
-	// // vec3_t kick_origin;
+	  this.kick_angles.fillRange(0, 3, 0);
+	  this.kick_origin.fillRange(0, 3, 0);
 	  this.v_dmg_roll = 0;
     this.v_dmg_pitch = 0;
     this.v_dmg_time = 0;
@@ -643,31 +680,31 @@ class gclient_t extends gclient_s {
 	// // vec3_t damage_blend;
 	  this.v_angle.fillRange(0, 3, 0);
 	  this.bobtime = 0;
-	// // vec3_t oldviewangles;
-	// // vec3_t oldvelocity;
+	  this.oldviewangles.fillRange(0, 3, 0);
+	  this.oldvelocity.fillRange(0, 3, 0);
 	  this.next_drown_time = 0;
 	  this.old_waterlevel = 0;
 	  this.breather_sound = 0;
 	  this.machinegun_shots = 0;
 	  this.anim_end = 0;
 	  this.anim_priority = 0;
-	// // bool anim_duck;
-	// // bool anim_run;
-	// // double quad_framenum;
-	// // double invincible_framenum;
-	// // double breather_framenum;
-	// // double enviro_framenum;
-	// // qboolean grenade_blew_up;
-	// // double grenade_time;
-	// // int silencer_shots;
-	// // int weapon_sound;
-	// // double pickup_msg_time;
-	// // double flood_locktill; /* locked from talking */
-	// // double flood_when[10]; /* when messages were said */
-	// // int flood_whenhead; /* head pointer for when said */
+	  this.anim_duck = false;
+	  this.anim_run = false;
+	// double quad_framenum = 0;
+	// double invincible_framenum = 0;
+	// double breather_framenum = 0;
+	// double enviro_framenum = 0;
+	// qboolean grenade_blew_up = false;
+	// double grenade_time = 0;
+	// int silencer_shots = 0;
+	// int weapon_sound = 0;
+	// double pickup_msg_time = 0;
+	// double flood_locktill = 0;
+	// double flood_when[10];
+	// int flood_whenhead = 0; /* head pointer for when said */
 	  this.respawn_time = 0;
 	  this.chase_target = null; /* player we are chasing */
-	// qboolean update_chase; /* need to update chase info? */    
+	// qboolean update_chase = false; /* need to update chase info? */    
   }
 }
 
@@ -716,7 +753,7 @@ class edict_t extends edict_s {
 
 	double nextthink = 0;
 	// void (*prethink)(edict_t *ent);
-	// void (*think)(edict_t *self);
+  void Function(edict_t) think;
 	// void (*blocked)(edict_t *self, edict_t *other);
 	void Function(edict_t self, edict_t other, cplane_t plane,
 			csurface_t surf) touch;
@@ -725,11 +762,11 @@ class edict_t extends edict_s {
 	// void (*die)(edict_t *self, edict_t *inflictor, edict_t *attacker,
 	// 		int damage, vec3_t point);
 
-	// double touch_debounce_time = 0;
-	// double pain_debounce_time = 0;
-	// double damage_debounce_time = 0;
-	// double fly_sound_debounce_time = 0;
-	// double last_move_time = 0;
+	double touch_debounce_time = 0;
+	double pain_debounce_time = 0;
+	double damage_debounce_time = 0;
+	double fly_sound_debounce_time = 0;
+	double last_move_time = 0;
 
 	int health = 0;
 	int max_health = 0;
@@ -771,7 +808,7 @@ class edict_t extends edict_s {
 	double delay = 0; /* before firing targets */
 	double random = 0;
 
-	// double last_sound_time = 0;
+	double last_sound_time = 0;
 
 	int watertype = 0;
 	int waterlevel = 0;
@@ -848,7 +885,7 @@ class edict_t extends edict_s {
     this.ideal_yaw = 0;
     this.nextthink = 0;
     // void (*prethink)(edict_t *ent);
-    // void (*think)(edict_t *self);
+    this.think = null;
     // void (*blocked)(edict_t *self, edict_t *other);
     // void (*touch)(edict_t *self, edict_t *other, cplane_t *plane,
     // 		csurface_t *surf);
@@ -856,11 +893,11 @@ class edict_t extends edict_s {
     // void (*pain)(edict_t *self, edict_t *other, float kick, int damage);
     // void (*die)(edict_t *self, edict_t *inflictor, edict_t *attacker,
     // 		int damage, vec3_t point);
-    // float touch_debounce_time = 0;
-    // float pain_debounce_time = 0;
-    // float damage_debounce_time = 0;
-    // float fly_sound_debounce_time = 0;
-    // float last_move_time = 0;
+    this.touch_debounce_time = 0;
+    this.pain_debounce_time = 0;
+    this.damage_debounce_time = 0;
+    this.fly_sound_debounce_time = 0;
+    this.last_move_time = 0;
     this.health = 0;
     this.max_health = 0;
     this.gib_health = 0;
@@ -892,7 +929,7 @@ class edict_t extends edict_s {
     this.wait = 0;
     this.delay = 0;
     this.random = 0;
-    // float last_sound_time = 0;
+    this.last_sound_time = 0;
     this.watertype = 0;
     this.waterlevel = 0;
     // vec3_t move_origin;

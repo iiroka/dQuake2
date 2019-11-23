@@ -43,7 +43,6 @@ msurface_t _webgl_alpha_surfaces;
 
 const _BACKFACE_EPSILON = 0.01;
 
-
 WebGL_SurfInit() {
 	// init the VAO and VBO for the standard vertexdata: 10 floats and 1 uint
 	// (X, Y, Z), (S, T), (LMS, LMT), (normX, normY, normZ) ; lightFlags - last two groups for lightmap/dynlights
@@ -74,8 +73,6 @@ WebGL_SurfInit() {
 
 	gl.enableVertexAttribArray(WEBGL_ATTRIB_LIGHTFLAGS);
 	gl.vertexAttribIPointer(WEBGL_ATTRIB_LIGHTFLAGS, 1, WebGL.UNSIGNED_INT, 11 * 4, 10 * 4);
-
-
 
 	// init VAO and VBO for model vertexdata: 9 floats
 	// (X,Y,Z), (S,T), (R,G,B,A)
@@ -209,6 +206,67 @@ WebGL_DrawGLFlowingPoly(msurface_t fa) {
 	WebGL_BufferAndDraw3D(p.data, p.numverts, WebGL.TRIANGLE_FAN);
 }
 
+_UpdateLMscales(List<List<double>> lmScales, gl3ShaderInfo_t si) {
+	var hasChanged = false;
+
+	for(int i=0; i<MAX_LIGHTMAPS_PER_SURFACE; ++i)
+	{
+		if(hasChanged) {
+			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
+		} else if( si.lmScales[i * 4 + 0] != lmScales[i][0]
+		        || si.lmScales[i * 4 + 1] != lmScales[i][1]
+		        || si.lmScales[i * 4 + 2] != lmScales[i][2]
+		        || si.lmScales[i * 4 + 3] != lmScales[i][3] )
+		{
+			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
+			hasChanged = true;
+		}
+	}
+
+	if (hasChanged) {
+		gl.uniform4fv(si.uniLmScales, si.lmScales);
+	}
+}
+
+_RenderBrushPoly(msurface_t fa) {
+
+	c_brush_polys++;
+
+	var image = _TextureAnimation(fa.texinfo);
+
+	if ((fa.flags & SURF_DRAWTURB) != 0) {
+		WebGL_Bind(image.texture);
+		WebGL_EmitWaterPolys(fa);
+		return;
+	} else {
+		WebGL_Bind(image.texture);
+	}
+
+	List<List<double>> lmScales = List.generate(MAX_LIGHTMAPS_PER_SURFACE, (i) => [0,0,0,0]);
+	lmScales[0] = [1.0, 1.0, 1.0, 1.0];
+
+	WebGL_BindLightmap(fa.lightmaptexturenum);
+
+	// Any dynamic lights on this surface?
+	for (int map = 0; map < MAX_LIGHTMAPS_PER_SURFACE && fa.styles[map] != 255; map++) {
+		lmScales[map][0] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[0];
+		lmScales[map][1] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[1];
+		lmScales[map][2] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[2];
+		lmScales[map][3] = 1.0;
+	}
+
+	if ((fa.texinfo.flags & SURF_FLOWING) != 0) {
+		WebGL_UseProgram(glstate.si3DlmFlow.shaderProgram);
+		_UpdateLMscales(lmScales, glstate.si3DlmFlow);
+		WebGL_DrawGLFlowingPoly(fa);
+	} else {
+		WebGL_UseProgram(glstate.si3Dlm.shaderProgram);
+		_UpdateLMscales(lmScales, glstate.si3Dlm);
+		WebGL_DrawGLPoly(fa);
+	}
+
+	// Note: lightmap chains are gone, lightmaps are rendered together with normal texture in one pass
+}
 
 /*
  * Draw water surfaces and windows.
@@ -261,75 +319,13 @@ WebGL_DrawAlphaSurfaces() {
 }
 
 
-_UpdateLMscales(List<List<double>> lmScales, gl3ShaderInfo_t si) {
-	var hasChanged = false;
-
-	for(int i=0; i<MAX_LIGHTMAPS_PER_SURFACE; ++i)
-	{
-		if(hasChanged) {
-			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
-		} else if( si.lmScales[i * 4 + 0] != lmScales[i][0]
-		        || si.lmScales[i * 4 + 1] != lmScales[i][1]
-		        || si.lmScales[i * 4 + 2] != lmScales[i][2]
-		        || si.lmScales[i * 4 + 3] != lmScales[i][3] )
-		{
-			si.lmScales.setRange(4 * i, 4 * (i + 1), lmScales[i]);
-			hasChanged = true;
-		}
-	}
-
-	if (hasChanged) {
-		gl.uniform4fv(si.uniLmScales, Float32List.fromList(si.lmScales));
-	}
-}
-
-_RenderBrushPoly(msurface_t fa) {
-
-	c_brush_polys++;
-
-	var image = _TextureAnimation(fa.texinfo);
-
-	if ((fa.flags & SURF_DRAWTURB) != 0) {
-		WebGL_Bind(image.texture);
-		WebGL_EmitWaterPolys(fa);
-		return;
-	} else {
-		WebGL_Bind(image.texture);
-	}
-
-	List<List<double>> lmScales = List.generate(MAX_LIGHTMAPS_PER_SURFACE, (i) => [0,0,0,0]);
-	lmScales[0] = [1.0, 1.0, 1.0, 1.0];
-
-	WebGL_BindLightmap(fa.lightmaptexturenum);
-
-	// Any dynamic lights on this surface?
-	for (int map = 0; map < MAX_LIGHTMAPS_PER_SURFACE && fa.styles[map] != 255; map++) {
-		lmScales[map][0] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[0];
-		lmScales[map][1] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[1];
-		lmScales[map][2] = webgl_newrefdef.lightstyles[fa.styles[map]].rgb[2];
-		lmScales[map][3] = 1.0;
-	}
-
-	if ((fa.texinfo.flags & SURF_FLOWING) != 0) {
-		WebGL_UseProgram(glstate.si3DlmFlow.shaderProgram);
-		_UpdateLMscales(lmScales, glstate.si3DlmFlow);
-		WebGL_DrawGLFlowingPoly(fa);
-	} else {
-		WebGL_UseProgram(glstate.si3Dlm.shaderProgram);
-		_UpdateLMscales(lmScales, glstate.si3Dlm);
-		WebGL_DrawGLPoly(fa);
-	}
-
-	// Note: lightmap chains are gone, lightmaps are rendered together with normal texture in one pass
-}
-
 _DrawTextureChains() {
 
 	c_visible_textures = 0;
 
 	for (webglimage_t image in gltextures) {
 
-		if (image.registration_sequence ==0) {
+		if (image.registration_sequence == 0) {
 			continue;
 		}
 
@@ -511,7 +507,7 @@ WebGL_DrawBrushModel(entity_t e) {
 }
 
 _RecursiveWorldNode(webglbrushmodel_t model, mleafornode_t anode) {
-
+  
 	if (anode.contents == CONTENTS_SOLID) {
 		return; /* solid */
 	}
@@ -557,6 +553,7 @@ _RecursiveWorldNode(webglbrushmodel_t model, mleafornode_t anode) {
 	   sides find which side of the node we are on */
 	var plane = node.plane;
 
+
   double dot;
 	switch (plane.type)
 	{
@@ -597,6 +594,7 @@ _RecursiveWorldNode(webglbrushmodel_t model, mleafornode_t anode) {
 			continue; /* wrong side */
 		}
 
+    _nodecounter2++;
 		if ((surf.texinfo.flags & SURF_SKY) != 0) {
 			/* just adds to visible sky bounds */
 			WebGL_AddSkySurface(surf);
@@ -621,6 +619,8 @@ _RecursiveWorldNode(webglbrushmodel_t model, mleafornode_t anode) {
 	_RecursiveWorldNode(model, node.children[side ^ 1]);
 }
 
+int _nodecounter;
+int _nodecounter2;
 
 WebGL_DrawWorld() {
 
@@ -642,6 +642,9 @@ WebGL_DrawWorld() {
 	currententity = ent;
 
 	glstate.currenttexture = null;
+
+  _nodecounter = 0;
+  _nodecounter2 = 0;
 
 	WebGL_ClearSkyBox();
 	_RecursiveWorldNode(webgl_worldmodel, webgl_worldmodel.nodes[0]);
@@ -694,7 +697,7 @@ WebGL_MarkLeaves() {
 	/* may have to combine two clusters because of solid water boundaries */
 	if (webgl_viewcluster2 != webgl_viewcluster) {
     Uint8List fatvis = Uint8List(MAX_MAP_LEAFS ~/ 8);
-    fatvis.setRange(0, (webgl_worldmodel.numleafs + 7) ~/ 8, vis);
+    fatvis.setAll(0, vis);
 		vis = WebGL_Mod_ClusterPVS(webgl_viewcluster2, webgl_worldmodel);
 		int c = (webgl_worldmodel.numleafs + 7) ~/ 8;
 

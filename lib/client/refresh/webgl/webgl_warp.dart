@@ -39,41 +39,36 @@ import 'webgl_misc.dart';
 import 'webgl_shaders.dart';
 import 'HMM.dart';
 
-R_BoundPoly(int numverts, List<List<double>> verts, List<double> mins, List<double> maxs) {
+_R_BoundPoly(int numverts, List<List<double>> verts, List<double> mins, List<double> maxs) {
 
-	mins[0] = mins[1] = mins[2] = 9999;
-	maxs[0] = maxs[1] = maxs[2] = -9999;
+  mins.fillRange(0, 3, 9999);
+  maxs.fillRange(0, 3, -9999);
 
-	for (int i = 0; i < numverts; i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			if (verts[i][j] < mins[j])
-			{
+	for (int i = 0; i < numverts; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (verts[i][j] < mins[j]) {
 				mins[j] = verts[i][j];
 			}
 
-			if (verts[i][j] > maxs[j])
-			{
+			if (verts[i][j] > maxs[j]) {
 				maxs[j] = verts[i][j];
 			}
 		}
 	}
 }
 
-const SUBDIVIDE_SIZE = 64.0;
+const _SUBDIVIDE_SIZE = 64.0;
 
-R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) {
+_R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) {
 
   List<double> normal = List.generate(3, (i) => warpface.plane.normal[i]);
-
 	if (numverts > 60) {
 		Com_Error(ERR_DROP, "numverts = $numverts");
 	}
     
   List<double> mins = [0,0,0];
   List<double> maxs = [0,0,0];
-	R_BoundPoly(numverts, verts, mins, maxs);
+	_R_BoundPoly(numverts, verts, mins, maxs);
 
   List<double> dist = List(64);
   List<List<double>> front = List.generate(64, (i) => [0,0,0]);
@@ -81,7 +76,7 @@ R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) 
 
 	for (int i = 0; i < 3; i++) {
 		double m = (mins[i] + maxs[i]) * 0.5;
-		m = SUBDIVIDE_SIZE * (m / SUBDIVIDE_SIZE + 0.5).floor();
+		m = _SUBDIVIDE_SIZE * (m / _SUBDIVIDE_SIZE + 0.5).floor();
 
 		if (maxs[i] - m < 8) {
 			continue;
@@ -93,7 +88,6 @@ R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) 
 
 		/* cut it */
 		// v = verts + i;
-
 		for (int j = 0; j < numverts; j++) {
 			dist[j] = verts[j][i] - m;
 		}
@@ -136,8 +130,8 @@ R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) 
 			}
 		}
 
-		R_SubdividePolygon(f, front, warpface);
-		R_SubdividePolygon(b, back, warpface);
+		_R_SubdividePolygon(f, front, warpface);
+		_R_SubdividePolygon(b, back, warpface);
 		return;
 	}
 
@@ -153,6 +147,7 @@ R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) 
   List<double> polyData = [];
   gl3_3D_vtx_t v = gl3_3D_vtx_t();
   polyData.addAll(v.data);
+
 	for (int i = 0; i < numverts; i++) {
     v = gl3_3D_vtx_t();
     v.pos = Float32List.fromList(verts[i]);
@@ -177,6 +172,8 @@ R_SubdividePolygon(int numverts, List<List<double>> verts, msurface_t warpface) 
 
 	/* copy first vertex to last */
   polyData.addAll(polyData.sublist(gl3_3D_vtx_size, 2 * gl3_3D_vtx_size));
+
+  assert((polyData.length / gl3_3D_vtx_size) == (numverts + 2));
 
   poly.data = Float32List.fromList(polyData);
 }
@@ -206,7 +203,7 @@ WebGL_SubdivideSurface(msurface_t fa, webglbrushmodel_t loadmodel) {
 		numverts++;
 	}
 
-	R_SubdividePolygon(numverts, verts, fa);
+	_R_SubdividePolygon(numverts, verts, fa);
 }
 
 /*

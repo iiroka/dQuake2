@@ -40,12 +40,11 @@ import 'webgl_light.dart';
 import 'webgl_misc.dart';
 import 'webgl_shaders.dart';
 
-const SHADEDOT_QUANT = 16;
+const _SHADEDOT_QUANT = 16;
 
-List<List<double>> s_lerped = List.generate(MAX_VERTS, (i) => [0,0,0,0]);
+List<List<double>> _s_lerped = List.generate(MAX_VERTS, (i) => [0,0,0,0]);
 
-
-LerpVerts(bool powerUpEffect, int nverts, List<dtrivertx_t> v, List<dtrivertx_t> ov,
+_LerpVerts(bool powerUpEffect, int nverts, List<dtrivertx_t> v, List<dtrivertx_t> ov,
 		List<dtrivertx_t> verts, List<List<double>> lerp, List<double> move,
 		List<double> frontv, List<double> backv)
 {
@@ -69,7 +68,7 @@ LerpVerts(bool powerUpEffect, int nverts, List<dtrivertx_t> v, List<dtrivertx_t>
 /*
  * Interpolates between two frames and origins
  */
-DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadelight) {
+_DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadelight) {
 	final backlerp = entity.backlerp;
 	final frontlerp = 1.0 - backlerp;
 
@@ -79,7 +78,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 			 RF_SHELL_HALF_DAM));
 
 	// TODO: maybe we could somehow store the non-rotated normal and do the dot in shader?
-	final shadedots = r_avertexnormal_dots[((entity.angles[1] * (SHADEDOT_QUANT / 360.0)).toInt()) & (SHADEDOT_QUANT - 1)];
+	final shadedots = r_avertexnormal_dots[(entity.angles[1] * (_SHADEDOT_QUANT / 360.0)).toInt() & (_SHADEDOT_QUANT - 1)];
 
 	final frame = model.frames[entity.frame];
 	final verts = frame.verts;
@@ -123,7 +122,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 
 	// lerp = s_lerped[0];
 
-	LerpVerts(colorOnly, model.header.num_xyz, verts, ov, verts, s_lerped, move, frontv, backv);
+	_LerpVerts(colorOnly, model.header.num_xyz, verts, ov, verts, _s_lerped, move, frontv, backv);
 
 	// assert(sizeof(gl3_alias_vtx_t) == 9*sizeof(GLfloat));
 
@@ -159,14 +158,14 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 
 		// gl3_alias_vtx_t* buf = da_addn_uninit(vtxBuf, count);
 
-		if (colorOnly)
-		{
+		if (colorOnly) {
+
 			for(int i=0; i<count; ++i) {
 				int index_xyz = model.cmds.getInt32(order + 2 * 4, Endian.little);
 				order += 3 * 4;
         gl3_alias_vtx_t cur = gl3_alias_vtx_t();
 
-        cur.pos = Float32List.fromList(s_lerped[index_xyz]);
+        cur.pos = Float32List.fromList(_s_lerped[index_xyz]);
         List<double> color = [0,0,0,0];
 				for(int j=0; j<3; ++j) {
 					color[j] = shadelight[j];
@@ -175,11 +174,10 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
         cur.color = Float32List.fromList(color);
         vtxBuf.addAll(cur.data);
 			}
-		}
-		else
-		{
-			for(int i=0; i<count; ++i)
-			{
+
+		} else {
+
+			for(int i=0; i<count; ++i) {
         gl3_alias_vtx_t cur = gl3_alias_vtx_t();
 				/* texture coordinates come from the draw list */
 				cur.texCoord = Float32List.fromList([ 
@@ -193,7 +191,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 				// to one of 16 (SHADEDOT_QUANT) presets in r_avertexnormal_dots
 				final l = shadedots[verts[index_xyz].lightnormalindex];
 
-        cur.pos = Float32List.fromList(s_lerped[index_xyz]);
+        cur.pos = Float32List.fromList(_s_lerped[index_xyz]);
         List<double> color = [0,0,0,0];
 				for(int j=0; j<3; ++j) {
 					color[j] = l * shadelight[j];
@@ -206,8 +204,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 
 		// translate triangle fan/strip to just triangle indices
 		if(type == WebGL.TRIANGLE_FAN) {
-			for(int i=1; i < count-1; ++i)
-			{
+			for(int i=1; i < count-1; ++i) {
 				idxBuf.add(nextVtxIdx);
 				idxBuf.add(nextVtxIdx+i);
 				idxBuf.add(nextVtxIdx+i+1);
@@ -216,8 +213,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 		else // triangle strip
 		{
       int i;
-			for(i=1; i < count-2; i+=2)
-			{
+			for(i=1; i < count-2; i+=2) {
 				// add two triangles at once, because the vertex order is different
 				// for odd vs even triangles
 				idxBuf.add(nextVtxIdx + i-1);
@@ -229,8 +225,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 				idxBuf.add(nextVtxIdx + i+1);
 			}
 			// add remaining triangle, if any
-			if(i < count-1)
-			{
+			if(i < count-1) {
 				idxBuf.add(nextVtxIdx + i-1);
 				idxBuf.add(nextVtxIdx + i);
 				idxBuf.add(nextVtxIdx + i+1);
@@ -247,7 +242,7 @@ DrawAliasFrameLerp(webglaliasmodel_t model, entity_t entity, List<double> shadel
 	gl.drawElements(WebGL.TRIANGLES, idxBuf.length, WebGL.UNSIGNED_SHORT, null);
 }
 
-bool CullAliasModel(List<List<double>> bbox, entity_t e) {
+bool _CullAliasModel(List<List<double>> bbox, entity_t e) {
 
 	final model = e.model as webglaliasmodel_t;
 
@@ -390,14 +385,13 @@ WebGL_DrawAliasModel(entity_t entity) {
   List<List<double>> bbox = List.generate(8, (i) => [0,0,0]);
 
 	if ((entity.flags & RF_WEAPONMODEL) == 0) {
-		if (CullAliasModel(bbox, entity)) {
+		if (_CullAliasModel(bbox, entity)) {
 			return;
 		}
 	}
 
 	if ((entity.flags & RF_WEAPONMODEL) != 0) {
-		if (gl_lefthand.integer == 2)
-		{
+		if (gl_lefthand.integer == 2) {
 			return;
 		}
 	}
@@ -447,28 +441,19 @@ WebGL_DrawAliasModel(entity_t entity) {
 		if ((entity.flags & RF_WEAPONMODEL) != 0) {
 			/* pick the greatest component, which should be
 			   the same as the mono value returned by software */
-		// 	if (shadelight[0] > shadelight[1])
-		// 	{
-		// 		if (shadelight[0] > shadelight[2])
-		// 		{
-		// 			r_lightlevel.value = 150 * shadelight[0];
-		// 		}
-		// 		else
-		// 		{
-		// 			r_lightlevel.value = 150 * shadelight[2];
-		// 		}
-		// 	}
-		// 	else
-		// 	{
-		// 		if (shadelight[1] > shadelight[2])
-		// 		{
-		// 			r_lightlevel.value = 150 * shadelight[1];
-		// 		}
-		// 		else
-		// 		{
-		// 			r_lightlevel.value = 150 * shadelight[2];
-		// 		}
-		// 	}
+			if (shadelight[0] > shadelight[1]) {
+				if (shadelight[0] > shadelight[2]) {
+					r_lightlevel.string = (150 * shadelight[0]).toString();
+				} else {
+					r_lightlevel.string = (150 * shadelight[2]).toString();
+				}
+			} else {
+				if (shadelight[1] > shadelight[2]) {
+					r_lightlevel.string = (150 * shadelight[1]).toString();
+				} else {
+					r_lightlevel.string = (150 * shadelight[2]).toString();
+				}
+			}
 		}
 	}
 
@@ -556,14 +541,12 @@ WebGL_DrawAliasModel(entity_t entity) {
 		}
 	}
 
-
 	//glPushMatrix();
 	var origModelMat = glstate.uni3DData.transModelMat4;
 
 	entity.angles[PITCH] = -entity.angles[PITCH];
 	WebGL_RotateForEntity(entity);
 	entity.angles[PITCH] = -entity.angles[PITCH];
-
 
 	/* select skin */
   webglimage_t skin;
@@ -607,7 +590,7 @@ WebGL_DrawAliasModel(entity_t entity) {
 		entity.oldframe = 0;
 	}
 
-	DrawAliasFrameLerp(model, entity, shadelight);
+	_DrawAliasFrameLerp(model, entity, shadelight);
 
 	//glPopMatrix();
 	glstate.uni3DData.transModelMat4 = origModelMat;

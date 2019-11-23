@@ -27,6 +27,7 @@
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/client/client.dart';
+import 'package:dQuakeWeb/shared/files.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 
 const _STEPSIZE = 18;
@@ -64,6 +65,392 @@ double pm_wateraccelerate = 10;
 double pm_friction = 6;
 double pm_waterfriction = 1;
 double pm_waterspeed = 400;
+
+const _STOP_EPSILON = 0.1; /* Slide off of the impacting object returns the blocked flags (1 = floor, 2 = step / wall) */
+const _MIN_STEP_NORMAL = 0.7; /* can't step up onto very steep slopes */
+const _MAX_CLIP_PLANES = 5;  
+
+_PM_ClipVelocity(List<double> ind, List<double> normal, List<double> out, double overbounce) {
+
+	double backoff = DotProduct(ind, normal) * overbounce;
+
+	for (int i = 0; i < 3; i++) {
+		double change = normal[i] * backoff;
+		out[i] = ind[i] - change;
+
+		if ((out[i] > -_STOP_EPSILON) && (out[i] < _STOP_EPSILON)) {
+			out[i] = 0;
+		}
+	}
+}
+
+/*
+ * Each intersection will try to step over the obstruction instead of
+ * sliding along it.
+ *
+ * Returns a new origin, velocity, and contact entity
+ * Does not modify any world state?
+ */
+_PM_StepSlideMove_() {
+	// int bumpcount, numbumps;
+	// vec3_t dir;
+	// float d;
+	// int numplanes;
+	// vec3_t planes[MAX_CLIP_PLANES];
+	// vec3_t primal_velocity;
+	// int i, j;
+	// trace_t trace;
+	// vec3_t end;
+	// float time_left;
+
+  List<List<double>> planes = List.generate(_MAX_CLIP_PLANES, (i) => [0,0,0]);
+
+	int numbumps = 4;
+
+  List<double> primal_velocity = List.generate(3, (i) => _pml.velocity[i]);
+	int numplanes = 0;
+
+	double time_left = _pml.frametime;
+
+	for (int bumpcount = 0; bumpcount < numbumps; bumpcount++) {
+    List<double> end = List.generate(3, (i) => _pml.origin[i] + time_left * _pml.velocity[i]);
+
+		var trace = _pm.trace(_pml.origin, _pm.mins, _pm.maxs, end);
+		if (trace.allsolid) {
+			/* entity is trapped in another solid */
+			_pml.velocity[2] = 0; /* don't build up falling damage */
+			return;
+		}
+
+		if (trace.fraction > 0) {
+			/* actually covered some distance */
+      _pml.origin.setAll(0, trace.endpos);
+			numplanes = 0;
+		}
+
+		if (trace.fraction == 1) {
+			break; /* moved the entire distance */
+		}
+
+		/* save entity for contact */
+		if ((_pm.numtouch < MAXTOUCH) && trace.ent != null) {
+			_pm.touchents[_pm.numtouch] = trace.ent;
+			_pm.numtouch++;
+		}
+
+		time_left -= time_left * trace.fraction;
+
+		/* slide along this plane */
+		if (numplanes >= _MAX_CLIP_PLANES) {
+			/* this shouldn't really happen */
+      _pml.velocity.fillRange(0, 3, 0);
+			break;
+		}
+
+    planes[numplanes].setAll(0, trace.plane.normal);
+		numplanes++;
+
+		/* modify original_velocity so it parallels all of the clip planes */
+    int i;
+		for (i = 0; i < numplanes; i++) {
+			_PM_ClipVelocity(_pml.velocity, planes[i], _pml.velocity, 1.01);
+      int j;
+			for (j = 0; j < numplanes; j++) {
+				if (j != i) {
+					if (DotProduct(_pml.velocity, planes[j]) < 0) {
+						break; /* not ok */
+					}
+				}
+			}
+
+			if (j == numplanes) {
+				break;
+			}
+		}
+
+		if (i != numplanes) {
+			/* go along this plane */
+		} else {
+			/* go along the crease */
+			if (numplanes != 2) {
+        _pml.velocity.fillRange(0, 3, 0);
+				break;
+			}
+
+      List<double> dir = [0,0,0];
+			CrossProduct(planes[0], planes[1], dir);
+			double d = DotProduct(dir, _pml.velocity);
+			VectorScale(dir, d, _pml.velocity);
+		}
+
+		/* if velocity is against the original velocity, stop dead
+		   to avoid tiny occilations in sloping corners */
+		if (DotProduct(_pml.velocity, primal_velocity) <= 0) {
+      _pml.velocity.fillRange(0, 3, 0);
+			break;
+		}
+	}
+
+	if (_pm.s.pm_time != 0) {
+    _pml.velocity.setAll(0, primal_velocity);
+	}
+}
+
+_PM_StepSlideMove() {
+	// vec3_t start_o, start_v;
+	// vec3_t down_o, down_v;
+	// trace_t trace;
+	// float down_dist, up_dist;
+	// vec3_t up, down;
+
+  List<double> start_o = List.generate(3, (i) => _pml.origin[i]);
+  List<double> start_v = List.generate(3, (i) => _pml.velocity[i]);
+
+	_PM_StepSlideMove_();
+
+  List<double> down_o = List.generate(3, (i) => _pml.origin[i]);
+  List<double> down_v = List.generate(3, (i) => _pml.velocity[i]);
+
+  List<double> up = List.generate(3, (i) => start_o[i]);
+	up[2] += _STEPSIZE;
+
+	var trace = _pm.trace(up, _pm.mins, _pm.maxs, up);
+	if (trace.allsolid) {
+		return; /* can't step up */
+	}
+
+	/* try sliding above */
+  _pml.origin.setAll(0, up);
+  _pml.velocity.setAll(0, start_v);
+
+	_PM_StepSlideMove_();
+
+	/* push down the final amount */
+  List<double> down = List.generate(3, (i) => _pml.origin[i]);
+	down[2] -= _STEPSIZE;
+	trace = _pm.trace(_pml.origin, _pm.mins, _pm.maxs, down);
+	if (!trace.allsolid) {
+    _pml.origin.setAll(0, trace.endpos);
+	}
+
+  up.setAll(0, _pml.origin);
+
+	/* decide which one went farther */
+	var down_dist = (down_o[0] - start_o[0]) * (down_o[0] - start_o[0])
+				+ (down_o[1] - start_o[1]) * (down_o[1] - start_o[1]);
+	var up_dist = (up[0] - start_o[0]) * (up[0] - start_o[0])
+			  + (up[1] - start_o[1]) * (up[1] - start_o[1]);
+
+	if ((down_dist > up_dist) || (trace.plane.normal[2] < _MIN_STEP_NORMAL)) {
+    _pml.origin.setAll(0, down_o);
+    _pml.velocity.setAll(0, down_v);
+		return;
+	}
+
+	_pml.velocity[2] = down_v[2];
+}
+
+/*
+ * Handles user intended acceleration
+ */
+_PM_Accelerate(List<double> wishdir, double wishspeed, double accel) {
+
+	double currentspeed = DotProduct(_pml.velocity, wishdir);
+	double addspeed = wishspeed - currentspeed;
+
+	if (addspeed <= 0) {
+		return;
+	}
+
+	double accelspeed = accel * _pml.frametime * wishspeed;
+	if (accelspeed > addspeed) {
+		accelspeed = addspeed;
+	}
+
+	for (int i = 0; i < 3; i++) {
+		_pml.velocity[i] += accelspeed * wishdir[i];
+	}
+}
+
+
+_PM_AddCurrents(List<double> wishvel) {
+
+	/* account for ladders */
+	if (_pml.ladder && (_pml.velocity[2].abs() <= 200)) {
+		if ((_pm.viewangles[PITCH] <= -15) && (_pm.cmd.forwardmove > 0)) {
+			wishvel[2] = 200;
+		} else if ((_pm.viewangles[PITCH] >= 15) && (_pm.cmd.forwardmove > 0)) {
+			wishvel[2] = -200;
+		} else if (_pm.cmd.upmove > 0) {
+			wishvel[2] = 200;
+		} else if (_pm.cmd.upmove < 0) {
+			wishvel[2] = -200;
+		} else {
+			wishvel[2] = 0;
+		}
+
+		/* limit horizontal speed when on a ladder */
+		if (wishvel[0] < -25) {
+			wishvel[0] = -25;
+		} else if (wishvel[0] > 25) {
+			wishvel[0] = 25;
+		}
+
+		if (wishvel[1] < -25) {
+			wishvel[1] = -25;
+		} else if (wishvel[1] > 25) {
+			wishvel[1] = 25;
+		}
+	}
+
+	/* add water currents  */
+	if ((_pm.watertype & MASK_CURRENT) != 0) {
+		List<double> v = [0,0,0];
+
+		if ((_pm.watertype & CONTENTS_CURRENT_0) != 0) {
+			v[0] += 1;
+		}
+
+		if ((_pm.watertype & CONTENTS_CURRENT_90) != 0) {
+			v[1] += 1;
+		}
+
+		if ((_pm.watertype & CONTENTS_CURRENT_180) != 0) {
+			v[0] -= 1;
+		}
+
+		if ((_pm.watertype & CONTENTS_CURRENT_270) != 0) {
+			v[1] -= 1;
+		}
+
+		if ((_pm.watertype & CONTENTS_CURRENT_UP) != 0) {
+			v[2] += 1;
+		}
+
+		if ((_pm.watertype & CONTENTS_CURRENT_DOWN) != 0) {
+			v[2] -= 1;
+		}
+
+		double s = pm_waterspeed;
+
+		if ((_pm.waterlevel == 1) && (_pm.groundentity != null)) {
+			s /= 2;
+		}
+
+		VectorMA(wishvel, s, v, wishvel);
+	}
+
+	/* add conveyor belt velocities */
+	if (_pm.groundentity != null) {
+		List<double> v = [0,0,0];
+
+		if ((_pml.groundcontents & CONTENTS_CURRENT_0) != 0) {
+			v[0] += 1;
+		}
+
+		if ((_pml.groundcontents & CONTENTS_CURRENT_90) != 0) {
+			v[1] += 1;
+		}
+
+		if ((_pml.groundcontents & CONTENTS_CURRENT_180) != 0) {
+			v[0] -= 1;
+		}
+
+		if ((_pml.groundcontents & CONTENTS_CURRENT_270) != 0) {
+			v[1] -= 1;
+		}
+
+		if ((_pml.groundcontents & CONTENTS_CURRENT_UP) != 0) {
+			v[2] += 1;
+		}
+
+		if ((_pml.groundcontents & CONTENTS_CURRENT_DOWN) != 0) {
+			v[2] -= 1;
+		}
+
+		VectorMA(wishvel, 100, v, wishvel);
+	}
+}
+
+_PM_AirMove() {
+
+	double fmove = _pm.cmd.forwardmove.toDouble();
+	double smove = _pm.cmd.sidemove.toDouble();
+
+  List<double> wishvel = [0,0,0];
+	for (int i = 0; i < 2; i++) {
+		wishvel[i] = _pml.forward[i] * fmove + _pml.right[i] * smove;
+	}
+
+	wishvel[2] = 0;
+
+	_PM_AddCurrents(wishvel);
+  List<double> wishdir = List.generate(3, (i) => wishvel[i]);
+	double wishspeed = VectorNormalize(wishdir);
+
+	/* clamp to server defined max speed */
+	double maxspeed = (_pm.s.pm_flags & PMF_DUCKED) != 0 ? pm_duckspeed : pm_maxspeed;
+
+	if (wishspeed > maxspeed) {
+		VectorScale(wishvel, maxspeed / wishspeed, wishvel);
+		wishspeed = maxspeed;
+	}
+
+	if (_pml.ladder) {
+		_PM_Accelerate(wishdir, wishspeed, pm_accelerate);
+
+	// 	if (!wishvel[2])
+	// 	{
+	// 		if (pml.velocity[2] > 0)
+	// 		{
+	// 			pml.velocity[2] -= pm->s.gravity * pml.frametime;
+
+	// 			if (pml.velocity[2] < 0)
+	// 			{
+	// 				pml.velocity[2] = 0;
+	// 			}
+	// 		}
+	// 		else
+	// 		{
+	// 			pml.velocity[2] += pm->s.gravity * pml.frametime;
+
+	// 			if (pml.velocity[2] > 0)
+	// 			{
+	// 				pml.velocity[2] = 0;
+	// 			}
+	// 		}
+	// 	}
+
+		_PM_StepSlideMove();
+	} else if (_pm.groundentity != null) {
+		/* walking on ground */
+		_pml.velocity[2] = 0;
+		_PM_Accelerate(wishdir, wishspeed, pm_accelerate);
+
+		if (_pm.s.gravity > 0) {
+			_pml.velocity[2] = 0;
+		} else {
+			_pml.velocity[2] -= _pm.s.gravity * _pml.frametime;
+		}
+
+		if (_pml.velocity[0] == 0 && _pml.velocity[1] == 0) {
+			return;
+		}
+
+		_PM_StepSlideMove();
+	} else {
+		/* not on ground, so little effect on velocity */
+		if (pm_airaccelerate != 0) {
+	// 		PM_AirAccelerate(wishdir, wishspeed, pm_accelerate);
+		} else {
+			_PM_Accelerate(wishdir, wishspeed, 1);
+		}
+
+		/* add gravity */
+		_pml.velocity[2] -= _pm.s.gravity * _pml.frametime;
+		_PM_StepSlideMove();
+	}
+}
 
 _PM_CatagorizePosition() {
 
@@ -415,37 +802,31 @@ Pmove(pmove_t pmove) {
 			_pm.s.pm_time = 0;
 		}
 
-// 		PM_StepSlideMove();
+		_PM_StepSlideMove();
 	} else {
 // 		PM_CheckJump();
 
-// 		PM_Friction();
+		// _PM_Friction();
 
-// 		if (pm->waterlevel >= 2)
-// 		{
+		if (_pm.waterlevel >= 2) {
 // 			PM_WaterMove();
-// 		}
-// 		else
-// 		{
-// 			vec3_t angles;
+		} else {
+			List<double> angles = List.generate(3, (i) => _pm.viewangles[i]);
 
-// 			VectorCopy(pm->viewangles, angles);
+			if (angles[PITCH] > 180) {
+				angles[PITCH] = angles[PITCH] - 360;
+			}
 
-// 			if (angles[PITCH] > 180)
-// 			{
-// 				angles[PITCH] = angles[PITCH] - 360;
-// 			}
+			angles[PITCH] /= 3;
 
-// 			angles[PITCH] /= 3;
+			AngleVectors(angles, _pml.forward, _pml.right, _pml.up);
 
-// 			AngleVectors(angles, pml.forward, pml.right, pml.up);
-
-// 			PM_AirMove();
-// 		}
+			_PM_AirMove();
+		}
 	}
 
 	/* set groundentity, watertype, and waterlevel for final spot */
-// 	PM_CatagorizePosition();
+	_PM_CatagorizePosition();
 
 //     PM_UpdateUnderwaterSfx();
 

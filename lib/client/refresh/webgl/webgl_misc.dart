@@ -56,12 +56,6 @@ WebGL_SetDefaultState() {
 	gl.texParameteri(WebGL.TEXTURE_2D, WebGL.TEXTURE_WRAP_T, WebGL.REPEAT);
 
 	gl.blendFunc(WebGL.SRC_ALPHA, WebGL.ONE_MINUS_SRC_ALPHA);
-
-	// if (gl_msaa_samples.boolean) {
-		// gl.enable(WebGL.MULTISAMPLE);
-		// glHint(GL_MULTISAMPLE_FILTER_HINT_NV, GL_NICEST); TODO what is this for?
-	// }
-
 }
 
 List<List<int>> dottexture = [

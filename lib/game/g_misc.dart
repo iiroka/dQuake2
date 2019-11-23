@@ -80,14 +80,14 @@ path_corner_touch(edict_t self, edict_t other, cplane_t plane /* unused */,
 	other.goalentity = other.movetarget = next;
 
 	if (self.wait != 0) {
-		// other->monsterinfo.pausetime = level.time + self->wait;
-		// other->monsterinfo.stand(other);
+		other.monsterinfo.pausetime = level.time + self.wait;
+		other.monsterinfo.stand(other);
 		return;
 	}
 
 	if (other.movetarget == null) {
-		// other->monsterinfo.pausetime = level.time + 100000000;
-		// other->monsterinfo.stand(other);
+		other.monsterinfo.pausetime = level.time + 100000000;
+		other.monsterinfo.stand(other);
 	} else {
 		// VectorSubtract(other->goalentity->s.origin, other->s.origin, v);
 		// other->ideal_yaw = vectoyaw(v);

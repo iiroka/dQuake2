@@ -26,6 +26,7 @@
  * =======================================================================
  */
 import 'dart:typed_data';
+import 'package:dQuakeWeb/client/vid/ref.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/common/filesystem.dart';
@@ -118,8 +119,7 @@ class glpoly_t {
 
 // this, must be struct model_s, not gl3model_s,
 // because struct model_s* is returned by re.RegisterModel()
-class webglmodel_t {
-	String name;
+class webglmodel_t extends model_s {
 
 	int registration_sequence = 0;
 
@@ -138,7 +138,7 @@ class webglmodel_t {
 
   List<webglimage_t> skins;
 
-  webglmodel_t(this.name, this.type);
+  webglmodel_t(String name, this.type) : super(name);
 }
 
 /* in memory representation */
@@ -207,6 +207,7 @@ class mleafornode_t {
 	List<double> minmaxs = List(6);           /* for bounding box culling */
 
 	mnode_t parent;
+  int index;
 }
 
 class mnode_t extends mleafornode_t {
@@ -226,7 +227,6 @@ class mleaf_t extends mleafornode_t {
   int firstmarksurface = 0;
 	int nummarksurfaces = 0;
 }
-
 
 class webglbrushmodel_t extends webglmodel_t {
 
@@ -298,7 +298,7 @@ class webglbrushmodel_t extends webglmodel_t {
     for (int i = 0; i < count; i++) {
       final src = dvertex_t(buffer, l.fileofs + i * dvertexSize);
       this.vertexes[i] = mvertex_t();
-      this.vertexes[i].position = src.point;
+      this.vertexes[i].position = [src.point[0], src.point[1], src.point[2]];
     }
   }
 
@@ -315,7 +315,7 @@ class webglbrushmodel_t extends webglmodel_t {
     for (int i = 0; i < count; i++) {
       final src = dedge_t(buffer, l.fileofs + i * dedgeSize);
       this.edges[i] = medge_t();
-      this.edges[i].v = src.v;
+      this.edges[i].v = [src.v[0] & 0xFFFF, src.v[1] & 0xFFFF];
     }
   }
 
@@ -362,7 +362,6 @@ class webglbrushmodel_t extends webglmodel_t {
       this.surfedges[i] = buffer.getInt32(l.fileofs + i * 4, Endian.little);
     }
   }
-
 
   LoadMarksurfaces(lump_t l, ByteData buffer) {
 
@@ -424,7 +423,6 @@ class webglbrushmodel_t extends webglmodel_t {
       this.planes[i] = out;
     }
   }
-
 
   LoadVisibility(lump_t l, ByteData buffer) {
 
@@ -493,12 +491,9 @@ class webglbrushmodel_t extends webglmodel_t {
       final e = this.surfedges[s.firstedge + i];
 
       mvertex_t v;
-      if (e >= 0)
-      {
+      if (e >= 0) {
         v = this.vertexes[this.edges[e].v[0]];
-      }
-      else
-      {
+      } else {
         v = this.vertexes[this.edges[-e].v[1]];
       }
 
@@ -639,6 +634,7 @@ class webglbrushmodel_t extends webglmodel_t {
     for (int i = 0; i < count; i++) {
       final src = dnode_t(buffer, l.fileofs + i * dnodeSize);
       final out = this.nodes[i];
+      out.index = i;
       for (int j = 0; j < 3; j++) {
         out.minmaxs[j] = src.mins[j].toDouble();
         out.minmaxs[3 + j] = src.maxs[j].toDouble();
@@ -677,6 +673,7 @@ class webglbrushmodel_t extends webglmodel_t {
     for (int i = 0; i < count; i++) {
       final src = dleaf_t(buffer, l.fileofs + i * dleafSize);
       final out = mleaf_t();
+      out.index = -i;
 
       for (int j = 0; j < 3; j++) {
         out.minmaxs[j] = src.mins[j].toDouble();
@@ -710,7 +707,14 @@ class webglaliasmodel_t extends webglmodel_t {
   List<String> skinNames;
 
   webglaliasmodel_t(String name) : super(name, modtype_t.mod_alias);
+}
 
+class webglspritemodel_t extends webglmodel_t {
+
+  dsprite_t header;
+  List<dsprframe_t> frames;
+
+  webglspritemodel_t(String name) : super(name, modtype_t.mod_sprite);
 }
 
 const MAX_MOD_KNOWN = 512;
@@ -719,6 +723,32 @@ int registration_sequence = 0;
 webglbrushmodel_t webgl_worldmodel;
 List<webglbrushmodel_t> mod_inline = List(MAX_MOD_KNOWN);
 Uint8List mod_novis = Uint8List(MAX_MAP_LEAFS ~/ 8);
+
+Future<webglspritemodel_t> Mod_LoadSpriteModel(String name, ByteData buffer) async {
+
+  webglspritemodel_t mod = webglspritemodel_t(name);
+
+  final sprin = dsprite_t(buffer, 0);
+	if (sprin.version != SPRITE_VERSION) {
+	  Com_Error(ERR_DROP, "$name has wrong version number (${sprin.version} should be $SPRITE_VERSION)");
+	}
+
+	if (sprin.numframes > MAX_MD2SKINS) {
+		Com_Error(ERR_DROP, "$name has too many frames (${sprin.numframes} > ${MAX_MD2SKINS})");
+	}
+
+  List<dsprframe_t> frames = List.generate(sprin.numframes, (i) => dsprframe_t(buffer, dspriteSize + i * dsprframeSize));
+	/* byte swap everything */
+  mod.skins = List(sprin.numframes);
+	for (int i = 0; i < sprin.numframes; i++) {
+		mod.skins[i] = await WebGL_FindImage(frames[i].name, imagetype_t.it_sprite);
+	}
+
+  mod.header = sprin;
+  mod.frames = frames;
+
+  return mod;
+}
 
 Future<webglaliasmodel_t> Mod_LoadAliasModel(String name, ByteData buffer, ByteBuffer buf) async {
 
@@ -778,9 +808,9 @@ Future<webglaliasmodel_t> Mod_LoadAliasModel(String name, ByteData buffer, ByteB
 	mod.maxs[0] = 32;
 	mod.maxs[1] = 32;
 	mod.maxs[2] = 32;
+
   return mod;
 }
-
 
 Future<webglbrushmodel_t> Mod_LoadBrushModel(String name, ByteData buffer) async {
 
@@ -902,9 +932,9 @@ Future<webglmodel_t> Mod_ForName(String name, bool crash) async {
 			mod = await Mod_LoadAliasModel(name, view, buf);
 			break;
 
-	// 	case IDSPRITEHEADER:
-	// 		GL3_LoadSP2(mod, buf, modfilelen);
-	// 		break;
+		case IDSPRITEHEADER:
+			mod = await Mod_LoadSpriteModel(name, view);
+			break;
 
 		case IDBSPHEADER:
 			mod = await  Mod_LoadBrushModel(name, view);
@@ -952,7 +982,7 @@ Future<void> WebGL_BeginRegistration(String model) async {
 	webgl_viewcluster = -1;
 }
 
-Future<Object> WebGL_RegisterModel(String name) async {
+Future<model_s> WebGL_RegisterModel(String name) async {
 
 	final mod = await Mod_ForName(name, false);
 
@@ -961,12 +991,10 @@ Future<Object> WebGL_RegisterModel(String name) async {
 
 		/* register any images used by the models */
 		if (mod.type == modtype_t.mod_sprite) {
-		// 	sprout = (dsprite_t *)mod->extradata;
-
-		// 	for (i = 0; i < sprout->numframes; i++)
-		// 	{
-		// 		mod->skins[i] = GL3_FindImage(sprout->frames[i].name, it_sprite);
-		// 	}
+      final smod = mod as webglspritemodel_t;
+			for (int i = 0; i < smod.frames.length; i++) {
+				mod.skins[i] = await WebGL_FindImage(smod.frames[i].name, imagetype_t.it_sprite);
+			}
 		} else if (mod.type == modtype_t.mod_alias) {
       final amod = mod as webglaliasmodel_t;
 
