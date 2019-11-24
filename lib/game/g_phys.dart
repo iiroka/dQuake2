@@ -34,6 +34,7 @@ import 'g_main.dart';
 import 'g_monster.dart';
 import 'g_utils.dart';
 
+const _STOP_EPSILON = 0.1;
 const _STOPSPEED = 100;
 const _FRICTION = 6;
 const _WATERFRICTION = 1;
@@ -74,6 +75,197 @@ bool SV_RunThink(edict_t ent) {
 
 	ent.think(ent);
 	return false;
+}
+
+/*
+ * Two entities have touched, so
+ * run their touch functions
+ */
+SV_Impact(edict_t e1, trace_t trace) {
+
+	if (e1 == null || trace == null) {
+		return;
+	}
+
+	final e2 = trace.ent;
+
+	if (e1.touch != null && (e1.solid != solid_t.SOLID_NOT))
+	{
+		e1.touch(e1, e2, trace.plane, trace.surface);
+	}
+
+	if (e2.touch != null && (e2.solid != solid_t.SOLID_NOT))
+	{
+		e2.touch(e2, e1, null, null);
+	}
+}
+
+/*
+ * Slide off of the impacting object
+ * returns the blocked flags (1 = floor,
+ * 2 = step / wall)
+ */
+int ClipVelocity(List<double> ind, List<double> normal, List<double> out, double overbounce) {
+
+	int blocked = 0;
+
+	if (normal[2] > 0) {
+		blocked |= 1; /* floor */
+	}
+
+	if (normal[2] == 0) {
+		blocked |= 2; /* step */
+	}
+
+	double backoff = DotProduct(ind, normal) * overbounce;
+
+	for (int i = 0; i < 3; i++) {
+		double change = normal[i] * backoff;
+		out[i] = ind[i] - change;
+
+		if ((out[i] > -_STOP_EPSILON) && (out[i] < _STOP_EPSILON))
+		{
+			out[i] = 0;
+		}
+	}
+
+	return blocked;
+}
+
+
+/*
+ * The basic solid body movement clip
+ * that slides along multiple planes
+ * Returns the clipflags if the velocity
+ * was modified (hit something solid)
+ *
+ * 1 = floor
+ * 2 = wall / step
+ * 4 = dead stop
+ */
+int SV_FlyMove(edict_t ent, double time, int mask) {
+
+	if (ent == null) {
+		return 0;
+	}
+
+	int numbumps = 4;
+
+	int blocked = 0;
+  List<double> original_velocity = List.generate(3, (i) => ent.velocity[i]);
+  List<double> primal_velocity = List.generate(3, (i) => ent.velocity[i]);
+
+	double time_left = time;
+
+	ent.groundentity = null;
+
+  List<List<double>> planes = [];
+
+	for (int bumpcount = 0; bumpcount < numbumps; bumpcount++) {
+    List<double> end = List.generate(3, (i) => ent.s.origin[i] + time_left * ent.velocity[i]);
+
+		final trace = SV_Trace(ent.s.origin, ent.mins, ent.maxs, end, ent, mask);
+
+		if (trace.allsolid) {
+			/* entity is trapped in another solid */
+      ent.velocity.fillRange(0, 3, 0);
+			return 3;
+		}
+
+		if (trace.fraction > 0) {
+			/* actually covered some distance */
+      ent.s.origin.setAll(0, trace.endpos);
+      original_velocity.setAll(0, ent.velocity);
+			planes = [];
+		}
+
+		if (trace.fraction == 1) {
+			break; /* moved the entire distance */
+		}
+
+		var hit = trace.ent;
+
+		if (trace.plane.normal[2] > 0.7) {
+			blocked |= 1; /* floor */
+
+			if (hit.solid == solid_t.SOLID_BSP) {
+				ent.groundentity = hit;
+				ent.groundentity_linkcount = hit.linkcount;
+			}
+		}
+
+		if (trace.plane.normal[2] == 0) {
+			blocked |= 2; /* step */
+		}
+
+		/* run the impact function */
+		SV_Impact(ent, trace);
+
+		if (!ent.inuse) {
+			break; /* removed by the impact function */
+		}
+
+		time_left -= time_left * trace.fraction;
+
+		/* cliped to another plane */
+		// if (numplanes >= MAX_CLIP_PLANES) {
+		// 	/* this shouldn't really happen */
+    //   ent.velocity.fillRange(0, 3, 0);
+		// 	return 3;
+		// }
+
+    planes.add(trace.plane.normal);
+
+		/* modify original_velocity so it
+		   parallels all of the clip planes */
+    int i;
+    List<double> new_velocity = [0,0,0];
+		for (i = 0; i < planes.length; i++) {
+			ClipVelocity(original_velocity, planes[i], new_velocity, 1);
+
+      int j;
+			for (j = 0; j < planes.length; j++) {
+				if ((j != i) && (planes[i][0] != planes[j][0] || planes[i][1] != planes[j][1] || planes[i][2] != planes[j][2])) {
+					if (DotProduct(new_velocity, planes[j]) < 0) {
+						break; /* not ok */
+					}
+				}
+			}
+
+			if (j == planes.length) {
+				break;
+			}
+		}
+
+		if (i != planes.length) {
+			/* go along this plane */
+      ent.velocity.setAll(0, new_velocity);
+		}
+		else
+		{
+			/* go along the crease */
+			if (planes.length != 2) {
+        ent.velocity.fillRange(0, 3, 0);
+				return 7;
+			}
+
+      List<double> dir = [0,0,0];
+			CrossProduct(planes[0], planes[1], dir);
+			double d = DotProduct(dir, ent.velocity);
+			VectorScale(dir, d, ent.velocity);
+		}
+
+		/* if original velocity is against the original
+		   velocity, stop dead to avoid tiny occilations
+		   in sloping corners */
+		if (DotProduct(ent.velocity, primal_velocity) <= 0)
+		{
+			ent.velocity.fillRange(0, 3, 0);
+			return blocked;
+		}
+	}
+
+	return blocked;
 }
 
 /* ================================================================== */
@@ -533,15 +725,6 @@ SV_Physics_Toss(edict_t ent) {
 }
 
 SV_Physics_Step(edict_t ent) {
-	// qboolean wasonground;
-	// qboolean hitsound = false;
-	// float *vel;
-	// float speed, newspeed, control;
-	// float friction;
-	// edict_t *groundentity;
-	// int mask;
-	// vec3_t oldorig;
-	// trace_t tr;
 
 	if (ent == null) {
 		return;
@@ -594,7 +777,7 @@ SV_Physics_Step(edict_t ent) {
 		ent.velocity[2] *= newspeed;
 	}
 
-	// /* friction for flying monsters that have been given vertical velocity */
+	/* friction for flying monsters that have been given vertical velocity */
 	if ((ent.flags & FL_SWIM) != 0 && (ent.velocity[2] != 0)) {
 	 	final speed = ent.velocity[2].abs();
 		final control = speed < _STOPSPEED ? _STOPSPEED : speed;
@@ -646,7 +829,7 @@ SV_Physics_Step(edict_t ent) {
 		}
 
 	// 	VectorCopy(ent->s.origin, oldorig);
-	// 	SV_FlyMove(ent, FRAMETIME, mask);
+		SV_FlyMove(ent, FRAMETIME, mask);
 
 		/* Evil hack to work around dead parasites (and maybe other monster)
 		   falling through the worldmodel into the void. We copy the current
@@ -696,6 +879,7 @@ G_RunEntity(edict_t ent) async {
 	// if (ent.prethink != null) {
 	// 	ent->prethink(ent);
 	// }
+  // print("${ent.classname} -> ${ent.movetype}");
 
 	switch (ent.movetype) {
 		case movetype_t.MOVETYPE_PUSH:

@@ -275,6 +275,22 @@ const ANIM_ATTACK = 4;
 const ANIM_DEATH = 5;
 const ANIM_REVERSE = 6;
 
+/* damage flags */
+const DAMAGE_RADIUS = 0x00000001; /* damage was indirect */
+const DAMAGE_NO_ARMOR = 0x00000002; /* armour does not protect from this damage */
+const DAMAGE_ENERGY = 0x00000004; /* damage is from an energy based weapon */
+const DAMAGE_NO_KNOCKBACK = 0x00000008; /* do not affect velocity, just view angles */
+const DAMAGE_BULLET = 0x00000010; /* damage is from a bullet (used for ricochets) */
+const DAMAGE_NO_PROTECTION = 0x00000020; /* armor, shields, invulnerability, and godmode have no effect */
+
+const DEFAULT_BULLET_HSPREAD = 300;
+const DEFAULT_BULLET_VSPREAD = 500;
+const DEFAULT_SHOTGUN_HSPREAD = 1000;
+const DEFAULT_SHOTGUN_VSPREAD = 500;
+const DEFAULT_DEATHMATCH_SHOTGUN_COUNT = 12;
+const DEFAULT_SHOTGUN_COUNT = 12;
+const DEFAULT_SSHOTGUN_COUNT = 20;
+
 /* this structure is left intact through an entire game
    it should be initialized at dll load time, and read/written to
    the server.ssv file for savegames */
@@ -525,7 +541,7 @@ class monsterinfo_t {
 	// vec3_t saved_goal;
 	double search_time = 0;
 	double trail_time = 0;
-	// vec3_t last_sighting;
+	List<double> last_sighting = [0,0,0];
 	int attack_state = 0;
 	int lefty = 0;
 	double idle_time = 0;
@@ -554,7 +570,7 @@ class monsterinfo_t {
     // vec3_t saved_goal;
     this.search_time = 0;
     this.trail_time = 0;
-    // vec3_t last_sighting;
+    this.last_sighting.fillRange(0, 3, 0);
     this.attack_state = 0;
     this.lefty = 0;
     this.idle_time = 0;
@@ -563,6 +579,43 @@ class monsterinfo_t {
     this.power_armor_power = 0;
   }
 }
+
+/* means of death */
+const MOD_UNKNOWN = 0;
+const MOD_BLASTER = 1;
+const MOD_SHOTGUN = 2;
+const MOD_SSHOTGUN = 3;
+const MOD_MACHINEGUN = 4;
+const MOD_CHAINGUN = 5;
+const MOD_GRENADE = 6;
+const MOD_G_SPLASH = 7;
+const MOD_ROCKET = 8;
+const MOD_R_SPLASH = 9;
+const MOD_HYPERBLASTER = 10;
+const MOD_RAILGUN = 11;
+const MOD_BFG_LASER = 12;
+const MOD_BFG_BLAST = 13;
+const MOD_BFG_EFFECT = 14;
+const MOD_HANDGRENADE = 15;
+const MOD_HG_SPLASH = 16;
+const MOD_WATER = 17;
+const MOD_SLIME = 18;
+const MOD_LAVA = 19;
+const MOD_CRUSH = 20;
+const MOD_TELEFRAG = 21;
+const MOD_FALLING = 22;
+const MOD_SUICIDE = 23;
+const MOD_HELD_GRENADE = 24;
+const MOD_EXPLOSIVE = 25;
+const MOD_BARREL = 26;
+const MOD_BOMB = 27;
+const MOD_EXIT = 28;
+const MOD_SPLASH = 29;
+const MOD_TARGET_LASER = 30;
+const MOD_TRIGGER_HURT = 31;
+const MOD_HIT = 32;
+const MOD_TARGET_BLASTER = 33;
+const MOD_FRIENDLY_FIRE = 0x8000000;
 
 /* this structure is cleared on each PutClientInServer(),
    except for 'client->pers' */
@@ -945,6 +998,8 @@ class edict_t extends edict_s {
 game_locals_t game = game_locals_t();
 level_locals_t level = level_locals_t();
 spawn_temp_t st = spawn_temp_t();
+
+int meansOfDeath = 0;
 
 List<edict_t> g_edicts;
 

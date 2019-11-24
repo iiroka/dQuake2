@@ -176,6 +176,90 @@ soldier_stand(edict_t self) {
 	}
 }
 
+soldier_walk1_random(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (frandk() > 0.1) {
+		self.monsterinfo.nextframe = FRAME_walk101;
+	}
+}
+
+final soldier_frames_walk1 = [
+	mframe_t(ai_walk, 3, null),
+	mframe_t(ai_walk, 6, null),
+	mframe_t(ai_walk, 2, null),
+	mframe_t(ai_walk, 2, null),
+	mframe_t(ai_walk, 2, null),
+	mframe_t(ai_walk, 1, null),
+	mframe_t(ai_walk, 6, null),
+	mframe_t(ai_walk, 5, null),
+	mframe_t(ai_walk, 3, null),
+	mframe_t(ai_walk, -1, soldier_walk1_random),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null),
+	mframe_t(ai_walk, 0, null)
+];
+
+final soldier_move_walk1 = mmove_t(
+	FRAME_walk101,
+  FRAME_walk133,
+  soldier_frames_walk1,
+  null
+);
+
+final soldier_frames_walk2 = [
+	mframe_t(ai_walk, 4, null),
+	mframe_t(ai_walk, 4, null),
+	mframe_t(ai_walk, 9, null),
+	mframe_t(ai_walk, 8, null),
+	mframe_t(ai_walk, 5, null),
+	mframe_t(ai_walk, 1, null),
+	mframe_t(ai_walk, 3, null),
+	mframe_t(ai_walk, 7, null),
+	mframe_t(ai_walk, 6, null),
+	mframe_t(ai_walk, 7, null)
+];
+
+final soldier_move_walk2 = mmove_t(
+	FRAME_walk209,
+   	FRAME_walk218,
+	soldier_frames_walk2,
+   	null
+);
+
+soldier_walk(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (frandk() < 0.5) {
+		self.monsterinfo.currentmove = soldier_move_walk1;
+	} else {
+		self.monsterinfo.currentmove = soldier_move_walk2;
+	}
+}
 
 _SP_monster_soldier_x(edict_t self) {
 	if (self == null) {
@@ -200,7 +284,7 @@ _SP_monster_soldier_x(edict_t self) {
 	// self.die = soldier_die;
 
 	self.monsterinfo.stand = soldier_stand;
-	// self.monsterinfo.walk = soldier_walk;
+	self.monsterinfo.walk = soldier_walk;
 	// self.monsterinfo.run = soldier_run;
 	// self.monsterinfo.dodge = soldier_dodge;
 	// self.monsterinfo.attack = soldier_attack;

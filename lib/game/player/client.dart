@@ -561,10 +561,9 @@ PutClientInServer(edict_t ent) {
 		client.resp.spectator = false;
 	// }
 
-	// if (!KillBox(ent))
-	// {
-	// 	/* could't spawn in? */
-	// }
+	if (!KillBox(ent)) {
+		/* could't spawn in? */
+	}
 
 	SV_LinkEdict(ent);
 

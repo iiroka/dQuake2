@@ -24,6 +24,7 @@
  * =======================================================================
  */
 import 'dart:math';
+import 'package:dQuakeWeb/shared/shared.dart';
 import '../../game.dart';
 
 /*
@@ -272,6 +273,84 @@ bool SV_movestep(edict_t ent, List<double> move, bool relink) {
 }
 
 /* ============================================================================ */
+
+M_ChangeYaw(edict_t ent) {
+
+	if (ent == null) {
+		return;
+	}
+
+	double current = anglemod(ent.s.angles[YAW]);
+	double ideal = ent.ideal_yaw;
+
+	if (current == ideal) {
+		return;
+	}
+
+	double move = ideal - current;
+	double speed = ent.yaw_speed;
+
+	if (ideal > current)
+	{
+		if (move >= 180)
+		{
+			move = move - 360;
+		}
+	}
+	else
+	{
+		if (move <= -180)
+		{
+			move = move + 360;
+		}
+	}
+
+	if (move > 0)
+	{
+		if (move > speed)
+		{
+			move = speed;
+		}
+	}
+	else
+	{
+		if (move < -speed)
+		{
+			move = -speed;
+		}
+	}
+
+	ent.s.angles[YAW] = anglemod(current + move);
+}
+
+/* ============================================================================ */
+
+M_MoveToGoal(edict_t ent, double dist) {
+
+	if (ent == null) {
+		return;
+	}
+
+	var goal = ent.goalentity;
+
+	if (ent.groundentity == null && (ent.flags & (FL_FLY | FL_SWIM)) == 0) {
+		return;
+	}
+
+	/* if the next step hits the enemy, return immediately */
+	// if (ent.enemy != null && SV_CloseEnough(ent, ent->enemy, dist)) {
+	// 	return;
+	// }
+
+	// /* bump around... */
+	// if (((randk() & 3) == 1) || !SV_StepDirection(ent, ent->ideal_yaw, dist))
+	// {
+	// 	if (ent->inuse)
+	// 	{
+	// 		SV_NewChaseDir(ent, goal, dist);
+	// 	}
+	// }
+}
 
 bool M_walkmove(edict_t ent, double yaw, double dist) {
 

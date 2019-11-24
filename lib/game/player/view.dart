@@ -26,6 +26,7 @@
 import 'dart:math';
 import 'package:dQuakeWeb/shared/shared.dart';
 import '../game.dart';
+import '../g_combat.dart';
 import '../monster/misc/player.dart';
 
 edict_t _current_player;
@@ -331,14 +332,30 @@ P_FallingDamage(edict_t ent) {
 		List<double> dir = [0, 0, 1];
 
 		if (!deathmatch.boolean || (dmflags.integer & DF_NO_FALLING) == 0) {
-			// T_Damage(ent, world, world, dir, ent->s.origin,
-			// 		vec3_origin, damage, 0, 0, MOD_FALLING);
+			T_Damage(ent, g_edicts[0], g_edicts[0], dir, ent.s.origin,
+					[0,0,0], damage, 0, 0, MOD_FALLING);
 		}
 	}
 	else
 	{
 		ent.s.event = entity_event_t.EV_FALLSHORT.index;
 		return;
+	}
+}
+
+G_SetClientEvent(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	if (ent.s.event != 0) {
+		return;
+	}
+
+	if (ent.groundentity != 0 && (xyspeed > 225)) {
+		if ((_current_client.bobtime + bobmove).toInt() != bobcycle) {
+			ent.s.event = entity_event_t.EV_FOOTSTEP.index;
+		}
 	}
 }
 
@@ -544,7 +561,7 @@ ClientEndServerFrame(edict_t ent) {
 
 	// G_CheckChaseStats(ent);
 
-	// G_SetClientEvent(ent);
+	G_SetClientEvent(ent);
 
 	// G_SetClientEffects(ent);
 

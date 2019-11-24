@@ -32,6 +32,7 @@ import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'game.dart';
+import 'g_combat.dart';
 import 'g_main.dart';
 
 /*
@@ -71,6 +72,44 @@ edict_t G_Find(edict_t from, String field, String match) {
 	}
 
 	return null;
+}
+
+/*
+ * Searches all active entities for
+ * the next one that holds the matching
+ * string at fieldofs (use the FOFS() macro)
+ * in the structure.
+ *
+ * Searches beginning at the edict after from,
+ * or the beginning. If NULL, NULL will be
+ * returned if the end of the list is reached.
+ */
+edict_t G_PickTarget(String targetname) {
+
+	if (targetname == null) {
+		Com_Printf("G_PickTarget called with NULL targetname\n");
+		return null;
+	}
+
+  edict_t ent;
+  List<edict_t> choice = [];
+	while (true)
+	{
+		ent = G_Find(ent, "targetname", targetname);
+
+		if (ent == null) {
+			break;
+		}
+
+		choice.add(ent);
+	}
+
+	if (choice.isEmpty) {
+		Com_Printf("G_PickTarget: target $targetname not found\n");
+		return null;
+	}
+
+	return choice[randk() % choice.length];
 }
 
 Think_Delay(edict_t ent) {
@@ -310,4 +349,36 @@ G_TouchTriggers(edict_t ent) {
 
 		hit.touch(hit, ent, null, null);
 	}
+}
+
+/*
+ * Kills all entities that would touch the
+ * proposed new positioning of ent. Ent s
+ * hould be unlinked before calling this!
+ */
+bool KillBox(edict_t ent) {
+
+	if (ent == null) {
+		return false;
+	}
+
+	while (true) {
+		final tr = SV_Trace(ent.s.origin, ent.mins, ent.maxs, ent.s.origin,
+				null, MASK_PLAYERSOLID);
+
+		if (tr.ent == null) {
+			break;
+		}
+
+		/* nail it */
+		T_Damage(tr.ent, ent, ent, [0,0,0], ent.s.origin, [0,0,0],
+				100000, 0, DAMAGE_NO_PROTECTION, MOD_TELEFRAG);
+
+		/* if we didn't kill it, fail */
+		if (tr.ent.solid != solid_t.SOLID_NOT) {
+			return false;
+		}
+	}
+
+	return true; /* all clear */
 }

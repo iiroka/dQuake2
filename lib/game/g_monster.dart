@@ -28,6 +28,7 @@ import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
+import 'g_ai.dart' show FoundTarget;
 import 'g_utils.dart';
 import 'monster/misc/move.dart';
 
@@ -128,6 +129,152 @@ M_droptofloor(edict_t ent) {
 	M_CatagorizePosition(ent);
 }
 
+M_MoveFrame(edict_t self) {
+	// mmove_t *move;
+	// int index;
+
+	if (self == null) {
+		return;
+	}
+
+	var move = self.monsterinfo.currentmove;
+	self.nextthink = level.time + FRAMETIME;
+
+	if ((self.monsterinfo.nextframe != 0) &&
+		(self.monsterinfo.nextframe >= move.firstframe) &&
+		(self.monsterinfo.nextframe <= move.lastframe)) {
+		self.s.frame = self.monsterinfo.nextframe;
+		self.monsterinfo.nextframe = 0;
+	}
+	else
+	{
+		if (self.s.frame == move.lastframe)
+		{
+			if (move.endfunc != null) {
+				move.endfunc(self);
+
+				/* regrab move, endfunc is very likely to change it */
+				move = self.monsterinfo.currentmove;
+
+				/* check for death */
+				if ((self.svflags & SVF_DEADMONSTER) != 0) {
+					return;
+				}
+			}
+		}
+
+		if ((self.s.frame < move.firstframe) ||
+			(self.s.frame > move.lastframe)) {
+			self.monsterinfo.aiflags &= ~AI_HOLD_FRAME;
+			self.s.frame = move.firstframe;
+		}
+		else
+		{
+			if ((self.monsterinfo.aiflags & AI_HOLD_FRAME) == 0)
+			{
+				self.s.frame++;
+
+				if (self.s.frame > move.lastframe)
+				{
+					self.s.frame = move.firstframe;
+				}
+			}
+		}
+	}
+
+	int index = self.s.frame - move.firstframe;
+
+	if (move.frame[index].aifunc != null)
+	{
+		if ((self.monsterinfo.aiflags & AI_HOLD_FRAME) == 0)
+		{
+			move.frame[index].aifunc(self,
+					move.frame[index].dist * self.monsterinfo.scale);
+		}
+		else
+		{
+			move.frame[index].aifunc(self, 0);
+		}
+	}
+
+	if (move.frame[index].thinkfunc != null)
+	{
+		move.frame[index].thinkfunc(self);
+	}
+}
+
+monster_think(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	M_MoveFrame(self);
+
+	if (self.linkcount != self.monsterinfo.linkcount) {
+		self.monsterinfo.linkcount = self.linkcount;
+		M_CheckGround(self);
+	}
+
+	M_CatagorizePosition(self);
+	// M_WorldEffects(self);
+	// M_SetEffects(self);
+}
+
+monster_triggered_spawn(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	self.s.origin[2] += 1;
+	KillBox(self);
+
+	self.solid = solid_t.SOLID_BBOX;
+	self.movetype = movetype_t.MOVETYPE_STEP;
+	self.svflags &= ~SVF_NOCLIENT;
+	self.air_finished = level.time + 12;
+	SV_LinkEdict(self);
+
+	monster_start_go(self);
+
+	if (self.enemy != null && (self.spawnflags & 1) == 0 &&
+		(self.enemy.flags & FL_NOTARGET) == 0) {
+		FoundTarget(self);
+	} else {
+		self.enemy = null;
+	}
+}
+
+
+monster_triggered_spawn_use(edict_t self, edict_t other /* unused */, edict_t activator) {
+	if (self == null || activator == null) {
+		return;
+	}
+
+	/* we have a one frame delay here so we
+	   don't telefrag the guy who activated us */
+	self.think = monster_triggered_spawn;
+	self.nextthink = level.time + FRAMETIME;
+
+	if (activator.client != null) {
+		self.enemy = activator;
+	}
+
+	// self.use = monster_use;
+}
+
+monster_triggered_start(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	self.solid = solid_t.SOLID_NOT;
+	self.movetype = movetype_t.MOVETYPE_NONE;
+	self.svflags |= SVF_NOCLIENT;
+	self.nextthink = 0;
+	self.use = monster_triggered_spawn_use;
+}
+
+
 /* ================================================================== */
 
 bool monster_start(edict_t self) {
@@ -184,16 +331,91 @@ bool monster_start(edict_t self) {
 	// 	}
 	// }
 
-	// /* randomize what frame they start on */
-	// if (self->monsterinfo.currentmove)
-	// {
-	// 	self->s.frame = self->monsterinfo.currentmove->firstframe +
-	// 		(randk() % (self->monsterinfo.currentmove->lastframe -
-	// 				   self->monsterinfo.currentmove->firstframe + 1));
-	// }
+	/* randomize what frame they start on */
+	if (self.monsterinfo.currentmove != null) {
+		self.s.frame = self.monsterinfo.currentmove.firstframe +
+			(randk() % (self.monsterinfo.currentmove.lastframe -
+					   self.monsterinfo.currentmove.firstframe + 1));
+	}
 
 	return true;
 }
+
+monster_start_go(edict_t self) {
+
+	if (self == null) {
+		return;
+	}
+
+	if (self.health <= 0) {
+		return;
+	}
+
+	/* check for target to combat_point and change to combattarget */
+	if (self.target != null) {
+		edict_t target;
+		var notcombat = false;
+		var fixup = false;
+
+		while ((target = G_Find(target, "targetname", self.target)) != null) {
+			if (target.classname == "point_combat") {
+				self.combattarget = self.target;
+				fixup = true;
+			} else {
+				notcombat = true;
+			}
+		}
+
+		if (notcombat && self.combattarget != null) {
+			Com_Printf("${self.classname} at ${self.s.origin} has target with mixed types\n");
+		}
+
+		if (fixup) {
+			self.target = null;
+		}
+	}
+
+	/* validate combattarget */
+	if (self.combattarget != null) {
+		edict_t target;
+
+		while ((target = G_Find(target, "targetname", self.combattarget)) != null) {
+			if (target.classname != "point_combat") {
+				Com_Printf( "${self.classname} at ${self.s.old_origin} has a bad combattarget ${self.combattarget} : ${target.classname} at ${target.s.origin}\n");
+			}
+		}
+	}
+
+	if (self.target != null) {
+		self.goalentity = self.movetarget = G_PickTarget(self.target);
+
+		if (self.movetarget == null) {
+		  Com_Printf("${self.classname} can't find target ${self.takedamage} at ${self.s.origin}\n");
+			self.target = null;
+			self.monsterinfo.pausetime = 100000000;
+			self.monsterinfo.stand(self);
+		} else if (self.movetarget.classname == "path_corner") {
+      List<double> v = [0,0,0];
+			VectorSubtract(self.goalentity.s.origin, self.s.origin, v);
+			self.ideal_yaw = self.s.angles[YAW] = vectoyaw(v);
+			self.monsterinfo.walk(self);
+			self.target = null;
+		} else {
+			self.goalentity = self.movetarget = null;
+			self.monsterinfo.pausetime = 100000000;
+			self.monsterinfo.stand(self);
+		}
+	}
+	else
+	{
+		self.monsterinfo.pausetime = 100000000;
+		self.monsterinfo.stand(self);
+	}
+
+	self.think = monster_think;
+	self.nextthink = level.time + FRAMETIME;
+}
+
 
 walkmonster_start_go(edict_t self) {
 	if (self == null) {
@@ -218,11 +440,11 @@ walkmonster_start_go(edict_t self) {
 		self.viewheight = 25;
 	}
 
-	// if ((self->spawnflags & 2) != 0) {
+	if ((self.spawnflags & 2) != 0) {
 	// 	monster_triggered_start(self);
-	// } else {
-	// 	monster_start_go(self);
-	// }
+	} else {
+		monster_start_go(self);
+	}
 }
 
 walkmonster_start(edict_t self)
