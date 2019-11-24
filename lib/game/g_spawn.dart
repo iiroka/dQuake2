@@ -33,6 +33,7 @@ import 'package:dQuakeWeb/server/sv_init.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
 
 import 'game.dart';
+import 'g_func.dart';
 import 'g_utils.dart';
 import 'g_items.dart';
 import 'g_misc.dart';
@@ -43,6 +44,8 @@ import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_
 final spawns = {
 
 	"info_player_start": SP_info_player_start,
+
+	"func_door": SP_func_door,
 
 	"worldspawn": SP_worldspawn,
 

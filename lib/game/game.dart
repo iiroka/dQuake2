@@ -501,6 +501,59 @@ class client_respawn_t {
   }
 }
 
+class moveinfo_t {
+	/* fixed data */
+	List<double> start_origin = [0,0,0];
+	List<double> start_angles = [0,0,0];
+	List<double> end_origin = [0,0,0];
+	List<double> end_angles = [0,0,0];
+
+	int sound_start = 0;
+	int sound_middle = 0;
+	int sound_end = 0;
+
+	double accel = 0;
+	double speed = 0;
+	double decel = 0;
+	double distance = 0;
+
+	double wait = 0;
+
+	/* state data */
+	int state = 0;
+	List<double> dir = [0,0,0];
+	double current_speed = 0;
+	double move_speed = 0;
+	double next_speed = 0;
+	double remaining_distance = 0;
+	double decel_distance = 0;
+	// void (*endfunc)(edict_t *);
+
+  clear() {
+    this.start_origin.fillRange(0, 3, 0);
+    this.start_angles.fillRange(0, 3, 0);
+    this.end_origin.fillRange(0, 3, 0);
+    this.end_angles.fillRange(0, 3, 0);
+	  this.sound_start = 0;
+	  this.sound_middle = 0;
+	  this.sound_end = 0;
+	  this.accel = 0;
+	  this.speed = 0;
+	  this.decel = 0;
+	  this.distance = 0;
+	  this.wait = 0;
+    this.state = 0;
+    this.start_origin.fillRange(0, 3, 0);
+	  this.current_speed = 0;
+	  this.move_speed = 0;
+	  this.next_speed = 0;
+	  this.remaining_distance = 0;
+	  this.decel_distance = 0;
+	// void (*endfunc)(edict_t *);
+  }
+}
+
+
 class mframe_t {
   void Function(edict_t, double) aifunc;
 	double dist;
@@ -877,7 +930,7 @@ class edict_t extends edict_s {
 	gitem_t item = null; /* for bonus items */
 
 	/* common data blocks */
-	// moveinfo_t moveinfo;
+	moveinfo_t moveinfo = moveinfo_t();
 	monsterinfo_t monsterinfo = monsterinfo_t();
 
   edict_t(int index) {
@@ -990,7 +1043,7 @@ class edict_t extends edict_s {
     this.light_level = 0;
     this.style = 0;
     this.item = null;
-    // moveinfo_t moveinfo;
+    this.moveinfo.clear();
     this.monsterinfo.clear();
   }
 }

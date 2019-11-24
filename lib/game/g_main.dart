@@ -27,6 +27,7 @@ import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
+import 'g_ai.dart' show AI_SetSightClient;
 import 'g_spawn.dart' show G_SpawnEntities;
 import 'g_items.dart';
 import 'g_monster.dart';
@@ -139,7 +140,7 @@ class Quake2Game extends game_export_t{
     // debristhisframe = 0;
 
     /* choose a client for monsters to target this frame */
-    // AI_SetSightClient();
+    AI_SetSightClient();
 
     /* exit intermissions */
     if (level.exitintermission != 0) {

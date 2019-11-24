@@ -1189,6 +1189,25 @@ int BoxOnPlaneSide(List<double> emins, List<double> emaxs, cplane_t p) {
 	return sides;
 }
 
+AddPointToBounds(List<double> v, List<double> mins, List<double> maxs) {
+
+	for (int i = 0; i < 3; i++)
+	{
+		double val = v[i];
+
+		if (val < mins[i])
+		{
+			mins[i] = val;
+		}
+
+		if (val > maxs[i])
+		{
+			maxs[i] = val;
+		}
+	}
+}
+
+
 double VectorNormalize(List<double> v) {
 
 	double length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];

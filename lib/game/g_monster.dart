@@ -130,8 +130,6 @@ M_droptofloor(edict_t ent) {
 }
 
 M_MoveFrame(edict_t self) {
-	// mmove_t *move;
-	// int index;
 
 	if (self == null) {
 		return;
@@ -441,7 +439,7 @@ walkmonster_start_go(edict_t self) {
 	}
 
 	if ((self.spawnflags & 2) != 0) {
-	// 	monster_triggered_start(self);
+		monster_triggered_start(self);
 	} else {
 		monster_start_go(self);
 	}

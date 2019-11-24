@@ -303,7 +303,7 @@ edict_t G_Spawn() {
  * Marks the edict as free
  */
 G_FreeEdict(edict_t ed) {
-	// gi.unlinkentity(ed); /* unlink from world */
+	SV_UnlinkEdict(ed); /* unlink from world */
 
 	if (deathmatch.boolean || coop.boolean) {
 		if (ed.index <= (maxclients.integer + BODY_QUEUE_SIZE)) {

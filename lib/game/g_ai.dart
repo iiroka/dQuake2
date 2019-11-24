@@ -33,6 +33,61 @@ import 'g_utils.dart';
 import 'monster/misc/move.dart';
 
 /*
+ * Called once each frame to set level.sight_client
+ * to the player to be checked for in findtarget.
+ * If all clients are either dead or in notarget,
+ * sight_client will be null.
+ * In coop games, sight_client will cycle
+ * between the clients.
+ */
+AI_SetSightClient() {
+
+  int start;
+	if (level.sight_client == null) {
+		start = 1;
+	}
+	else
+	{
+		start = level.sight_client.index;
+	}
+
+	int check = start;
+
+	while (true) {
+		check++;
+
+		if (check > game.maxclients) {
+			check = 1;
+		}
+
+		final ent = g_edicts[check];
+
+		if (ent.inuse &&
+			(ent.health > 0) &&
+			(ent.flags & FL_NOTARGET) == 0) {
+			level.sight_client = ent;
+			return; /* got one */
+		}
+
+		if (check == start) {
+			level.sight_client = null;
+			return; /* nobody to see */
+		}
+	}
+}
+
+/*
+ * Move the specified distance at current facing.
+ */
+ai_move(edict_t self, double dist) {
+	if (self == null) {
+		return;
+	}
+
+	M_walkmove(self, self.s.angles[YAW], dist);
+}
+
+/*
  *
  * Used for standing around and looking
  * for players Distance is for slight
