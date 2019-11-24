@@ -36,6 +36,7 @@ import 'cl_lights.dart' show CL_AddLightStyles;
 import 'cl_particles.dart' show CL_AddParticles;
 import 'cl_tempentities.dart' show CL_AddTEnts, cl_mod_powerscreen;
 import 'cl_lights.dart' show CL_AddDLights;
+import 'cl_effects.dart' show CL_BlasterTrail, CL_BlasterTrail2;
 
 CL_AddPacketEntities(frame_t frame) {
   final ent = entity_t();
@@ -392,31 +393,23 @@ CL_AddPacketEntities(frame_t frame) {
 			/* Do not reorder EF_BLASTER and EF_HYPERBLASTER.
 			   EF_BLASTER | EF_TRACKER is a special case for
 			   EF_BLASTER2 */
-	// 		else if ((effects & EF_BLASTER) != 0)
-	// 		{
-	// 			if ((effects & EF_TRACKER) != 0)
-	// 			{
-	// 				CL_BlasterTrail2(cent->lerp_origin, ent.origin);
-	// 				V_AddLight(ent.origin, 200, 0, 1, 0);
-	// 			}
-	// 			else
-	// 			{
-	// 				CL_BlasterTrail(cent->lerp_origin, ent.origin);
-	// 				V_AddLight(ent.origin, 200, 1, 1, 0);
-	// 			}
-	// 		}
-	// 		else if ((effects & EF_HYPERBLASTER) != 0)
-	// 		{
-	// 			if (effects & EF_TRACKER)
-	// 			{
-	// 				V_AddLight(ent.origin, 200, 0, 1, 0);
-	// 			}
+	// 		else 
+  if ((effects & EF_BLASTER) != 0) {
+				if ((effects & EF_TRACKER) != 0) {
+					CL_BlasterTrail2(cent.lerp_origin, ent.origin);
+					V_AddLight(ent.origin, 200, 0, 1, 0);
+				} else {
+					CL_BlasterTrail(cent.lerp_origin, ent.origin);
+					V_AddLight(ent.origin, 200, 1, 1, 0);
+				}
+			} else if ((effects & EF_HYPERBLASTER) != 0) {
 
-	// 			else
-	// 			{
-	// 				V_AddLight(ent.origin, 200, 1, 1, 0);
-	// 			}
-	// 		}
+				if ((effects & EF_TRACKER) != 0) {
+					V_AddLight(ent.origin, 200, 0, 1, 0);
+				} else {
+					V_AddLight(ent.origin, 200, 1, 1, 0);
+				}
+			}
 	// 		else if ((effects & EF_GIB) != 0)
 	// 		{
 	// 			CL_DiminishingTrail(cent->lerp_origin, ent.origin,
@@ -542,8 +535,8 @@ CL_AddViewWeapon(player_state_t ps, player_state_t ops) {
 	/* set up gun position */
 	for (int i = 0; i < 3; i++)
 	{
-		gun.origin[i] = cl.refdef.vieworg[i] + ops.gunoffset[i]
-			+ cl.lerpfrac * (ps.gunoffset[i] - ops.gunoffset[i]);
+		gun.origin[i] = cl.refdef.vieworg[i] + ops.gunoffset[i] +
+      cl.lerpfrac * (ps.gunoffset[i] - ops.gunoffset[i]);
 		gun.angles[i] = cl.refdef.viewangles[i] + LerpAngle(ops.gunangles[i],
 			ps.gunangles[i], cl.lerpfrac);
 	}
@@ -556,9 +549,7 @@ CL_AddViewWeapon(player_state_t ps, player_state_t ops) {
 
 		if (gun.frame == 0) {
 			gun.oldframe = 0; /* just changed weapons, don't lerp from old */
-		}
-		else
-		{
+		} else {
 			gun.oldframe = ops.gunframe;
 		}
 	}
@@ -618,7 +609,6 @@ CL_CalcViewValues() {
 	/* calculate the origin */
 	if ((cl_predict.boolean) && (cl.frame.playerstate.pmove.pm_flags & PMF_NO_PREDICTION) == 0) {
 		/* use predicted values */
-	// 	unsigned delta;
 
 		final backlerp = 1.0 - lerp;
 

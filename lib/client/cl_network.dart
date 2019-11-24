@@ -375,20 +375,17 @@ CL_ConnectionlessPacket(Readbuf msg, netadr_t adr) async {
 // 		return;
 // 	}
 
-// 	/* remote command from gui front end */
-// 	if (!strcmp(c, "cmd"))
-// 	{
-// 		if (!NET_IsLocalAddress(net_from))
-// 		{
-// 			Com_Printf("Command packet from remote host.  Ignored.\n");
-// 			return;
-// 		}
+	/* remote command from gui front end */
+	if (args[0] == "cmd") {
+		if (!adr.IsLocalAddress()) {
+			Com_Printf("Command packet from remote host.  Ignored.\n");
+			return;
+		}
 
-// 		s = MSG_ReadString(&net_message);
-// 		Cbuf_AddText(s);
-// 		Cbuf_AddText("\n");
-// 		return;
-// 	}
+		Cbuf_AddText(msg.ReadString());
+		Cbuf_AddText("\n");
+		return;
+	}
 
 	/* print command from somewhere */
   if (args[0] ==  "print") {

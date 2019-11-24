@@ -92,16 +92,6 @@ _PM_ClipVelocity(List<double> ind, List<double> normal, List<double> out, double
  * Does not modify any world state?
  */
 _PM_StepSlideMove_() {
-	// int bumpcount, numbumps;
-	// vec3_t dir;
-	// float d;
-	// int numplanes;
-	// vec3_t planes[MAX_CLIP_PLANES];
-	// vec3_t primal_velocity;
-	// int i, j;
-	// trace_t trace;
-	// vec3_t end;
-	// float time_left;
 
   List<List<double>> planes = List.generate(_MAX_CLIP_PLANES, (i) => [0,0,0]);
 
@@ -272,6 +262,30 @@ _PM_Accelerate(List<double> wishdir, double wishspeed, double accel) {
 	}
 }
 
+_PM_AirAccelerate(List<double> wishdir, double wishspeed, double accel) {
+  double wishspd = wishspeed;
+
+	if (wishspd > 30) {
+		wishspd = 30;
+	}
+
+	double currentspeed = DotProduct(_pml.velocity, wishdir);
+	double addspeed = wishspd - currentspeed;
+
+	if (addspeed <= 0) {
+		return;
+	}
+
+	double accelspeed = accel * wishspeed * _pml.frametime;
+
+	if (accelspeed > addspeed) {
+		accelspeed = addspeed;
+	}
+
+	for (int i = 0; i < 3; i++) {
+		_pml.velocity[i] += accelspeed * wishdir[i];
+	}
+}
 
 _PM_AddCurrents(List<double> wishvel) {
 
@@ -441,7 +455,7 @@ _PM_AirMove() {
 	} else {
 		/* not on ground, so little effect on velocity */
 		if (pm_airaccelerate != 0) {
-	// 		PM_AirAccelerate(wishdir, wishspeed, pm_accelerate);
+			_PM_AirAccelerate(wishdir, wishspeed, pm_accelerate);
 		} else {
 			_PM_Accelerate(wishdir, wishspeed, 1);
 		}
@@ -620,6 +634,59 @@ bool _PM_GoodPosition() {
 	return !trace.allsolid;
 }
 
+/*
+ * On exit, the origin will have a value that is pre-quantized to the 0.125
+ * precision of the network channel and in a valid position.
+ */
+final _jitterbits = [0, 4, 1, 2, 3, 5, 6, 7];
+_PM_SnapPosition() {
+	/* try all single bits first */
+
+	/* snap velocity to eigths */
+	for (int i = 0; i < 3; i++) {
+		_pm.s.velocity[i] = (_pml.velocity[i] * 8).toInt();
+	}
+
+  List<int> sign = [0,0, 0];
+	for (int i = 0; i < 3; i++) {
+		if (_pml.origin[i] >= 0) {
+			sign[i] = 1;
+		} else {
+			sign[i] = -1;
+		}
+
+		_pm.s.origin[i] = (_pml.origin[i] * 8).toInt();
+
+		if (_pm.s.origin[i] * 0.125 == _pml.origin[i]) {
+			sign[i] = 0;
+		}
+	}
+
+  List<int> base = List.generate(3, (i) => _pm.s.origin[i]);
+
+	/* try all combinations */
+	for (int j = 0; j < 8; j++) {
+		int bits = _jitterbits[j];
+    _pm.s.origin.setAll(0, base);
+
+		for (int i = 0; i < 3; i++) {
+			if ((bits & (1 << i)) != 0) {
+				_pm.s.origin[i] += sign[i];
+			}
+		}
+
+		if (_PM_GoodPosition()) {
+			return;
+		}
+	}
+
+	/* go back to the last position */
+  for (int i = 0; i < 3; i++) {
+    _pm.s.origin[i] = _pml.previous_origin[i].toInt();
+  }
+}
+
+
 _PM_InitialSnapPosition() {
 	List<int> offset = [0, -1, 1];
   List<int> base = List.generate(3, (i) => _pm.s.origin[i]);
@@ -737,7 +804,7 @@ Pmove(pmove_t pmove) {
 
 	if (_pm.s.pm_type == pmtype_t.PM_SPECTATOR) {
 // 		PM_FlyMove(false);
-// 		PM_SnapPosition();
+		_PM_SnapPosition();
 		return;
 	}
 
@@ -830,6 +897,6 @@ Pmove(pmove_t pmove) {
 
 //     PM_UpdateUnderwaterSfx();
 
-// 	PM_SnapPosition();
+	_PM_SnapPosition();
 }
 

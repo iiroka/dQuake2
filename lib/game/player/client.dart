@@ -23,7 +23,6 @@
  *
  * =======================================================================
  */
-import 'package:dQuakeWeb/client/client.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/pmove.dart' show Pmove;
 import 'package:dQuakeWeb/shared/game.dart';
@@ -35,6 +34,7 @@ import '../game.dart';
 import '../g_items.dart';
 import '../g_utils.dart';
 import 'view.dart';
+import 'weapon.dart';
 
 /*
  * Some maps have no unnamed (e.g. generic)
@@ -50,8 +50,6 @@ _SP_CreateUnnamedSpawn(edict_t self) {
 	if (self == null) {
 		return;
 	}
-
-  print("_SP_CreateUnnamedSpawn ${level.mapname}");
 
 	/* mine1 */
   // if (Q_stricmp(level.mapname, "mine1") == 0)
@@ -903,7 +901,7 @@ G_ClientThink(edict_t ent, usercmd_t ucmd) {
 		ent.groundentity = pm.groundentity;
 
 		if (pm.groundentity != null) {
-			ent.groundentity_linkcount = pm.groundentity.linkcount;
+			ent.groundentity_linkcount = (pm.groundentity as edict_t).linkcount;
 		}
 
 		if (ent.deadflag != 0) {
@@ -1037,7 +1035,7 @@ ClientBeginServerFrame(edict_t ent) {
 
 	// /* run weapon animations if it hasn't been done by a ucmd_t */
 	if (!client.weapon_thunk && !client.resp.spectator) {
-	// 	Think_Weapon(ent);
+		Think_Weapon(ent);
 	} else {
 		client.weapon_thunk = false;
 	}

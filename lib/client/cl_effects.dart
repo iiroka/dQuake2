@@ -810,9 +810,107 @@ CL_BlasterParticles(List<double> org, List<double> dir) {
 	}
 }
 
+CL_BlasterTrail(List<double> start, List<double> end) {
+	// vec3_t move;
+	// vec3_t vec;
+	// int len;
+	// int j;
+	// cparticle_t *p;
+	// int dec;
+	// float time;
+
+	double time = cl.time.toDouble();
+
+  List<double> move = List.generate(3, (i) => start[i]);
+  List<double> vec = [0,0,0];
+	VectorSubtract(end, start, vec);
+	int len = VectorNormalize(vec).toInt();
+
+	int dec = 5;
+	VectorScale(vec, 5, vec);
+
+	while (len > 0) {
+		len -= dec;
+
+		if (free_particles == null) {
+			return;
+		}
+
+		var p = free_particles;
+		free_particles = p.next;
+		p.next = active_particles;
+		active_particles = p;
+		p.accel.fillRange(0, 3, 0);
+
+		p.time = time;
+
+		p.alpha = 1.0;
+		p.alphavel = -1.0 / (0.3 + frandk() * 0.2);
+		p.color = 0xe0;
+
+		for (int j = 0; j < 3; j++) {
+			p.org[j] = move[j] + crandk();
+			p.vel[j] = crandk() * 5;
+			p.accel[j] = 0;
+		}
+
+		VectorAdd(move, vec, move);
+	}
+}
+
 
 CL_ClearEffects() {
 	CL_ClearParticles();
 	CL_ClearDlights();
 	CL_ClearLightStyles();
+}
+
+/*
+ * Green!
+ */
+CL_BlasterTrail2(List<double> start, List<double> end) {
+	// vec3_t move;
+	// vec3_t vec;
+	// float len;
+	// int j;
+	// cparticle_t *p;
+	// int dec;
+	// float time;
+
+	double time = cl.time.toDouble();
+
+  List<double> move = List.generate(3, (i) => start[i]);
+  List<double> vec = [0,0,0];
+	VectorSubtract(end, start, vec);
+	double len = VectorNormalize(vec);
+
+	int dec = 5;
+	VectorScale(vec, 5, vec);
+
+	while (len > 0) {
+		len -= dec;
+
+		if (free_particles == null) {
+			return;
+		}
+
+		var p = free_particles;
+		free_particles = p.next;
+		p.next = active_particles;
+		active_particles = p;
+		p.accel.fillRange(0, 3, 0);
+
+		p.time = time;
+
+		p.alpha = 1.0;
+		p.alphavel = -1.0 / (0.3 + frandk() * 0.2);
+
+		for (int j = 0; j < 3; j++) {
+			p.org[j] = move[j] + crandk();
+			p.vel[j] = crandk() * 5;
+			p.accel[j] = 0;
+		}
+
+		VectorAdd(move, vec, move);
+	}
 }

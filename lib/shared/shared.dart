@@ -286,14 +286,14 @@ class pmove_t {
 
 	/* results (out) */
 	int numtouch = 0;
-  List<edict_s> touchents = List(MAXTOUCH);
+  List<Object> touchents = List(MAXTOUCH);
 
 	List<double> viewangles = [0,0,0];              /* clamped */
 	double viewheight;
 
 	List<double> mins = [0,0,0], maxs = [0,0,0];              /* bounding box size */
 
-	edict_s groundentity;
+	Object groundentity;
 	int watertype = 0;
 	int waterlevel = 0;
 

@@ -46,6 +46,7 @@ final spawns = {
 
 	"worldspawn": SP_worldspawn,
 
+	"light": SP_light,
 	"path_corner": SP_path_corner,
 
 	"monster_soldier_light": SP_monster_soldier_light,

@@ -525,8 +525,7 @@ WebGL_DrawAliasModel(entity_t entity) {
 		double dist = (r_farsee.value == 0) ? 4096.0 : 8192.0;
 		glstate.uni3DData.transProjMat4 = WebGL_MYgluPerspective(r_gunfov.value, screenaspect, 4, dist);
 
-		if(gl_lefthand.value == 1.0)
-		{
+		if(gl_lefthand.value == 1.0) {
 			// to mirror gun so it's rendered left-handed, just invert X-axis column
 			// of projection matrix
 
@@ -583,8 +582,7 @@ WebGL_DrawAliasModel(entity_t entity) {
 	}
 
 	if ((entity.oldframe >= paliashdr.num_frames) ||
-		(entity.oldframe < 0))
-	{
+		(entity.oldframe < 0)) {
 		Com_DPrintf("R_DrawAliasModel ${model.name}: no such oldframe ${entity.oldframe}\n");
 		entity.frame = 0;
 		entity.oldframe = 0;

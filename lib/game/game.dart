@@ -757,7 +757,7 @@ class edict_t extends edict_s {
 	// void (*blocked)(edict_t *self, edict_t *other);
 	void Function(edict_t self, edict_t other, cplane_t plane,
 			csurface_t surf) touch;
-	// void (*use)(edict_t *self, edict_t *other, edict_t *activator);
+	void Function(edict_t self, edict_t other, edict_t activator) use;
 	// void (*pain)(edict_t *self, edict_t *other, float kick, int damage);
 	// void (*die)(edict_t *self, edict_t *inflictor, edict_t *attacker,
 	// 		int damage, vec3_t point);

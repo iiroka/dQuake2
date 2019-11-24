@@ -26,6 +26,7 @@
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
+import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/server/sv_world.dart' show SV_LinkEdict;
 
 import 'game.dart';
@@ -59,7 +60,7 @@ path_corner_touch(edict_t self, edict_t other, cplane_t plane /* unused */,
 	if (self.pathtarget != null) {
 		final savetarget = self.target;
 		self.target = self.pathtarget;
-		// G_UseTargets(self, other);
+		G_UseTargets(self, other);
 		self.target = savetarget;
 	}
 
@@ -89,8 +90,9 @@ path_corner_touch(edict_t self, edict_t other, cplane_t plane /* unused */,
 		other.monsterinfo.pausetime = level.time + 100000000;
 		other.monsterinfo.stand(other);
 	} else {
-		// VectorSubtract(other->goalentity->s.origin, other->s.origin, v);
-		// other->ideal_yaw = vectoyaw(v);
+    List<double> v = [0,0,0];
+		VectorSubtract(other.goalentity.s.origin, other.s.origin, v);
+		other.ideal_yaw = vectoyaw(v);
 	}
 }
 
@@ -111,4 +113,54 @@ SP_path_corner(edict_t self) {
   self.maxs = [8, 8, 8];
 	self.svflags |= SVF_NOCLIENT;
 	SV_LinkEdict(self);
+}
+
+const _START_OFF = 1;
+
+/*
+ * QUAKED light (0 1 0) (-8 -8 -8) (8 8 8) START_OFF
+ * Non-displayed light.
+ * Default light value is 300.
+ * Default style is 0.
+ * If targeted, will toggle between on and off.
+ * Default _cone value is 10 (used to set size of light for spotlights)
+ */
+light_use(edict_t self, edict_t other /* unused */, edict_t activator /* unused */) {
+
+	if (self == null) {
+		return;
+	}
+
+	if ((self.spawnflags & _START_OFF) != 0) {
+		PF_Configstring(CS_LIGHTS + self.style, "m");
+		self.spawnflags &= ~_START_OFF;
+	} else {
+		PF_Configstring(CS_LIGHTS + self.style, "a");
+		self.spawnflags |= _START_OFF;
+	}
+}
+
+SP_light(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	/* no targeted lights in deathmatch, because they cause global messages */
+	if (self.targetname == null || deathmatch.boolean) {
+		G_FreeEdict(self);
+		return;
+	}
+
+	if (self.style >= 32) {
+		self.use = light_use;
+
+		if ((self.spawnflags & _START_OFF) != 0)
+		{
+			PF_Configstring(CS_LIGHTS + self.style, "a");
+		}
+		else
+		{
+			PF_Configstring(CS_LIGHTS + self.style, "m");
+		}
+	}
 }
