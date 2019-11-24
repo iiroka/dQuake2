@@ -37,7 +37,7 @@ import 'g_utils.dart';
 import 'g_items.dart';
 import 'g_misc.dart';
 import 'savegame/savegame.dart';
-import 'player/client.dart' show SP_info_player_start, SaveClientData;
+import 'player/client.dart' show SP_info_player_start, SaveClientData, InitBodyQue;
 import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
 
 final spawns = {
@@ -511,7 +511,7 @@ SP_worldspawn(edict_t ent) async {
 
 	/* reserve some spots for dead
 	   player bodies for coop / deathmatch */
-	// InitBodyQue();
+	InitBodyQue();
 
 	/* set configstrings for items */
 	SetItemNames();

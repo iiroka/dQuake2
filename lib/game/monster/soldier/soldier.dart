@@ -196,16 +196,16 @@ _SP_monster_soldier_x(edict_t self) {
 
 	self.mass = 100;
 
-	// self->pain = soldier_pain;
-	// self->die = soldier_die;
+	// self.pain = soldier_pain;
+	// self.die = soldier_die;
 
 	self.monsterinfo.stand = soldier_stand;
-	// self->monsterinfo.walk = soldier_walk;
-	// self->monsterinfo.run = soldier_run;
-	// self->monsterinfo.dodge = soldier_dodge;
-	// self->monsterinfo.attack = soldier_attack;
+	// self.monsterinfo.walk = soldier_walk;
+	// self.monsterinfo.run = soldier_run;
+	// self.monsterinfo.dodge = soldier_dodge;
+	// self.monsterinfo.attack = soldier_attack;
 	self.monsterinfo.melee = null;
-	// self->monsterinfo.sight = soldier_sight;
+	// self.monsterinfo.sight = soldier_sight;
 
 	SV_LinkEdict(self);
 

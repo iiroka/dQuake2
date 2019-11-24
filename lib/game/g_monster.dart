@@ -23,11 +23,13 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
 import 'g_utils.dart';
+import 'monster/misc/move.dart';
 
 M_CheckGround(edict_t ent) {
 
@@ -62,6 +64,68 @@ M_CheckGround(edict_t ent) {
 		ent.groundentity_linkcount = trace.ent.linkcount;
 		ent.velocity[2] = 0;
 	}
+}
+
+M_CatagorizePosition(edict_t ent) {
+
+	if (ent == null) {
+		return;
+	}
+
+	/* get waterlevel */
+  List<double> point = [0,0,0];
+	point[0] = (ent.absmax[0] + ent.absmin[0])/2;
+	point[1] = (ent.absmax[1] + ent.absmin[1])/2;
+	point[2] = ent.absmin[2] + 2;
+	int cont = SV_PointContents(point);
+
+	if ((cont & MASK_WATER) == 0) {
+		ent.waterlevel = 0;
+		ent.watertype = 0;
+		return;
+	}
+
+	ent.watertype = cont;
+	ent.waterlevel = 1;
+	point[2] += 26;
+	cont = SV_PointContents(point);
+
+	if ((cont & MASK_WATER) == 0) {
+		return;
+	}
+
+	ent.waterlevel = 2;
+	point[2] += 22;
+	cont = SV_PointContents(point);
+
+	if ((cont & MASK_WATER) != 0) {
+		ent.waterlevel = 3;
+	}
+}
+
+
+M_droptofloor(edict_t ent) {
+
+	if (ent == null) {
+		return;
+	}
+
+	ent.s.origin[2] += 1;
+  List<double> end = List.generate(3, (i) => ent.s.origin[i]);
+	end[2] -= 256;
+
+	final trace = SV_Trace(ent.s.origin, ent.mins, ent.maxs, end,
+			ent, MASK_MONSTERSOLID);
+
+	if ((trace.fraction == 1) || trace.allsolid) {
+		return;
+	}
+
+  ent.s.origin.setAll(0, trace.endpos);
+
+	SV_LinkEdict(ent);
+	M_CheckGround(ent);
+	M_CatagorizePosition(ent);
 }
 
 /* ================================================================== */
@@ -136,16 +200,15 @@ walkmonster_start_go(edict_t self) {
 		return;
 	}
 
-	// if ((self.spawnflags & 2) == 0 && (level.time < 1)) {
-	// 	M_droptofloor(self);
+	if ((self.spawnflags & 2) == 0 && (level.time < 1)) {
+		M_droptofloor(self);
 
-	// 	if (self.groundentity) {
-	// 		if (!M_walkmove(self, 0, 0)) {
-	// 			gi.dprintf("%s in solid at %s\n", self->classname,
-	// 					vtos(self->s.origin));
-	// 		}
-	// 	}
-	// }
+		if (self.groundentity != null) {
+			if (!M_walkmove(self, 0, 0)) {
+				Com_Printf("${self.classname} in solid at ${self.s.origin}\n");
+			}
+		}
+	}
 
 	if (self.yaw_speed == 0) {
 		self.yaw_speed = 20;

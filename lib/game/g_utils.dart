@@ -30,6 +30,7 @@ import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
+import 'package:dQuakeWeb/server/sv_world.dart';
 import 'game.dart';
 import 'g_main.dart';
 
@@ -279,4 +280,34 @@ G_FreeEdict(edict_t ed) {
 	ed.classname = "freed";
 	ed.freetime = level.time;
 	ed.inuse = false;
+}
+
+G_TouchTriggers(edict_t ent) {
+
+	if (ent == null) {
+		return;
+	}
+
+	/* dead things don't activate triggers! */
+	if ((ent.client != null || (ent.svflags & SVF_MONSTER) != 0) && (ent.health <= 0)) {
+		return;
+	}
+
+	var touch = SV_AreaEdicts(ent.absmin, ent.absmax, AREA_TRIGGERS);
+
+	/* be careful, it is possible to have an entity in this
+	   list removed before we get to it (killtriggered) */
+	for (int i = 0; i < touch.length; i++) {
+		var hit = touch[i] as edict_t;
+
+		if (!hit.inuse) {
+			continue;
+		}
+
+		if (hit.touch == null) {
+			continue;
+		}
+
+		hit.touch(hit, ent, null, null);
+	}
 }

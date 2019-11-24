@@ -32,6 +32,7 @@ import 'package:dQuakeWeb/server/sv_world.dart';
 import 'game.dart';
 import 'g_main.dart';
 import 'g_monster.dart';
+import 'g_utils.dart';
 
 const _STOPSPEED = 100;
 const _FRICTION = 6;
@@ -131,7 +132,7 @@ trace_t SV_PushEntity(edict_t ent, List<double> push) {
 	}
 
 	if (ent.inuse) {
-// 		G_TouchTriggers(ent);
+		G_TouchTriggers(ent);
 	}
 
 	return trace;
@@ -663,7 +664,7 @@ SV_Physics_Step(edict_t ent) {
 	// 	}
 
 	  SV_LinkEdict(ent);
-	// 	G_TouchTriggers(ent);
+		G_TouchTriggers(ent);
 
 		if (!ent.inuse) {
 			return;

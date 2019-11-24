@@ -23,7 +23,9 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
+import 'monster/misc/move.dart';
 
 /*
  *
@@ -39,7 +41,7 @@ ai_stand(edict_t self, double dist) {
 	}
 
 	if (dist != 0) {
-	// 	M_walkmove(self, self->s.angles[YAW], dist);
+		M_walkmove(self, self.s.angles[YAW], dist);
 	}
 
 	// if ((self.monsterinfo.aiflags & AI_STAND_GROUND) != 0) {

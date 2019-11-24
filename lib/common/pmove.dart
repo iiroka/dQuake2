@@ -25,6 +25,7 @@
  *
  * =======================================================================
  */
+import 'dart:math';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/client/client.dart';
 import 'package:dQuakeWeb/shared/files.dart';
@@ -239,6 +240,56 @@ _PM_StepSlideMove() {
 
 	_pml.velocity[2] = down_v[2];
 }
+
+/*
+ * Handles both ground friction and water friction
+ */
+_PM_Friction() {
+	// float *vel;
+	// float speed, newspeed, control;
+	// float friction;
+	// float drop;
+
+	var vel = _pml.velocity;
+
+	var speed = sqrt(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
+
+	if (speed < 1)
+	{
+		vel[0] = 0;
+		vel[1] = 0;
+		return;
+	}
+
+	double drop = 0;
+
+	/* apply ground friction */
+	if ((_pm.groundentity != 0 && _pml.groundsurface != null &&
+		 (_pml.groundsurface.flags & SURF_SLICK) == 0) || (_pml.ladder)) {
+		double friction = pm_friction;
+		double control = speed < pm_stopspeed ? pm_stopspeed : speed;
+		drop += control * friction * _pml.frametime;
+	}
+
+	/* apply water friction */
+	if (_pm.waterlevel > 0 && !_pml.ladder) {
+		drop += speed * pm_waterfriction * _pm.waterlevel * _pml.frametime;
+	}
+
+	/* scale the velocity */
+	double newspeed = speed - drop;
+
+	if (newspeed < 0) {
+		newspeed = 0;
+	}
+
+	newspeed /= speed;
+
+	vel[0] = vel[0] * newspeed;
+	vel[1] = vel[1] * newspeed;
+	vel[2] = vel[2] * newspeed;
+}
+
 
 /*
  * Handles user intended acceleration
@@ -873,7 +924,7 @@ Pmove(pmove_t pmove) {
 	} else {
 // 		PM_CheckJump();
 
-		// _PM_Friction();
+		_PM_Friction();
 
 		if (_pm.waterlevel >= 2) {
 // 			PM_WaterMove();

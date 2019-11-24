@@ -67,11 +67,6 @@ double SV_CalcRoll(List<double> angles, List<double> velocity) {
  * damage = deltavelocity*deltavelocity  * 0.0001
  */
 SV_CalcViewOffset(edict_t ent) {
-	// float *angles;
-	// float bob;
-	// float ratio;
-	// float delta;
-	// vec3_t v;
 
 	/* base angles */
 	var angles = ent.client.ps.kick_angles;
@@ -197,8 +192,6 @@ SV_CalcViewOffset(edict_t ent) {
 }
 
 SV_CalcGunOffset(edict_t ent) {
-	// int i;
-	// float delta;
 
 	if (ent == null) {
 		return;
@@ -258,9 +251,98 @@ SV_CalcGunOffset(edict_t ent) {
 	}
 }
 
+P_FallingDamage(edict_t ent) {
+	// float delta;
+	// int damage;
+	// vec3_t dir;
+
+	if (ent == null) {
+		return;
+	}
+
+	if (ent.s.modelindex != 255) {
+		return; /* not in the player model */
+	}
+
+	if (ent.movetype == movetype_t.MOVETYPE_NOCLIP) {
+		return;
+	}
+
+  double delta;
+	if (((ent.client as gclient_t).oldvelocity[2] < 0) &&
+		(ent.velocity[2] > (ent.client as gclient_t).oldvelocity[2]) && (ent.groundentity == null)) {
+		delta = (ent.client as gclient_t).oldvelocity[2];
+	} else {
+		if (ent.groundentity == null) {
+			return;
+		}
+
+		delta = ent.velocity[2] - (ent.client as gclient_t).oldvelocity[2];
+	}
+
+	delta = delta * delta * 0.0001;
+
+	/* never take falling damage if completely underwater */
+	if (ent.waterlevel == 3) {
+		return;
+	}
+
+	if (ent.waterlevel == 2) {
+		delta *= 0.25;
+	}
+
+	if (ent.waterlevel == 1) {
+		delta *= 0.5;
+	}
+
+	if (delta < 1) {
+		return;
+	}
+
+	if (delta < 15) {
+		ent.s.event = entity_event_t.EV_FOOTSTEP.index;
+		return;
+	}
+
+	(ent.client as gclient_t).fall_value = delta * 0.5;
+
+	if ((ent.client as gclient_t).fall_value > 40) {
+		(ent.client as gclient_t).fall_value = 40;
+	}
+
+	(ent.client as gclient_t).fall_time = level.time + FALL_TIME;
+
+	if (delta > 30) {
+		if (ent.health > 0) {
+			if (delta >= 55) {
+				ent.s.event = entity_event_t.EV_FALLFAR.index;
+			} else {
+				ent.s.event = entity_event_t.EV_FALL.index;
+			}
+		}
+
+		ent.pain_debounce_time = level.time; /* no normal pain sound */
+		int damage = (delta - 30) ~/ 2;
+
+		if (damage < 1) {
+			damage = 1;
+		}
+
+		List<double> dir = [0, 0, 1];
+
+		if (!deathmatch.boolean || (dmflags.integer & DF_NO_FALLING) == 0) {
+			// T_Damage(ent, world, world, dir, ent->s.origin,
+			// 		vec3_origin, damage, 0, 0, MOD_FALLING);
+		}
+	}
+	else
+	{
+		ent.s.event = entity_event_t.EV_FALLSHORT.index;
+		return;
+	}
+}
+
 G_SetClientFrame(edict_t ent) {
-	// gclient_t *client;
-	// qboolean duck, run;
 
 	if (ent == null) {
 		return;
@@ -288,36 +370,35 @@ G_SetClientFrame(edict_t ent) {
 
 	/* check for stand/duck and stop/go transitions */
 	if ((duck != client.anim_duck) && (client.anim_priority < ANIM_DEATH)) {
-// 		goto newanim;
 	} else if ((run != client.anim_run) && (client.anim_priority == ANIM_BASIC)) {
 	} else if (ent.groundentity == null && (client.anim_priority <= ANIM_WAVE)) {
 	} else {
 
-	if (client.anim_priority == ANIM_REVERSE) {
-		if (ent.s.frame > client.anim_end) {
-			ent.s.frame--;
-			return;
-		}
-	} else if (ent.s.frame < client.anim_end) {
-		/* continue an animation */
-		ent.s.frame++;
-		return;
-	}
+    if (client.anim_priority == ANIM_REVERSE) {
+      if (ent.s.frame > client.anim_end) {
+        ent.s.frame--;
+        return;
+      }
+    } else if (ent.s.frame < client.anim_end) {
+      /* continue an animation */
+      ent.s.frame++;
+      return;
+    }
 
-	if (client.anim_priority == ANIM_DEATH) {
-		return; /* stay there */
-	}
+    if (client.anim_priority == ANIM_DEATH) {
+      return; /* stay there */
+    }
 
-	if (client.anim_priority == ANIM_JUMP) {
-		if (ent.groundentity == null) {
-			return; /* stay there */
-		}
+    if (client.anim_priority == ANIM_JUMP) {
+      if (ent.groundentity == null) {
+        return; /* stay there */
+      }
 
-		(ent.client as gclient_t).anim_priority = ANIM_WAVE;
-		ent.s.frame = FRAME_jump3;
-		(ent.client as gclient_t).anim_end = FRAME_jump6;
-		return;
-	}
+      (ent.client as gclient_t).anim_priority = ANIM_WAVE;
+      ent.s.frame = FRAME_jump3;
+      (ent.client as gclient_t).anim_end = FRAME_jump6;
+      return;
+    }
   }
 
 	/* return to either a running or standing frame */
@@ -359,8 +440,6 @@ G_SetClientFrame(edict_t ent) {
  * the server frame and right after spawning
  */
 ClientEndServerFrame(edict_t ent) {
-	// float bobtime;
-	// int i;
 
 	if (ent == null) {
 		return;
@@ -437,7 +516,7 @@ ClientEndServerFrame(edict_t ent) {
 	bobfracsin = (sin(bobtime * pi)).abs();
 
 	/* detect hitting the floor */
-	// P_FallingDamage(ent);
+	P_FallingDamage(ent);
 
 	/* apply all the damage taken this frame */
 	// P_DamageFeedback(ent);

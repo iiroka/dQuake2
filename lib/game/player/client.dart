@@ -395,6 +395,20 @@ SelectSpawnPoint(edict_t ent, List<double> origin, List<double> angles) {
   angles.setAll(0, spot.s.angles);
 }
 
+/* ====================================================================== */
+
+InitBodyQue() {
+	if (deathmatch.boolean || coop.boolean) {
+
+		level.body_que = 0;
+
+		for (int i = 0; i < BODY_QUEUE_SIZE; i++) {
+			final ent = G_Spawn();
+			ent.classname = "bodyque";
+		}
+	}
+}
+
 /* ============================================================== */
 
 /*
@@ -402,7 +416,6 @@ SelectSpawnPoint(edict_t ent, List<double> origin, List<double> angles) {
  * a server or respawns in a deathmatch.
  */
 PutClientInServer(edict_t ent) {
-	// char userinfo[MAX_INFO_STRING];
 
 	if (ent == null) {
 		return;
@@ -410,11 +423,6 @@ PutClientInServer(edict_t ent) {
 
 	List<double> mins = [-16, -16, -24];
 	List<double> maxs = [16, 16, 32];
-	// int index;
-	// gclient_t *client;
-	// int i;
-	// client_persistant_t saved;
-	// client_respawn_t resp;
 
 	/* find a spawn point do it before setting
 	   health back up, so farthest ranging
@@ -472,7 +480,7 @@ PutClientInServer(edict_t ent) {
 	ent.mass = 200;
 	ent.solid = solid_t.SOLID_BBOX;
 	ent.deadflag = DEAD_NO;
-	// ent->air_finished = level.time + 12;
+	ent.air_finished = level.time + 12;
 	ent.clipmask = MASK_PLAYERSOLID;
 	ent.model = "players/male/tris.md2";
 	// ent->pain = player_pain;
@@ -523,11 +531,10 @@ PutClientInServer(edict_t ent) {
   ent.s.old_origin.setAll(0, ent.s.origin);
 
 	/* set the delta angle */
-	// for (i = 0; i < 3; i++)
-	// {
-	// 	client->ps.pmove.delta_angles[i] = ANGLE2SHORT(
-	// 			spawn_angles[i] - client->resp.cmd_angles[i]);
-	// }
+	for (int i = 0; i < 3; i++) {
+		client.ps.pmove.delta_angles[i] = ANGLE2SHORT(
+				spawn_angles[i] - client.resp.cmd_angles[i]);
+	}
 
 	ent.s.angles[PITCH] = 0;
 	ent.s.angles[YAW] = spawn_angles[YAW];
@@ -802,10 +809,6 @@ trace_t PM_trace(List<double> start, List<double> mins, List<double> maxs, List<
  * usually be a couple times for each server frame.
  */
 G_ClientThink(edict_t ent, usercmd_t ucmd) {
-	// gclient_t *client;
-	// edict_t *other;
-	// int i, j;
-	// pmove_t pm;
 
 	if (ent == null || ucmd == null) {
 		return;
@@ -915,8 +918,8 @@ G_ClientThink(edict_t ent, usercmd_t ucmd) {
 
 		SV_LinkEdict(ent);
 
-		if (ent.movetype != movetype_t.MOVETYPE_NOCLIP){
-			// G_TouchTriggers(ent);
+		if (ent.movetype != movetype_t.MOVETYPE_NOCLIP) {
+			G_TouchTriggers(ent);
 		}
 
 		/* touch other objects */
@@ -1044,19 +1047,18 @@ ClientBeginServerFrame(edict_t ent) {
 		/* wait for any button just going down */
 		if (level.time > client.respawn_time) {
 			/* in deathmatch, only wait for attack button */
-      // int buttonMask;
-			// if (deathmatch.boolean) {
-			// 	buttonMask = BUTTON_ATTACK;
-			// } else {
-			// 	buttonMask = -1;
-			// }
+      int buttonMask;
+			if (deathmatch.boolean) {
+				buttonMask = BUTTON_ATTACK;
+			} else {
+				buttonMask = -1;
+			}
 
-	// 		if ((client.latched_buttons & buttonMask) ||
-	// 			(deathmatch.boolean && ((int)dmflags.value & DF_FORCE_RESPAWN)))
-	// 		{
+			if ((client.latched_buttons & buttonMask) != 0 ||
+				(deathmatch.boolean && (dmflags.integer & DF_FORCE_RESPAWN) != 0)) {
 	// 			respawn(ent);
-	// 			client.latched_buttons = 0;
-	// 		}
+				client.latched_buttons = 0;
+			}
 		}
 
 		return;
