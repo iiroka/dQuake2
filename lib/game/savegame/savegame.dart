@@ -138,7 +138,7 @@ List<field_t> fields = [
   field_t("height", fieldtype_t.F_INT, flags: FFL_SPAWNTEMP),
   field_t("noise", fieldtype_t.F_LSTRING, flags: FFL_SPAWNTEMP),
   field_t("pausetime", fieldtype_t.F_FLOAT, flags: FFL_SPAWNTEMP),
-  // field_t("item", STOFS(item), F_LSTRING, FFL_SPAWNTEMP),
+  field_t("item", fieldtype_t.F_LSTRING, flags: FFL_SPAWNTEMP),
   // field_t("item", FOFS(item), F_ITEM),
   field_t("gravity", fieldtype_t.F_LSTRING, flags: FFL_SPAWNTEMP),
   field_t("sky", fieldtype_t.F_LSTRING, flags: FFL_SPAWNTEMP),

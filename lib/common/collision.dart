@@ -100,7 +100,14 @@ bool _trace_ispoint = false;
 List<double> _trace_start = [0,0,0], _trace_end = [0,0,0];
 List<double> _trace_mins = [0,0,0], _trace_maxs = [0,0,0];
 List<double> _trace_extents = [0,0,0];
-List<cplane_t> box_planes = List.generate(12, (i) => cplane_t());
+// List<cplane_t> box_planes = List.generate(12, (i) => cplane_t());
+List<cplane_t> box_planes;
+int numnodes = 0;
+int numbrushes = 0;
+int numleafbrushes = 0;
+int numbrushsides = 0;
+int numplanes = 0;
+int numleafs = 1;
 
 /* 1/32 epsilon to keep floating point happy */
 const DIST_EPSILON = 0.03125;
@@ -226,58 +233,62 @@ bool CM_HeadnodeVisible(int nodenum, Uint8List visbits) {
  */
 _CM_InitBoxHull() {
 
-  final numleafs = map_leafs.length;
-	box_headnode = map_nodes.length;
-	// box_planes = &map_planes[numplanes];
+	box_headnode = numnodes;
+	box_planes = map_planes.sublist(numplanes);
 
-	box_brush = cbrush_t();
+	if ((numnodes + 6 > map_nodes.length) ||
+		(numbrushes + 1 > map_brushes.length) ||
+		(numleafs + 1 > map_leafs.length) ||
+		(numleafbrushes + 1 > map_leafbrushes.length) ||
+		(numbrushsides + 6 > map_brushsides.length) ||
+		(numplanes + 12 > map_planes.length))
+	{
+		Com_Error(ERR_DROP, "Not enough room for box tree");
+	}
+
+	box_brush = map_brushes[numbrushes];
 	box_brush.numsides = 6;
-	box_brush.firstbrushside = map_brushsides.length;
+	box_brush.firstbrushside = numbrushsides;
 	box_brush.contents = CONTENTS_MONSTER;
-  map_brushes.add(box_brush);
 
-	box_leaf = cleaf_t();
+	box_leaf = map_leafs[numleafs];
 	box_leaf.contents = CONTENTS_MONSTER;
-	box_leaf.firstleafbrush = map_leafbrushes.length;
+	box_leaf.firstleafbrush = numleafbrushes;
 	box_leaf.numleafbrushes = 1;
-  map_leafs.add(box_leaf);
 
-	map_leafbrushes.add(map_brushes.length - 1);
+	map_leafbrushes[numleafbrushes] = numbrushes;
 
 	for (int i = 0; i < 6; i++) {
 		int side = i & 1;
 
-		/* planes */
-		var p1 = cplane_t();
-		p1.type = i >> 1;
-		p1.signbits = 0;
-		p1.normal[i >> 1] = 1;
-
-		var p2 = cplane_t();
-		p2.type = 3 + (i >> 1);
-		p2.signbits = 0;
-		p2.normal[i >> 1] = -1;
-
-    map_planes.add(p1);
-    map_planes.add(p2);
-
 		/* brush sides */
-    var s = cbrushside_t();
-		s.plane = side == 1 ? p2 : p1;
+    var s = map_brushsides[numbrushsides + i];
+		s.plane = map_planes[numplanes + i * 2 + side];
 		s.surface = nullsurface;
-    map_brushsides.add(s);
 
 		/* nodes */
-		var c = cnode_t();
-		c.plane = p1;
+		var c = map_nodes[box_headnode + i];
+		c.plane = map_planes[numplanes + i * 2];
 		c.children[side] = -1 - emptyleaf;
 
 		if (i != 5) {
 			c.children[side ^ 1] = box_headnode + i + 1;
 		} else {
 			c.children[side ^ 1] = -1 - numleafs;
-		}
-    map_nodes.add(c);
+		}    
+
+		/* planes */
+		var p = box_planes[i * 2];
+		p.type = i >> 1;
+		p.signbits = 0;
+    p.normal = [0,0,0];
+		p.normal[i >> 1] = 1;
+
+		p = box_planes[i * 2 + 1];
+		p.type = 3 + (i >> 1);
+		p.signbits = 0;
+    p.normal = [0,0,0];
+		p.normal[i >> 1] = -1;
 	}
 }
 
@@ -396,7 +407,7 @@ int CM_PointLeafnum(List<double> p) {
 
 int CM_PointContents(List<double> p, int headnode) {
 
-	if (map_nodes.isEmpty) { /* map not loaded */
+	if (numnodes == 0) { /* map not loaded */
 		return 0;
 	}
 
@@ -759,7 +770,7 @@ trace_t CM_BoxTrace(List<double> start, List<double> end, List<double> mins, Lis
 	_trace_trace.fraction = 1;
 	_trace_trace.surface = nullsurface.c;
 
-	if (map_nodes.isEmpty) {  /* map not loaded */
+	if (numnodes == 0) {  /* map not loaded */
 		return _trace_trace;
 	}
 
@@ -784,9 +795,9 @@ trace_t CM_BoxTrace(List<double> start, List<double> end, List<double> mins, Lis
 
     List<int> topnode = [0];
     List<int> leafs = List(1024);
-		final numleafs = _CM_BoxLeafnums_headnode(c1, c2, leafs, headnode, topnode);
+		final _numleafs = _CM_BoxLeafnums_headnode(c1, c2, leafs, headnode, topnode);
 
-		for (int i = 0; i < numleafs; i++) {
+		for (int i = 0; i < _numleafs; i++) {
 			CM_TestInLeaf(leafs[i]);
 
 			if (_trace_trace.allsolid) {
@@ -907,6 +918,7 @@ _CMod_LoadLeafs(lump_t l, ByteData buffer) {
 	}
 
   numclusters = 0;
+  numleafs = count;
   map_leafs = [];
 
 	for (int i = 0; i < count; i++) {
@@ -923,6 +935,7 @@ _CMod_LoadLeafs(lump_t l, ByteData buffer) {
 		}
     map_leafs.add(out);
 	}
+  map_leafs.add(cleaf_t());
 
 	if (map_leafs[0].contents != CONTENTS_SOLID) {
 		Com_Error(ERR_DROP, "Map leaf 0 is not CONTENTS_SOLID");
@@ -958,11 +971,12 @@ _CMod_LoadPlanes(lump_t l, ByteData buffer) {
 		Com_Error(ERR_DROP, "Map has too many planes");
 	}
 
-  map_planes = [];
+  map_planes = List.generate(count + 12, (i) => cplane_t());
+  numplanes = count;
 
 	for (int i = 0; i < count; i++) {
     final src = dplane_t(buffer, l.fileofs + i * dplaneSize);
-		var out = cplane_t();
+		var out = map_planes[i];
 		int bits = 0;
 
 		for (int j = 0; j < 3; j++) {
@@ -975,7 +989,6 @@ _CMod_LoadPlanes(lump_t l, ByteData buffer) {
 		out.dist = src.dist;
 		out.type = src.type;
 		out.signbits = bits;
-    map_planes.add(out);
 	}
 }
 
@@ -1053,16 +1066,15 @@ _CMod_LoadNodes(lump_t l, ByteData buffer) {
 		Com_Error(ERR_DROP, "Map has too many nodes");
 	}
 
-  map_nodes = [];
+  map_nodes = List.generate(count + 6, (i) => cnode_t());
+  numnodes = count;
 
 	for (int i = 0; i < count; i++) {
     final src = dnode_t(buffer, l.fileofs + i * dnodeSize);
-    var out = cnode_t();
-		out.plane = map_planes[src.planenum];
+		map_nodes[i].plane = map_planes[src.planenum];
 		for (int j = 0; j < 2; j++) {
-			out.children[j] = src.children[j];
+			map_nodes[i].children[j] = src.children[j];
 		}
-    map_nodes.add(out);
 	}
 }
 
@@ -1103,15 +1115,15 @@ _CMod_LoadBrushes(lump_t l, ByteData buffer) {
 		Com_Error(ERR_DROP, "Map has too many brushes");
 	}
 
-  map_brushes = [];
+  map_brushes = List.generate(count + 1, (i) => cbrush_t());
+  numbrushes = count;
 
 	for (int i = 0; i < count; i++) {
     final src = dbrush_t(buffer, l.fileofs + i * dbrushSize);
-    var out = cbrush_t();
+    var out = map_brushes[i];
 		out.firstbrushside = src.firstside;
 		out.numsides = src.numsides;
 		out.contents = src.contents;
-    map_brushes.add(out);
 	}
 }
 
@@ -1128,11 +1140,12 @@ _CMod_LoadBrushSides(lump_t l, ByteData buffer) {
 		Com_Error(ERR_DROP, "Map has too many brush sides");
 	}
 
-  map_brushsides = [];
+  map_brushsides = List.generate(count + 6, (i) => cbrushside_t());
+  numbrushsides = count;
 
 	for (int i = 0; i < count; i++) {
     final src = dbrushside_t(buffer, l.fileofs + i * dbrushsideSize);
-    var out = cbrushside_t();
+    var out = map_brushsides[i];
 		out.plane = map_planes[src.planenum];
 		int j = src.texinfo;
 		if (j >= map_surfaces.length) {
@@ -1143,9 +1156,9 @@ _CMod_LoadBrushSides(lump_t l, ByteData buffer) {
     } else {
       out.surface = nullsurface;
     }
-    map_brushsides.add(out);
 	}
 }
+
 _CMod_LoadAreaPortals(lump_t l, ByteData buffer) {
 
 	if ((l.filelen % dareaportalSize) != 0) {
@@ -1182,10 +1195,12 @@ _CMod_LoadLeafBrushes(lump_t l, ByteData buffer) {
 	}
 
   map_leafbrushes = [];
+  numleafbrushes = count;
 
 	for (int i = 0; i < count; i++) {
     map_leafbrushes.add(buffer.getInt16(l.fileofs + 2 * i, Endian.little));
 	}
+  map_leafbrushes.add(0);
 }
 
 _CMod_LoadVisibility(lump_t l, ByteBuffer buffer) {
@@ -1266,6 +1281,10 @@ Future<cmodel_t> CM_LoadMap(String name, bool clientload, List<int> checksum) as
 	/* free old stuff */
   map_planes = [];
   map_nodes = [];
+  numplanes = 0;
+  numnodes = 0;
+  numbrushsides = 0;
+  numbrushes = 0;
   map_leafbrushes = [];
   map_areas = [];
   map_areaportals = [];
@@ -1279,6 +1298,7 @@ Future<cmodel_t> CM_LoadMap(String name, bool clientload, List<int> checksum) as
 	map_name = "";
 
 	if (name == null || name.isEmpty) {
+    numleafs = 1;
     map_leafs.add(cleaf_t());
 		numclusters = 1;
     map_areas.add(carea_t());

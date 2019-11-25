@@ -23,3 +23,46 @@
  *
  * =======================================================================
  */
+import 'game.dart';
+import 'g_utils.dart';
+
+/*
+ * QUAKED trigger_relay (.5 .5 .5) (-8 -8 -8) (8 8 8)
+ * This fixed size trigger cannot be touched,
+ * it can only be fired by other events.
+ */
+trigger_relay_use(edict_t self, edict_t other /* unused */,
+	   	edict_t activator)
+{
+	if (self == null || activator == null) {
+		return;
+	}
+
+	G_UseTargets(self, activator);
+}
+
+SP_trigger_relay(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	self.use = trigger_relay_use;
+}
+
+/*
+ * QUAKED trigger_always (.5 .5 .5) (-8 -8 -8) (8 8 8)
+ * This trigger will always fire. It is activated by the world.
+ */
+SP_trigger_always(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	/* we must have some delay to make
+	   sure our use targets are present */
+	if (ent.delay < 0.2) {
+		ent.delay = 0.2;
+	}
+
+	G_UseTargets(ent, ent);
+}

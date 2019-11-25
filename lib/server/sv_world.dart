@@ -440,11 +440,6 @@ int SV_HullForEntity(edict_s ent) {
 
 
 SV_ClipMoveToEntities(_moveclip_t clip) {
-	// int i, num;
-	// edict_t *touchlist[MAX_EDICTS], *touch;
-	// trace_t trace;
-	// int headnode;
-	// float *angles;
 
 	final touchlist = SV_AreaEdicts(clip.boxmins, clip.boxmaxs, AREA_SOLID);
 
@@ -503,16 +498,16 @@ SV_ClipMoveToEntities(_moveclip_t clip) {
 			trace.ent = touch;
 
 			if (clip.trace.startsolid) {
-				clip.trace = trace;
+				clip.trace.copy(trace);
 				clip.trace.startsolid = true;
 			} else {
-				clip.trace = trace;
+				clip.trace.copy(trace);
 			}
 		}
 		else if (trace.startsolid)
 		{
 			clip.trace.startsolid = true;
-		}
+    }
 	}
 }
 

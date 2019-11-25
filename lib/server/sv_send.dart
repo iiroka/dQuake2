@@ -39,6 +39,20 @@ import 'sv_main.dart' show sv_paused, SV_DropClient;
 import 'sv_entities.dart' show SV_BuildClientFrame, SV_WriteFrameToClient;
 
 /*
+ * Sends text across to be displayed if the level passes
+ */
+SV_ClientPrintf(client_t cl, int level, String msg) {
+
+	if (level < cl.messagelevel) {
+		return;
+	}
+
+	cl.netchan.message.WriteByte(svc_ops_e.svc_print.index);
+	cl.netchan.message.WriteByte(level);
+	cl.netchan.message.WriteString(msg);
+}
+
+/*
  * Sends text to all active clients
  */
 SV_BroadcastCommand(String msg) {

@@ -28,7 +28,8 @@ import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
-import 'g_ai.dart' show FoundTarget;
+import 'g_ai.dart' show FoundTarget, M_CheckAttack;
+import 'g_items.dart';
 import 'g_utils.dart';
 import 'monster/misc/move.dart';
 
@@ -218,6 +219,38 @@ monster_think(edict_t self) {
 	// M_SetEffects(self);
 }
 
+/*
+ * Using a monster makes it angry
+ * at the current activator
+ */
+monster_use(edict_t self, edict_t other /* unused */, edict_t activator) {
+	if (self == null || activator == null) {
+		return;
+	}
+
+	if (self.enemy != null) {
+		return;
+	}
+
+	if (self.health <= 0) {
+		return;
+	}
+
+	if ((activator.flags & FL_NOTARGET) != 0) {
+		return;
+	}
+
+	if (activator.client == null && (activator.monsterinfo.aiflags & AI_GOOD_GUY) == 0) {
+		return;
+	}
+
+	/* delay reaction so if the monster is
+	   teleported, its sound is still heard */
+	self.enemy = activator;
+	FoundTarget(self);
+}
+
+
 monster_triggered_spawn(edict_t self) {
 	if (self == null) {
 		return;
@@ -257,7 +290,7 @@ monster_triggered_spawn_use(edict_t self, edict_t other /* unused */, edict_t ac
 		self.enemy = activator;
 	}
 
-	// self.use = monster_use;
+	self.use = monster_use;
 }
 
 monster_triggered_start(edict_t self) {
@@ -299,7 +332,7 @@ bool monster_start(edict_t self) {
 	self.s.renderfx |= RF_FRAMELERP;
 	self.takedamage = damage_t.DAMAGE_AIM.index;
 	self.air_finished = level.time + 12;
-	// self.use = monster_use;
+	self.use = monster_use;
 
 	if(self.max_health == 0) {
 		self.max_health = self.health;
@@ -311,23 +344,19 @@ bool monster_start(edict_t self) {
 	self.deadflag = DEAD_NO;
 	self.svflags &= ~SVF_DEADMONSTER;
 
-	// if (!self->monsterinfo.checkattack)
-	// {
-	// 	self->monsterinfo.checkattack = M_CheckAttack;
-	// }
+	if (self.monsterinfo.checkattack == null) {
+		self.monsterinfo.checkattack = M_CheckAttack;
+	}
 
   self.s.old_origin.setAll(0, self.s.origin);
 
-	// if (st.item)
-	// {
-	// 	self->item = FindItemByClassname(st.item);
+	if (st.item != null) {
+		self.item = FindItemByClassname(st.item);
 
-	// 	if (!self->item)
-	// 	{
-	// 		gi.dprintf("%s at %s has bad item: %s\n", self->classname,
-	// 				vtos(self->s.origin), st.item);
-	// 	}
-	// }
+		if (self.item == null) {
+			Com_Printf("${self.classname} at ${self.s.origin} has bad item: ${st.item}\n");
+		}
+	}
 
 	/* randomize what frame they start on */
 	if (self.monsterinfo.currentmove != null) {

@@ -63,6 +63,7 @@ class gclient_s {
 }
 
 class edict_s extends link_t {
+  final int index;
 	entity_state_t s = entity_state_t();
 	gclient_s client;
 	bool inuse = false;
@@ -84,6 +85,8 @@ class edict_s extends link_t {
 
 	/* the game dll can add anything it wants
 	   after this point in the structure */
+
+  edict_s(this.index);
 }
 
 /* functions exported by the game subsystem */

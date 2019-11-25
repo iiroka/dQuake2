@@ -35,6 +35,15 @@ import 'game.dart';
 import 'g_combat.dart';
 import 'g_main.dart';
 
+G_ProjectSource(List<double> point, List<double> distance, List<double> forward,
+		List<double> right, List<double> result) {
+	result[0] = point[0] + forward[0] * distance[0] + right[0] * distance[1];
+	result[1] = point[1] + forward[1] * distance[0] + right[1] * distance[1];
+	result[2] = point[2] + forward[2] * distance[0] + right[2] * distance[1] +
+				distance[2];
+}
+
+
 /*
  * Searches all active entities for the next
  * one that holds the matching string at fieldofs
@@ -256,6 +265,56 @@ double vectoyaw(List<double> vec) {
 	return yaw;
 }
 
+vectoangles(List<double> value1, List<double> angles) {
+	double yaw, pitch;
+
+	if ((value1[1] == 0) && (value1[0] == 0))
+	{
+		yaw = 0;
+
+		if (value1[2] > 0)
+		{
+			pitch = 90;
+		}
+		else
+		{
+			pitch = 270;
+		}
+	}
+	else
+	{
+		if (value1[0] != 0)
+		{
+			yaw = (atan2(value1[1], value1[0]) * 180 ~/ pi).toDouble();
+		}
+		else if (value1[1] > 0)
+		{
+			yaw = 90;
+		}
+		else
+		{
+			yaw = -90;
+		}
+
+		if (yaw < 0)
+		{
+			yaw += 360;
+		}
+
+		double forward = sqrt(value1[0] * value1[0] + value1[1] * value1[1]);
+		pitch = (atan2(value1[2], forward) * 180 ~/ pi).toDouble();
+
+		if (pitch < 0)
+		{
+			pitch += 360;
+		}
+	}
+
+	angles[PITCH] = -pitch;
+	angles[YAW] = yaw;
+	angles[ROLL] = 0;
+}
+
 G_InitEdict(edict_t e) {
 	e.inuse = true;
 	e.classname = "noclass";
@@ -274,11 +333,9 @@ G_InitEdict(edict_t e) {
  */
 edict_t G_Spawn() {
 
-	var e = g_edicts[maxclients.integer + 1];
-
   int i;
 	for (i = maxclients.integer + 1; i < globals.num_edicts; i++) {
-	  e = g_edicts[i];
+	  final e = g_edicts[i];
 		/* the first couple seconds of
 		   server time can involve a lot of
 		   freeing and allocating, so relax
@@ -293,7 +350,7 @@ edict_t G_Spawn() {
 		Com_Error(ERR_DROP, "Game Error: ED_Alloc: no free edicts");
 	}
 
-  e = g_edicts[i];
+  final e = g_edicts[i];
 	globals.num_edicts++;
 	G_InitEdict(e);
 	return e;

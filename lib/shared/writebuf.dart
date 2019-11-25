@@ -23,6 +23,7 @@ import 'dart:convert';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
+import 'readbuf.dart' show bytedirs;
 
 class Writebuf {
 	bool allowoverflow = false;     /* if false, do a Com_Error */
@@ -72,6 +73,32 @@ class Writebuf {
     this.data.buffer.asByteData().setUint32(this.cursize, value, Endian.little);
     this.cursize += 4;
   }
+
+  WriteFloat(double value) {
+    this.data.buffer.asByteData().setFloat32(this.cursize, value, Endian.little);
+    this.cursize += 4;
+  }
+
+  WriteDir(List<double> dir) {
+
+  	if (dir == null) {
+		  this.WriteByte(0);
+		  return;
+	  }
+
+	  double bestd = 0;
+  	int best = 0;
+
+	  for (int i = 0; i < bytedirs.length; i++) {
+		  double d = DotProduct(dir, bytedirs[i]);
+		  if (d > bestd) {
+			  bestd = d;
+			  best = i;
+		  }
+	  }
+
+	  this.WriteByte(best);
+}
 
   Write(List<int> value) {
     this.data.setAll(this.cursize, value);

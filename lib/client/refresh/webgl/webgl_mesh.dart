@@ -516,7 +516,6 @@ WebGL_DrawAliasModel(entity_t entity) {
 
   Float32List origProjMat;
 	if ((entity.flags & RF_WEAPONMODEL) != 0) {
-		// extern hmm_mat4 GL3_MYgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
 
 		origProjMat = glstate.uni3DData.transProjMat4;
 
@@ -538,6 +537,7 @@ WebGL_DrawAliasModel(entity_t entity) {
 
 			gl.cullFace(WebGL.BACK);
 		}
+
 	}
 
 	//glPushMatrix();
@@ -573,7 +573,6 @@ WebGL_DrawAliasModel(entity_t entity) {
 		gl.enable(WebGL.BLEND);
 	}
 
-
 	if ((entity.frame >= paliashdr.num_frames) ||
 		(entity.frame < 0)) {
 		Com_DPrintf("R_DrawAliasModel ${model.name}: no such frame ${entity.frame}\n");
@@ -597,8 +596,9 @@ WebGL_DrawAliasModel(entity_t entity) {
 	if ((entity.flags & RF_WEAPONMODEL) != 0) {
 		glstate.uni3DData.transProjMat4 = origProjMat;
 		WebGL_UpdateUBO3D();
-		if(gl_lefthand.value == 1.0)
+		if(gl_lefthand.value == 1.0) {
 			gl.cullFace(WebGL.FRONT);
+    }
 	}
 
 	if ((entity.flags & RF_TRANSLUCENT) != 0) {

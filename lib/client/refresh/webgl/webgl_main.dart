@@ -1008,8 +1008,6 @@ class WebGLExports extends refexport_t {
     WebGL_Clear();
   }
 
-  bool _dumped = false;
-
   Future<void> RenderFrame (refdef_t fd) async {
     WebGL_RenderView(fd);
 	  WebGL_SetLightLevel();

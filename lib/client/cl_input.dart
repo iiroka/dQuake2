@@ -197,6 +197,12 @@ IN_ForwardDown(List<String> args) => KeyDown(in_forward, args);
 IN_ForwardUp(List<String> args) => KeyUp(in_forward, args);
 IN_BackDown(List<String> args) => KeyDown(in_back, args);
 IN_BackUp(List<String> args) => KeyUp(in_back, args);
+IN_SpeedDown(List<String> args) => KeyDown(in_speed, args);
+IN_SpeedUp(List<String> args) => KeyUp(in_speed, args);
+IN_AttackDown(List<String> args) => KeyDown(in_attack, args);
+IN_AttackUp(List<String> args) => KeyUp(in_attack, args);
+IN_UseDown(List<String> args) => KeyDown(in_use, args);
+IN_UseUp(List<String> args) => KeyUp(in_use, args);
 
 IN_Impulse(List<String> args) {
 	in_impulse = int.parse(args[1]);
@@ -274,6 +280,40 @@ CL_BaseMove(usercmd_t cmd) {
 	}
 }
 
+CL_ClampPitch() {
+
+  if (cl.frame == null) {
+    return;
+  }
+
+	double pitch = SHORT2ANGLE(cl.frame.playerstate.pmove.delta_angles[PITCH]);
+
+	if (pitch > 180)
+	{
+		pitch -= 360;
+	}
+
+	if (cl.viewangles[PITCH] + pitch < -360)
+	{
+		cl.viewangles[PITCH] += 360; /* wrapped */
+	}
+
+	if (cl.viewangles[PITCH] + pitch > 360)
+	{
+		cl.viewangles[PITCH] -= 360; /* wrapped */
+	}
+
+	if (cl.viewangles[PITCH] + pitch > 89)
+	{
+		cl.viewangles[PITCH] = 89 - pitch;
+	}
+
+	if (cl.viewangles[PITCH] + pitch < -89)
+	{
+		cl.viewangles[PITCH] = -89 - pitch;
+	}
+}
+
 CL_InitInput() {
 	// Cmd_AddCommand("centerview", IN_CenterView);
 	// Cmd_AddCommand("force_centerview", IN_ForceCenterView);
@@ -300,12 +340,12 @@ CL_InitInput() {
 	// Cmd_AddCommand("-moveleft", IN_MoveleftUp);
 	// Cmd_AddCommand("+moveright", IN_MoverightDown);
 	// Cmd_AddCommand("-moveright", IN_MoverightUp);
-	// Cmd_AddCommand("+speed", IN_SpeedDown);
-	// Cmd_AddCommand("-speed", IN_SpeedUp);
-	// Cmd_AddCommand("+attack", IN_AttackDown);
-	// Cmd_AddCommand("-attack", IN_AttackUp);
-	// Cmd_AddCommand("+use", IN_UseDown);
-	// Cmd_AddCommand("-use", IN_UseUp);
+	Cmd_AddCommand("+speed", IN_SpeedDown);
+	Cmd_AddCommand("-speed", IN_SpeedUp);
+	Cmd_AddCommand("+attack", IN_AttackDown);
+	Cmd_AddCommand("-attack", IN_AttackUp);
+	Cmd_AddCommand("+use", IN_UseDown);
+	Cmd_AddCommand("-use", IN_UseUp);
 	Cmd_AddCommand("impulse", IN_Impulse);
 	// Cmd_AddCommand("+klook", IN_KLookDown);
 	// Cmd_AddCommand("-klook", IN_KLookUp);
@@ -334,7 +374,7 @@ CL_RefreshCmd() {
 	// IN_Move(cmd);
 
 	// Clamp angels for prediction
-	// CL_ClampPitch();
+	CL_ClampPitch();
 
 	cmd.angles[0] = ANGLE2SHORT(cl.viewangles[0]);
 	cmd.angles[1] = ANGLE2SHORT(cl.viewangles[1]);

@@ -23,6 +23,9 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/server/sv_game.dart';
+import 'package:dQuakeWeb/server/sv_send.dart';
+import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
@@ -40,9 +43,8 @@ Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 
 	targ.enemy = attacker;
 
-	// if ((targ.svflags & SVF_MONSTER) != 0 && (targ.deadflag != DEAD_DEAD) != 0)
-	// {
-	// 	if ((targ.monsterinfo.aiflags & AI_GOOD_GUY) == 0) {
+	if ((targ.svflags & SVF_MONSTER) != 0 && (targ.deadflag != DEAD_DEAD) != 0) {
+		if ((targ.monsterinfo.aiflags & AI_GOOD_GUY) == 0) {
 	// 		level.killed_monsters++;
 
 	// 		if (coop->value && attacker->client) {
@@ -54,8 +56,8 @@ Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 	// 		{
 	// 			targ->owner = attacker;
 	// 		}
-	// 	}
-	// }
+		}
+	}
 
 	// if ((targ.movetype == MOVETYPE_PUSH) ||
 	// 	(targ.movetype == MOVETYPE_STOP) ||
@@ -72,8 +74,18 @@ Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 	// 	monster_death_use(targ);
 	// }
 
-	// targ->die(targ, inflictor, attacker, damage, point);
+	targ.die(targ, inflictor, attacker, damage, point);
 }
+
+SpawnDamage(int type, List<double> origin, List<double> normal)
+{
+	PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+	PF_WriteByte(type);
+	PF_WritePos(origin);
+	PF_WriteDir(normal);
+	SV_Multicast(origin, multicast_t.MULTICAST_PVS);
+}
+
 
 T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 		List<double> dir, List<double> point, List<double> normal, int damage,
@@ -88,6 +100,8 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	if (targ == null || inflictor == null || attacker == null) {
 		return;
 	}
+
+  print("T_Damage");
 
 	if (targ.takedamage == 0) {
 		return;
@@ -126,33 +140,28 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	// }
 
 	var client = targ.client as gclient_t;
+  int te_sparks;
+	if ((dflags & DAMAGE_BULLET) != 0) {
+		te_sparks = temp_event_t.TE_BULLET_SPARKS.index;
+	} else {
+		te_sparks = temp_event_t.TE_SPARKS.index;
+	}
 
-	// if (dflags & DAMAGE_BULLET)
-	// {
-	// 	te_sparks = TE_BULLET_SPARKS;
-	// }
-	// else
-	// {
-	// 	te_sparks = TE_SPARKS;
-	// }
+	VectorNormalize(dir);
 
-	// VectorNormalize(dir);
-
-	// /* bonus damage for suprising a monster */
+	/* bonus damage for suprising a monster */
 	// if (!(dflags & DAMAGE_RADIUS) && (targ->svflags & SVF_MONSTER) &&
 	// 	(attacker->client) && (!targ->enemy) && (targ->health > 0))
 	// {
 	// 	damage *= 2;
 	// }
 
-	// if (targ->flags & FL_NO_KNOCKBACK)
-	// {
-	// 	knockback = 0;
-	// }
+	if ((targ.flags & FL_NO_KNOCKBACK) != 0) {
+		knockback = 0;
+	}
 
-	// /* figure momentum add */
-	// if (!(dflags & DAMAGE_NO_KNOCKBACK))
-	// {
+	/* figure momentum add */
+	if ((dflags & DAMAGE_NO_KNOCKBACK) == 0) {
 	// 	if ((knockback) && (targ->movetype != MOVETYPE_NONE) &&
 	// 		(targ->movetype != MOVETYPE_BOUNCE) &&
 	// 		(targ->movetype != MOVETYPE_PUSH) &&
@@ -182,10 +191,12 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 
 	// 		VectorAdd(targ->velocity, kvel, targ->velocity);
 	// 	}
-	// }
+	}
 
 	int take = damage;
 	int save = 0;
+
+  print("damage $damage health: ${targ.health}");
 
 	// /* check for godmode */
 	// if ((targ->flags & FL_GODMODE) && !(dflags & DAMAGE_NO_PROTECTION))
@@ -216,10 +227,10 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	// asave = CheckArmor(targ, point, normal, take, te_sparks, dflags);
 	// take -= asave;
 
-	// /* treat cheat/powerup savings the same as armor */
+	/* treat cheat/powerup savings the same as armor */
 	// asave += save;
 
-	// /* team damage avoidance */
+	/* team damage avoidance */
 	// if (!(dflags & DAMAGE_NO_PROTECTION) && false)
 	// {
 	// 	return;
@@ -227,30 +238,28 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 
 	/* do the damage */
 	if (take != 0) {
-	// 	if ((targ->svflags & SVF_MONSTER) || (client))
-	// 	{
-	// 		SpawnDamage(TE_BLOOD, point, normal);
-	// 	}
-	// 	else
-	// 	{
-	// 		SpawnDamage(te_sparks, point, normal);
-	// 	}
+		if ((targ.svflags & SVF_MONSTER) != 0 || client != null)
+		{
+			SpawnDamage(temp_event_t.TE_BLOOD.index, point, normal);
+		}
+		else
+		{
+			SpawnDamage(te_sparks, point, normal);
+		}
 
 		targ.health = targ.health - take;
 
 		if (targ.health <= 0) {
-	// 		if ((targ->svflags & SVF_MONSTER) || (client))
-	// 		{
-	// 			targ->flags |= FL_NO_KNOCKBACK;
-	// 		}
-
+			if ((targ.svflags & SVF_MONSTER) != 0 || (client != null)) {
+				targ.flags |= FL_NO_KNOCKBACK;
+			}
+      print("killed");
 			Killed(targ, inflictor, attacker, take, point);
 			return;
 		}
 	}
 
-	// if (targ->svflags & SVF_MONSTER)
-	// {
+	if ((targ.svflags & SVF_MONSTER) != 0) {
 	// 	M_ReactToDamage(targ, attacker);
 
 	// 	if (!(targ->monsterinfo.aiflags & AI_DUCKED) && (take))
@@ -263,31 +272,24 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	// 			targ->pain_debounce_time = level.time + 5;
 	// 		}
 	// 	}
-	// }
-	// else if (client)
-	// {
-	// 	if (!(targ->flags & FL_GODMODE) && (take))
-	// 	{
-	// 		targ->pain(targ, attacker, knockback, take);
-	// 	}
-	// }
-	// else if (take)
-	// {
-	// 	if (targ->pain)
-	// 	{
-	// 		targ->pain(targ, attacker, knockback, take);
-	// 	}
-	// }
+	} else if (client != null) {
+		if ((targ.flags & FL_GODMODE) == 0 && take != 0) {
+			targ.pain(targ, attacker, knockback.toDouble(), take);
+		}
+	} else if (take != 0) {
+		if (targ.pain != null) {
+			targ.pain(targ, attacker, knockback.toDouble(), take);
+		}
+	}
 
 	/* add to the damage inflicted on a player this frame
 	   the total will be turned into screen blends and view
 	   angle kicks at the end of the frame */
-	// if (client)
-	// {
+	if (client != null) {
 	// 	client->damage_parmor += psave;
 	// 	client->damage_armor += asave;
-	// 	client->damage_blood += take;
+		client.damage_blood += take;
 	// 	client->damage_knockback += knockback;
-	// 	VectorCopy(point, client->damage_from);
-	// }
+    client.damage_from.setAll(0, point);
+	}
 }

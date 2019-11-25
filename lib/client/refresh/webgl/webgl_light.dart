@@ -97,7 +97,6 @@ WebGL_PushDlights() {
 	/* because the count hasn't advanced yet for this frame */
 	_r_dlightframecount = webgl_framecount + 1;
 
-
 	glstate.uniLightsData.numDynLights = webgl_newrefdef.dlights.length;
 
   int i;
@@ -116,7 +115,7 @@ WebGL_PushDlights() {
 	// assert(MAX_DLIGHTS == 32 && "If MAX_DLIGHTS changes, remember to adjust the uniform buffer definition in the shader!");
 
   gl3UniDynLight udl = gl3UniDynLight();
-	if(i < MAX_DLIGHTS) {
+	for ( ;i < MAX_DLIGHTS; i++) {
     glstate.uniLightsData.setDynLight(i, udl);
 	}
 

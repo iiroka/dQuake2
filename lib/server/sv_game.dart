@@ -30,11 +30,30 @@ import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'server.dart';
-import 'sv_send.dart';
 import 'sv_init.dart' show SV_ModelIndex;
+import 'sv_main.dart';
+import 'sv_send.dart';
 import 'sv_world.dart';
 
 game_export_t ge;
+
+/*
+ * Print to a single client
+ */
+PF_cprintf(edict_s ent, int level, String msg) {
+
+	if (ent != null) {
+		if ((ent.index < 1) || (ent.index > maxclients.integer)) {
+			Com_Error(ERR_DROP, "cprintf to a non-client");
+		}
+	}
+
+	if (ent != null) {
+		SV_ClientPrintf(svs.clients[ent.index - 1], level, msg);
+	} else {
+		Com_Printf(msg);
+	}
+}
 
 PF_Configstring(int index, String val) {
 	if ((index < 0) || (index >= MAX_CONFIGSTRINGS)) {
@@ -58,6 +77,17 @@ PF_Configstring(int index, String val) {
 		SV_Multicast([0,0,0], multicast_t.MULTICAST_ALL_R);
 	}
 }
+
+PF_WriteChar(int c) => sv.multicast.WriteChar(c);
+PF_WriteByte(int c) => sv.multicast.WriteByte(c);
+PF_WriteShort(int c) => sv.multicast.WriteShort(c);
+PF_WriteLong(int c) => sv.multicast.WriteLong(c);
+PF_WriteFloat(double c) => sv.multicast.WriteFloat(c);
+PF_WriteString(String s) => sv.multicast.WriteString(s);
+PF_WritePos(List<double> pos) => sv.multicast.WritePos(pos);
+PF_WriteDir(List<double> dir) => sv.multicast.WriteDir(dir);
+PF_WriteAngle(double c) => sv.multicast.WriteAngle(c);
+
 
 /*
  * Also sets mins and maxs for inline bmodels

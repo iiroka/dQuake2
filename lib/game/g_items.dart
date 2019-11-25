@@ -31,12 +31,41 @@ import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'game.dart';
 import 'g_utils.dart';
+import 'player/weapon.dart' show Weapon_Blaster, Use_Weapon;
+
+const _HEALTH_IGNORE_MAX = 1;
+const _HEALTH_TIMED = 2;
 
 int jacket_armor_index = 0;
 int combat_armor_index = 0;
 int body_armor_index = 0;
 int _power_screen_index = 0;
 int _power_shield_index = 0;
+
+const jacketarmor_info = gitem_armor_t(25, 50, .30, .00, ARMOR_JACKET);
+const combatarmor_info = gitem_armor_t(50, 100, .60, .30, ARMOR_COMBAT);
+const bodyarmor_info = gitem_armor_t(100, 200, .80, .60, ARMOR_BODY);
+
+/* ====================================================================== */
+
+gitem_t FindItemByClassname(String classname) {
+
+	if (classname == null) {
+		return null;
+	}
+
+	for (var it in itemlist) {
+		if (it.classname == null) {
+			continue;
+		}
+
+		if (it.classname == classname) {
+			return it;
+		}
+	}
+
+	return null;
+}
 
 gitem_t FindItem(String pickup_name) {
 
@@ -59,6 +88,444 @@ gitem_t FindItem(String pickup_name) {
 
 /* ====================================================================== */
 
+DoRespawn(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	// if (ent.team != null)
+	// {
+	// 	edict_t *master;
+	// 	int count;
+	// 	int choice;
+
+	// 	master = ent->teammaster;
+
+	// 	for (count = 0, ent = master; ent; ent = ent->chain, count++)
+	// 	{
+	// 	}
+
+	// 	choice = count ? randk() % count : 0;
+
+	// 	for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
+	// 	{
+	// 	}
+	// }
+
+	ent.svflags &= ~SVF_NOCLIENT;
+	ent.solid = solid_t.SOLID_TRIGGER;
+	SV_LinkEdict(ent);
+
+	/* send an effect */
+	ent.s.event = entity_event_t.EV_ITEM_RESPAWN.index;
+}
+
+SetRespawn(edict_t ent, double delay) {
+	if (ent == null) {
+		return;
+	}
+
+	ent.flags |= FL_RESPAWN;
+	ent.svflags |= SVF_NOCLIENT;
+	ent.solid = solid_t.SOLID_NOT;
+	ent.nextthink = level.time + delay;
+	ent.think = DoRespawn;
+	SV_LinkEdict(ent);
+}
+
+/* ====================================================================== */
+
+bool Add_Ammo(edict_t ent, gitem_t item, int count) {
+
+	if (ent == null || item == null) {
+		return false;
+	}
+
+	if (ent.client == null) {
+		return false;
+	}
+
+  final client = ent.client as gclient_t;
+
+  int max;
+	if (item.tag == ammo_t.AMMO_BULLETS.index)
+	{
+		max = client.pers.max_bullets;
+	}
+	else if (item.tag == ammo_t.AMMO_SHELLS.index)
+	{
+		max = client.pers.max_shells;
+	}
+	else if (item.tag == ammo_t.AMMO_ROCKETS.index)
+	{
+		max = client.pers.max_rockets;
+	}
+	else if (item.tag == ammo_t.AMMO_GRENADES.index)
+	{
+		max = client.pers.max_grenades;
+	}
+	else if (item.tag == ammo_t.AMMO_CELLS.index)
+	{
+		max = client.pers.max_cells;
+	}
+	else if (item.tag == ammo_t.AMMO_SLUGS.index)
+	{
+		max = client.pers.max_slugs;
+	}
+	else
+	{
+		return false;
+	}
+
+	final index = item.index;
+
+	if (client.pers.inventory[index] == max)
+	{
+		return false;
+	}
+
+	client.pers.inventory[index] += count;
+
+	if (client.pers.inventory[index] > max)
+	{
+		client.pers.inventory[index] = max;
+	}
+
+	return true;
+}
+
+bool Pickup_Ammo(edict_t ent, edict_t other) {
+	int oldcount;
+	int count;
+
+	if (ent == null || other == null) {
+		return false;
+	}
+
+	bool weapon = (ent.item.flags & IT_WEAPON) != 0;
+
+	if ((weapon) && (dmflags.integer & DF_INFINITE_AMMO) != 0)
+	{
+		count = 1000;
+	}
+	else if (ent.count != 0)
+	{
+		count = ent.count;
+	}
+	else
+	{
+		count = ent.item.quantity;
+	}
+
+	oldcount = (other.client as gclient_t).pers.inventory[ent.item.index];
+
+	if (!Add_Ammo(other, ent.item, count))
+	{
+		return false;
+	}
+
+	if (weapon && oldcount == 0)
+	{
+		if (((other.client as gclient_t).pers.weapon != ent.item) &&
+			(!deathmatch.boolean ||
+			 ((other.client as gclient_t).pers.weapon == FindItem("blaster"))))
+		{
+			(other.client as gclient_t).newweapon = ent.item;
+		}
+	}
+
+	if ((ent.spawnflags & (DROPPED_ITEM | DROPPED_PLAYER_ITEM)) == 0 &&
+		(deathmatch.boolean))
+	{
+		SetRespawn(ent, 30);
+	}
+
+	return true;
+}
+
+
+/* ====================================================================== */
+
+MegaHealth_think(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if ((self.owner as edict_t).health > (self.owner as edict_t).max_health) {
+		self.nextthink = level.time + 1;
+		(self.owner as edict_t).health -= 1;
+		return;
+	}
+
+	if ((self.spawnflags & DROPPED_ITEM) == 0 && (deathmatch.boolean)) {
+		SetRespawn(self, 20);
+	} else {
+		G_FreeEdict(self);
+	}
+}
+
+bool Pickup_Health(edict_t ent, edict_t other) {
+
+	if (ent == null || other == null) {
+		return false;
+	}
+
+	if ((ent.style & _HEALTH_IGNORE_MAX) == 0) {
+		if (other.health >= other.max_health) {
+			return false;
+		}
+	}
+
+	other.health += ent.count;
+
+	if ((ent.style & _HEALTH_IGNORE_MAX) == 0) {
+		if (other.health > other.max_health)
+		{
+			other.health = other.max_health;
+		}
+	}
+
+	if ((ent.style & _HEALTH_TIMED) != 0) {
+		ent.think = MegaHealth_think;
+		ent.nextthink = level.time + 5;
+		ent.owner = other;
+		ent.flags |= FL_RESPAWN;
+		ent.svflags |= SVF_NOCLIENT;
+		ent.solid = solid_t.SOLID_NOT;
+	}
+	else
+	{
+		if ((ent.spawnflags & DROPPED_ITEM) == 0 && (deathmatch.boolean)) {
+			SetRespawn(ent, 30);
+		}
+	}
+
+	return true;
+}
+
+bool Pickup_Armor(edict_t ent, edict_t other) {
+	// int old_armor_index;
+	// gitem_armor_t *oldinfo;
+	// gitem_armor_t *newinfo;
+	// int newcount;
+	// float salvage;
+	// int salvagecount;
+
+	if (ent == null || other == null) {
+		return false;
+	}
+
+	/* get info on new armor */
+	// newinfo = (gitem_armor_t *)ent->item->info;
+
+	// old_armor_index = ArmorIndex(other);
+
+	// /* handle armor shards specially */
+	// if (ent->item->tag == ARMOR_SHARD)
+	// {
+	// 	if (!old_armor_index)
+	// 	{
+	// 		other->client->pers.inventory[jacket_armor_index] = 2;
+	// 	}
+	// 	else
+	// 	{
+	// 		other->client->pers.inventory[old_armor_index] += 2;
+	// 	}
+	// }
+	// else if (!old_armor_index) /* if player has no armor, just use it */
+	// {
+	// 	other->client->pers.inventory[ITEM_INDEX(ent->item)] =
+	// 		newinfo->base_count;
+	// }
+	// else /* use the better armor */
+	// {
+	// 	/* get info on old armor */
+	// 	if (old_armor_index == jacket_armor_index)
+	// 	{
+	// 		oldinfo = &jacketarmor_info;
+	// 	}
+	// 	else if (old_armor_index == combat_armor_index)
+	// 	{
+	// 		oldinfo = &combatarmor_info;
+	// 	}
+	// 	else
+	// 	{
+	// 		oldinfo = &bodyarmor_info;
+	// 	}
+
+	// 	if (newinfo->normal_protection > oldinfo->normal_protection)
+	// 	{
+	// 		/* calc new armor values */
+	// 		salvage = oldinfo->normal_protection / newinfo->normal_protection;
+	// 		salvagecount = salvage *
+	// 					   other->client->pers.inventory[old_armor_index];
+	// 		newcount = newinfo->base_count + salvagecount;
+
+	// 		if (newcount > newinfo->max_count)
+	// 		{
+	// 			newcount = newinfo->max_count;
+	// 		}
+
+	// 		/* zero count of old armor so it goes away */
+	// 		other->client->pers.inventory[old_armor_index] = 0;
+
+	// 		/* change armor to new item with computed value */
+	// 		other->client->pers.inventory[ITEM_INDEX(ent->item)] = newcount;
+	// 	}
+	// 	else
+	// 	{
+	// 		/* calc new armor values */
+	// 		salvage = newinfo->normal_protection / oldinfo->normal_protection;
+	// 		salvagecount = salvage * newinfo->base_count;
+	// 		newcount = other->client->pers.inventory[old_armor_index] +
+	// 				   salvagecount;
+
+	// 		if (newcount > oldinfo->max_count)
+	// 		{
+	// 			newcount = oldinfo->max_count;
+	// 		}
+
+	// 		/* if we're already maxed out then we don't need the new armor */
+	// 		if (other->client->pers.inventory[old_armor_index] >= newcount)
+	// 		{
+	// 			return false;
+	// 		}
+
+	// 		/* update current armor value */
+	// 		other->client->pers.inventory[old_armor_index] = newcount;
+	// 	}
+	// }
+
+	// if (!(ent->spawnflags & DROPPED_ITEM) && (deathmatch->value))
+	// {
+	// 	SetRespawn(ent, 20);
+	// }
+
+	return true;
+}
+
+/* ====================================================================== */
+
+Touch_Item(edict_t ent, edict_t other, cplane_t plane /* unused */, csurface_t surf /* unused */)
+{
+
+	if (ent == null || other == null) {
+		return;
+	}
+
+	if (other.client == null) {
+		return;
+	}
+
+	if (other.health < 1) {
+		return; /* dead people can't pickup */
+	}
+
+	if (ent.item.pickup == null) {
+		return; /* not a grabbable item? */
+	}
+
+	bool taken = ent.item.pickup(ent, other);
+
+  final oclient = other.client as gclient_t;
+
+	if (taken)
+	{
+		/* flash the screen */
+		oclient.bonus_alpha = 0.25;
+
+		/* show icon and name on status bar */
+		oclient.ps.stats[STAT_PICKUP_ICON] = SV_ImageIndex( ent.item.icon);
+		oclient.ps.stats[STAT_PICKUP_STRING] = CS_ITEMS + ent.item.index;
+		oclient.pickup_msg_time = level.time + 3.0;
+
+		/* change selected item */
+		if (ent.item.use != null)
+		{
+			oclient.pers.selected_item =
+				oclient.ps.stats[STAT_SELECTED_ITEM] =
+			   	ent.item.index;
+		}
+
+		// if (ent->item->pickup == Pickup_Health)
+		// {
+		// 	if (ent->count == 2)
+		// 	{
+		// 		gi.sound(other, CHAN_ITEM, gi.soundindex(
+		// 						"items/s_health.wav"), 1, ATTN_NORM, 0);
+		// 	}
+		// 	else if (ent->count == 10)
+		// 	{
+		// 		gi.sound(other, CHAN_ITEM, gi.soundindex(
+		// 						"items/n_health.wav"), 1, ATTN_NORM, 0);
+		// 	}
+		// 	else if (ent->count == 25)
+		// 	{
+		// 		gi.sound(other, CHAN_ITEM, gi.soundindex(
+		// 						"items/l_health.wav"), 1, ATTN_NORM, 0);
+		// 	}
+		// 	else /* (ent->count == 100) */
+		// 	{
+		// 		gi.sound(other, CHAN_ITEM, gi.soundindex(
+		// 						"items/m_health.wav"), 1, ATTN_NORM, 0);
+		// 	}
+		// }
+		// else if (ent->item->pickup_sound)
+		// {
+		// 	gi.sound(other, CHAN_ITEM, gi.soundindex(
+		// 					ent->item->pickup_sound), 1, ATTN_NORM, 0);
+		// }
+	}
+
+	if ((ent.spawnflags & ITEM_TARGETS_USED) == 0) {
+		G_UseTargets(ent, other);
+		ent.spawnflags |= ITEM_TARGETS_USED;
+	}
+
+	if (!taken) {
+		return;
+	}
+
+	if (!((coop.boolean) &&
+		  (ent.item.flags & IT_STAY_COOP) != 0) ||
+		(ent.spawnflags & (DROPPED_ITEM | DROPPED_PLAYER_ITEM)) != 0)
+	{
+		if ((ent.flags & FL_RESPAWN) != 0)
+		{
+			ent.flags &= ~FL_RESPAWN;
+		}
+		else
+		{
+			G_FreeEdict(ent);
+		}
+	}
+}
+
+Use_Item(edict_t ent, edict_t other /* unused */, edict_t activator /* unused */)
+{
+	if (ent == null) {
+		return;
+	}
+
+	ent.svflags &= ~SVF_NOCLIENT;
+	ent.use = null;
+
+	if ((ent.spawnflags & ITEM_NO_TOUCH) != 0)
+	{
+		ent.solid = solid_t.SOLID_BBOX;
+		ent.touch = null;
+	}
+	else
+	{
+		ent.solid = solid_t.SOLID_TRIGGER;
+		ent.touch = Touch_Item;
+	}
+
+	SV_LinkEdict(ent);
+}
+
+/* ====================================================================== */
+
 droptofloor(edict_t ent) {
 
 	if (ent == null) {
@@ -76,7 +543,7 @@ droptofloor(edict_t ent) {
 
 	ent.solid = solid_t.SOLID_TRIGGER;
 	ent.movetype = movetype_t.MOVETYPE_TOSS;
-	// ent.touch = Touch_Item;
+	ent.touch = Touch_Item;
 
   List<double> dest = [0,0,0];
 	VectorAdd(ent.s.origin, [0, 0, -128], dest);
@@ -115,7 +582,7 @@ droptofloor(edict_t ent) {
 	if ((ent.spawnflags & ITEM_TRIGGER_SPAWN) != 0) {
 		ent.svflags |= SVF_NOCLIENT;
 		ent.solid = solid_t.SOLID_NOT;
-		// ent.use = Use_Item;
+		ent.use = Use_Item;
 	}
 
 	SV_LinkEdict(ent);
@@ -155,12 +622,10 @@ PrecacheItem(gitem_t it) {
 
 	/* parse everything for its ammo */
 	if (it.ammo != null && it.ammo.isNotEmpty) {
-	// 	ammo = FindItem(it->ammo);
-
-	// 	if (ammo != it)
-	// 	{
-	// 		PrecacheItem(ammo);
-	// 	}
+		final ammo = FindItem(it.ammo);
+		if (ammo != it) {
+			PrecacheItem(ammo);
+		}
 	}
 
 	/* parse the space seperated precache string for other items */
@@ -169,8 +634,8 @@ PrecacheItem(gitem_t it) {
 	if (s == null || s.isEmpty) {
 		return;
 	}
-  int index = 0;
-	while (index < s.length) {
+  // int index = 0;
+	// while (index < s.length) {
 	// 	start = s;
 
 	// 	while (*s && *s != ' ')
@@ -211,7 +676,7 @@ PrecacheItem(gitem_t it) {
 	// 	{
 	// 		gi.imageindex(data);
 	// 	}
-	}
+	// }
 }
 
 /*
@@ -303,443 +768,443 @@ final gameitemlist = [
 	/* QUAKED item_armor_body (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"item_armor_body",
-		// Pickup_Armor,
-		// null,
-		// null,
-		// null,
-		// "misc/ar1_pkup.wav",
+		Pickup_Armor,
+		null,
+		null,
+		null,
+		"misc/ar1_pkup.wav",
 		"models/items/armor/body/tris.md2", EF_ROTATE,
 		null,
 		"i_bodyarmor",
 		"Body Armor",
-		// 3,
-		// 0,
-		// null,
-		// IT_ARMOR,
-		// 0,
-		// &bodyarmor_info,
-		// ARMOR_BODY,
-		// ""
+		3,
+		0,
+		null,
+		IT_ARMOR,
+		0,
+		bodyarmor_info,
+		ARMOR_BODY,
+		""
 	),
 
 	/* QUAKED item_armor_combat (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"item_armor_combat",
-		// Pickup_Armor,
-		// NULL,
-		// NULL,
-		// NULL,
-		// "misc/ar1_pkup.wav",
+		Pickup_Armor,
+		null,
+		null,
+		null,
+		"misc/ar1_pkup.wav",
 		"models/items/armor/combat/tris.md2", EF_ROTATE,
 		null,
 		"i_combatarmor",
 		"Combat Armor",
-		// 3,
-		// 0,
-		// NULL,
-		// IT_ARMOR,
-		// 0,
-		// &combatarmor_info,
-		// ARMOR_COMBAT,
-		// ""
+		3,
+		0,
+		null,
+		IT_ARMOR,
+		0,
+		combatarmor_info,
+		ARMOR_COMBAT,
+		""
   ),
 
 	/* QUAKED item_armor_jacket (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"item_armor_jacket",
-		// Pickup_Armor,
-		// NULL,
-		// NULL,
-		// NULL,
-		// "misc/ar1_pkup.wav",
+		Pickup_Armor,
+		null,
+		null,
+		null,
+		"misc/ar1_pkup.wav",
 		"models/items/armor/jacket/tris.md2", EF_ROTATE,
 		null,
 		"i_jacketarmor",
 		"Jacket Armor",
-		// 3,
-		// 0,
-		// NULL,
-		// IT_ARMOR,
-		// 0,
-		// &jacketarmor_info,
-		// ARMOR_JACKET,
-		// ""
+		3,
+		0,
+		null,
+		IT_ARMOR,
+		0,
+		jacketarmor_info,
+		ARMOR_JACKET,
+		""
   ),
 
 	/* QUAKED item_armor_shard (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"item_armor_shard",
-		// Pickup_Armor,
-		// NULL,
-		// NULL,
-		// NULL,
-		// "misc/ar2_pkup.wav",
+		Pickup_Armor,
+		null,
+		null,
+		null,
+		"misc/ar2_pkup.wav",
 		"models/items/armor/shard/tris.md2", EF_ROTATE,
 		null,
 		"i_jacketarmor",
 		"Armor Shard",
-		// 3,
-		// 0,
-		// NULL,
-		// IT_ARMOR,
-		// 0,
-		// NULL,
-		// ARMOR_SHARD,
-		// ""
+		3,
+		0,
+		null,
+		IT_ARMOR,
+		0,
+		null,
+		ARMOR_SHARD,
+		""
   ),
 
 	/* QUAKED item_power_screen (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"item_power_screen",
-		// Pickup_PowerArmor,
-		// Use_PowerArmor,
-		// Drop_PowerArmor,
-		// NULL,
-		// "misc/ar3_pkup.wav",
+		null, // Pickup_PowerArmor,
+		null, // Use_PowerArmor,
+		null, // Drop_PowerArmor,
+		null,
+		"misc/ar3_pkup.wav",
 		"models/items/armor/screen/tris.md2", EF_ROTATE,
 		null,
 		"i_powerscreen",
 		"Power Screen",
-		// 0,
-		// 60,
-		// NULL,
-		// IT_ARMOR,
-		// 0,
-		// NULL,
-		// 0,
-		// ""
+		0,
+		60,
+		null,
+		IT_ARMOR,
+		0,
+		null,
+		0,
+		""
   ),
 
 	/* QUAKED item_power_shield (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"item_power_shield",
-		// Pickup_PowerArmor,
-		// Use_PowerArmor,
-		// Drop_PowerArmor,
-		// NULL,
-		// "misc/ar3_pkup.wav",
+		null, // Pickup_PowerArmor,
+		null, // Use_PowerArmor,
+		null, // Drop_PowerArmor,
+		null,
+		"misc/ar3_pkup.wav",
 		"models/items/armor/shield/tris.md2", EF_ROTATE,
 		null,
 		"i_powershield",
 		"Power Shield",
-		// 0,
-		// 60,
-		// NULL,
-		// IT_ARMOR,
-		// 0,
-		// NULL,
-		// 0,
-		// "misc/power2.wav misc/power1.wav"
+		0,
+		60,
+		null, 
+		IT_ARMOR,
+		0,
+		null,
+		0,
+		"misc/power2.wav misc/power1.wav"
   ),
 
 	/* weapon_blaster (.3 .3 1) (-16 -16 -16) (16 16 16)
 	   always owned, never in the world */
 	glistitem_t(
 		"weapon_blaster",
-		// NULL,
-		// Use_Weapon,
-		// NULL,
-		// Weapon_Blaster,
-		// "misc/w_pkup.wav",
+		null,
+		Use_Weapon,
+		null,
+		Weapon_Blaster,
+		"misc/w_pkup.wav",
 		null, 0,
 		"models/weapons/v_blast/tris.md2",
 		"w_blaster",
 		"Blaster",
-		// 0,
-		// 0,
-		// NULL,
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_BLASTER,
-		// NULL,
-		// 0,
-		// "weapons/blastf1a.wav misc/lasfly.wav"
+		0,
+		0,
+		null, 
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_BLASTER,
+		null,
+		0,
+		"weapons/blastf1a.wav misc/lasfly.wav"
   ),
 
 	/* QUAKED weapon_shotgun (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_shotgun",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_Shotgun,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_Shotgun,
+		"misc/w_pkup.wav",
 		"models/weapons/g_shotg/tris.md2", EF_ROTATE,
 		"models/weapons/v_shotg/tris.md2",
 		"w_shotgun",
 		"Shotgun",
-		// 0,
-		// 1,
-		// "Shells",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_SHOTGUN,
-		// NULL,
-		// 0,
-		// "weapons/shotgf1b.wav weapons/shotgr1b.wav"
+		0,
+		1,
+		"Shells",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_SHOTGUN,
+		null,
+		0,
+		"weapons/shotgf1b.wav weapons/shotgr1b.wav"
   ),
 
 	/* QUAKED weapon_supershotgun (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_supershotgun",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_SuperShotgun,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_SuperShotgun,
+		"misc/w_pkup.wav",
 		"models/weapons/g_shotg2/tris.md2", EF_ROTATE,
 		"models/weapons/v_shotg2/tris.md2",
 		"w_sshotgun",
 		"Super Shotgun",
-		// 0,
-		// 2,
-		// "Shells",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_SUPERSHOTGUN,
-		// NULL,
-		// 0,
-		// "weapons/sshotf1b.wav"
+		0,
+		2,
+		"Shells",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_SUPERSHOTGUN,
+		null,
+		0,
+		"weapons/sshotf1b.wav"
   ),
 
 	/* QUAKED weapon_machinegun (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_machinegun",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_Machinegun,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_Machinegun,
+		"misc/w_pkup.wav",
 		"models/weapons/g_machn/tris.md2", EF_ROTATE,
 		"models/weapons/v_machn/tris.md2",
 		"w_machinegun",
 		"Machinegun",
-		// 0,
-		// 1,
-		// "Bullets",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_MACHINEGUN,
-		// NULL,
-		// 0,
-		// "weapons/machgf1b.wav weapons/machgf2b.wav weapons/machgf3b.wav weapons/machgf4b.wav weapons/machgf5b.wav"
+		0,
+		1,
+		"Bullets",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_MACHINEGUN,
+		null,
+		0,
+		"weapons/machgf1b.wav weapons/machgf2b.wav weapons/machgf3b.wav weapons/machgf4b.wav weapons/machgf5b.wav"
   ),
 
 	/* QUAKED weapon_chaingun (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_chaingun",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_Chaingun,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_Chaingun,
+		"misc/w_pkup.wav",
 		"models/weapons/g_chain/tris.md2", EF_ROTATE,
 		"models/weapons/v_chain/tris.md2",
 		"w_chaingun",
 		"Chaingun",
-		// 0,
-		// 1,
-		// "Bullets",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_CHAINGUN,
-		// NULL,
-		// 0,
-		// "weapons/chngnu1a.wav weapons/chngnl1a.wav weapons/machgf3b.wav` weapons/chngnd1a.wav"
+		0,
+		1,
+		"Bullets",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_CHAINGUN,
+		null,
+		0,
+		"weapons/chngnu1a.wav weapons/chngnl1a.wav weapons/machgf3b.wav` weapons/chngnd1a.wav"
   ),
 
 	/* QUAKED ammo_grenades (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"ammo_grenades",
-		// Pickup_Ammo,
-		// Use_Weapon,
-		// Drop_Ammo,
-		// Weapon_Grenade,
-		// "misc/am_pkup.wav",
+		Pickup_Ammo,
+		Use_Weapon,
+		null, // Drop_Ammo,
+		null, // Weapon_Grenade,
+		"misc/am_pkup.wav",
 		"models/items/ammo/grenades/medium/tris.md2", 0,
 		"models/weapons/v_handgr/tris.md2",
 		"a_grenades",
 		"Grenades",
-		// 3,
-		// 5,
-		// "grenades",
-		// IT_AMMO | IT_WEAPON,
-		// WEAP_GRENADES,
-		// NULL,
-		// AMMO_GRENADES,
-		// "weapons/hgrent1a.wav weapons/hgrena1b.wav weapons/hgrenc1b.wav weapons/hgrenb1a.wav weapons/hgrenb2a.wav "
+		3,
+		5,
+		"grenades",
+		IT_AMMO | IT_WEAPON,
+		WEAP_GRENADES,
+		null,
+		ammo_t.AMMO_GRENADES.index,
+		"weapons/hgrent1a.wav weapons/hgrena1b.wav weapons/hgrenc1b.wav weapons/hgrenb1a.wav weapons/hgrenb2a.wav "
   ),
 
 	/* QUAKED weapon_grenadelauncher (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_grenadelauncher",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_GrenadeLauncher,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_GrenadeLauncher,
+		"misc/w_pkup.wav",
 		"models/weapons/g_launch/tris.md2", EF_ROTATE,
 		"models/weapons/v_launch/tris.md2",
 		"w_glauncher",
 		"Grenade Launcher",
-		// 0,
-		// 1,
-		// "Grenades",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_GRENADELAUNCHER,
-		// NULL,
-		// 0,
-		// "models/objects/grenade/tris.md2 weapons/grenlf1a.wav weapons/grenlr1b.wav weapons/grenlb1b.wav"
+		0,
+		1,
+		"Grenades",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_GRENADELAUNCHER,
+		null,
+		0,
+		"models/objects/grenade/tris.md2 weapons/grenlf1a.wav weapons/grenlr1b.wav weapons/grenlb1b.wav"
   ),
 
 	/* QUAKED weapon_rocketlauncher (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_rocketlauncher",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_RocketLauncher,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_RocketLauncher,
+		"misc/w_pkup.wav",
 		"models/weapons/g_rocket/tris.md2", EF_ROTATE,
 		"models/weapons/v_rocket/tris.md2",
 		"w_rlauncher",
 		"Rocket Launcher",
-		// 0,
-		// 1,
-		// "Rockets",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_ROCKETLAUNCHER,
-		// NULL,
-		// 0,
-		// "models/objects/rocket/tris.md2 weapons/rockfly.wav weapons/rocklf1a.wav weapons/rocklr1b.wav models/objects/debris2/tris.md2"
+		0,
+		1,
+		"Rockets",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_ROCKETLAUNCHER,
+		null,
+		0,
+		"models/objects/rocket/tris.md2 weapons/rockfly.wav weapons/rocklf1a.wav weapons/rocklr1b.wav models/objects/debris2/tris.md2"
   ),
 
 	/* QUAKED weapon_hyperblaster (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_hyperblaster",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_HyperBlaster,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_HyperBlaster,
+		"misc/w_pkup.wav",
 		"models/weapons/g_hyperb/tris.md2", EF_ROTATE,
 		"models/weapons/v_hyperb/tris.md2",
 		"w_hyperblaster",
 		"HyperBlaster",
-		// 0,
-		// 1,
-		// "Cells",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_HYPERBLASTER,
-		// NULL,
-		// 0,
-		// "weapons/hyprbu1a.wav weapons/hyprbl1a.wav weapons/hyprbf1a.wav weapons/hyprbd1a.wav misc/lasfly.wav"
+		0,
+		1,
+		"Cells",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_HYPERBLASTER,
+		null,
+		0,
+		"weapons/hyprbu1a.wav weapons/hyprbl1a.wav weapons/hyprbf1a.wav weapons/hyprbd1a.wav misc/lasfly.wav"
   ),
 
 	/* QUAKED weapon_railgun (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_railgun",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_Railgun,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_Railgun,
+		"misc/w_pkup.wav",
 		"models/weapons/g_rail/tris.md2", EF_ROTATE,
 		"models/weapons/v_rail/tris.md2",
 		"w_railgun",
 		"Railgun",
-		// 0,
-		// 1,
-		// "Slugs",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_RAILGUN,
-		// NULL,
-		// 0,
-		// "weapons/rg_hum.wav"
+		0,
+		1,
+		"Slugs",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_RAILGUN,
+		null,
+		0,
+		"weapons/rg_hum.wav"
   ),
 
 	/* QUAKED weapon_bfg (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"weapon_bfg",
-		// Pickup_Weapon,
-		// Use_Weapon,
-		// Drop_Weapon,
-		// Weapon_BFG,
-		// "misc/w_pkup.wav",
+		null, // Pickup_Weapon,
+		Use_Weapon,
+		null, // Drop_Weapon,
+		null, // Weapon_BFG,
+		"misc/w_pkup.wav",
 		"models/weapons/g_bfg/tris.md2", EF_ROTATE,
 		"models/weapons/v_bfg/tris.md2",
 		"w_bfg",
 		"BFG10K",
-		// 0,
-		// 50,
-		// "Cells",
-		// IT_WEAPON | IT_STAY_COOP,
-		// WEAP_BFG,
-		// NULL,
-		// 0,
-		// "sprites/s_bfg1.sp2 sprites/s_bfg2.sp2 sprites/s_bfg3.sp2 weapons/bfg__f1y.wav weapons/bfg__l1a.wav weapons/bfg__x1b.wav weapons/bfg_hum.wav"
+		0,
+		50,
+		"Cells",
+		IT_WEAPON | IT_STAY_COOP,
+		WEAP_BFG,
+		null,
+		0,
+		"sprites/s_bfg1.sp2 sprites/s_bfg2.sp2 sprites/s_bfg3.sp2 weapons/bfg__f1y.wav weapons/bfg__l1a.wav weapons/bfg__x1b.wav weapons/bfg_hum.wav"
   ),
 
 	/* QUAKED ammo_shells (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	glistitem_t(
 		"ammo_shells",
-		// Pickup_Ammo,
-		// NULL,
-		// Drop_Ammo,
-		// NULL,
-		// "misc/am_pkup.wav",
+		Pickup_Ammo,
+		null,
+		null, // Drop_Ammo,
+		null,
+		"misc/am_pkup.wav",
 		"models/items/ammo/shells/medium/tris.md2", 0,
 		null,
 		"a_shells",
 		"Shells",
-		// 3,
-		// 10,
-		// NULL,
-		// IT_AMMO,
-		// 0,
-		// NULL,
-		// AMMO_SHELLS,
-		// ""
+		3,
+		10,
+		null,
+		IT_AMMO,
+		0,
+		null,
+		ammo_t.AMMO_SHELLS.index,
+		""
   ),
 
 	/* QUAKED ammo_bullets (.3 .3 1) (-16 -16 -16) (16 16 16) */
-	// {
-	// 	"ammo_bullets",
-	// 	Pickup_Ammo,
-	// 	NULL,
-	// 	Drop_Ammo,
-	// 	NULL,
-	// 	"misc/am_pkup.wav",
-	// 	"models/items/ammo/bullets/medium/tris.md2", 0,
-	// 	NULL,
-	// 	"a_bullets",
-		// "Bullets",
-	// 	3,
-	// 	50,
-	// 	NULL,
-	// 	IT_AMMO,
-	// 	0,
-	// 	NULL,
-	// 	AMMO_BULLETS,
-	// 	""
-	// },
+	glistitem_t(
+		"ammo_bullets",
+		Pickup_Ammo,
+		null,
+		null, // Drop_Ammo,
+		null,
+		"misc/am_pkup.wav",
+		"models/items/ammo/bullets/medium/tris.md2", 0,
+		null,
+		"a_bullets",
+		"Bullets",
+		3,
+		50,
+		null,
+		IT_AMMO,
+		0,
+		null,
+		ammo_t.AMMO_BULLETS.index,
+		""
+  ),
 
 	// /* QUAKED ammo_cells (.3 .3 1) (-16 -16 -16) (16 16 16) */
-	// {
-	// 	"ammo_cells",
-	// 	Pickup_Ammo,
-	// 	NULL,
-	// 	Drop_Ammo,
-	// 	NULL,
-	// 	"misc/am_pkup.wav",
-	// 	"models/items/ammo/cells/medium/tris.md2", 0,
-	// 	NULL,
-	// 	"a_cells",
-	// 	"Cells",
-	// 	3,
-	// 	50,
-	// 	NULL,
-	// 	IT_AMMO,
-	// 	0,
-	// 	NULL,
-	// 	AMMO_CELLS,
-	// 	""
-	// },
+	glistitem_t(
+		"ammo_cells",
+		Pickup_Ammo,
+		null,
+		null, // Drop_Ammo,
+		null,
+		"misc/am_pkup.wav",
+		"models/items/ammo/cells/medium/tris.md2", 0,
+		null,
+		"a_cells",
+		"Cells",
+		3,
+		50,
+		null,
+		IT_AMMO,
+		0,
+		null,
+		ammo_t.AMMO_CELLS.index,
+		""
+  ),
 
 	// /* QUAKED ammo_rockets (.3 .3 1) (-16 -16 -16) (16 16 16) */
 	// {
@@ -1191,29 +1656,48 @@ final gameitemlist = [
 	// 	""
 	// },
 
-	// {
-	// 	NULL,
-	// 	Pickup_Health,
-	// 	NULL,
-	// 	NULL,
-	// 	NULL,
-	// 	"items/pkup.wav",
-	// 	NULL, 0,
-	// 	NULL,
-	// 	"i_health",
-	// 	"Health",
-	// 	3,
-	// 	0,
-	// 	NULL,
-	// 	0,
-	// 	0,
-	// 	NULL,
-	// 	0,
-	// 	"items/s_health.wav items/n_health.wav items/l_health.wav items/m_health.wav"
-	// },    
+	glistitem_t(
+	  null,
+	  Pickup_Health,
+	  null,
+	  null,
+	  null,
+		"items/pkup.wav",
+		null, 0,
+		null,
+		"i_health",
+		"Health",
+		3,
+		0,
+		null,
+		0,
+		0,
+		null,
+		0,
+		"items/s_health.wav items/n_health.wav items/l_health.wav items/m_health.wav"
+	),    
 ];
 
 List<gitem_t> itemlist;
+
+/*
+ * QUAKED item_health (.3 .3 1) (-16 -16 -16) (16 16 16)
+ */
+SP_item_health(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (deathmatch.boolean && (dmflags.integer & DF_NO_HEALTH) != 0) {
+		G_FreeEdict(self);
+		return;
+	}
+
+	self.model = "models/items/healing/medium/tris.md2";
+	self.count = 10;
+	SpawnItem(self, FindItem("Health"));
+	SV_SoundIndex("items/n_health.wav");
+}
 
 InitItems() {
 	itemlist = List.generate(gameitemlist.length, (i) => gitem_t(i, gameitemlist[i]));

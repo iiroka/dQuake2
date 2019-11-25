@@ -181,14 +181,22 @@ enum movetype_t {
 	MOVETYPE_BOUNCE
 }
 
+class gitem_armor_t {
+	final int base_count;
+	final int max_count;
+	final double normal_protection;
+	final double energy_protection;
+	final int armor;
 
+  const gitem_armor_t(this.base_count, this.max_count, this.normal_protection, this.energy_protection, this.armor);
+}
 
 class glistitem_t {
 	String classname; /* spawning name */
-	// qboolean (*pickup)(struct edict_s *ent, struct edict_s *other);
-	// void (*use)(struct edict_s *ent, struct gitem_s *item);
-	// void (*drop)(struct edict_s *ent, struct gitem_s *item);
-	// void (*weaponthink)(struct edict_s *ent);
+  bool Function(edict_t, edict_t) pickup;
+  void Function(edict_t, gitem_t) use;
+  void Function(edict_t, gitem_t) drop;
+  void Function(edict_t) weaponthink;
 	String pickup_sound;
 	String world_model;
 	int world_model_flags = 0;
@@ -210,18 +218,72 @@ class glistitem_t {
 
 	String precaches; /* string of all models, sounds, and images this item will use */
 
-  glistitem_t.empty() : this(null, null, 0, null, null, null);
+  glistitem_t.empty() : this(null, null, null, null, null, null, null, 0, null, null, null, 0, 0, null, 0, 0, null, 0, null);
 
-  glistitem_t(this.classname, this.world_model, this.world_model_flags, this.view_model, this.icon, this.pickup_name);
+  glistitem_t(this.classname,
+      this.pickup,
+      this.use,
+      this.drop,
+      this.weaponthink,
+      this.pickup_sound,
+      this.world_model,
+      this.world_model_flags,
+      this.view_model,
+      this.icon,
+      this.pickup_name,
+      this.count_width,
+      this.quantity,
+      this.ammo,
+      this.flags,
+      this.weapmodel,
+      this.info,
+      this.tag,
+      this.precaches);
 }
 
 class gitem_t extends glistitem_t {
   int index;
 
-  gitem_t(this.index, glistitem_t other) : super(other.classname, other.world_model, other.world_model_flags,
-    other.view_model, other.icon, other.pickup_name);
-
+  gitem_t(this.index, glistitem_t other) : super(other.classname,
+      other.pickup,
+      other.use,
+      other.drop,
+      other.weaponthink,
+      other.pickup_sound,
+      other.world_model,
+      other.world_model_flags,
+      other.view_model,
+      other.icon,
+      other.pickup_name,
+      other.count_width,
+      other.quantity,
+      other.ammo,
+      other.flags,
+      other.weapmodel,
+      other.info,
+      other.tag,
+      other.precaches);
 }
+
+const IT_WEAPON = 1;  /* use makes active weapon */
+const IT_AMMO = 2;
+const IT_ARMOR = 4;
+const IT_STAY_COOP = 8;
+const IT_KEY = 16;
+const IT_POWERUP = 32;
+
+/* gitem_t->weapmodel for weapons indicates model index */
+const WEAP_BLASTER = 1;
+const WEAP_SHOTGUN = 2;
+const WEAP_SUPERSHOTGUN = 3;
+const WEAP_MACHINEGUN = 4;
+const WEAP_CHAINGUN = 5;
+const WEAP_GRENADES = 6;
+const WEAP_GRENADELAUNCHER = 7;
+const WEAP_ROCKETLAUNCHER = 8;
+const WEAP_HYPERBLASTER = 9;
+const WEAP_RAILGUN = 10;
+const WEAP_BFG = 11;
 
 /* item spawnflags */
 const ITEM_TRIGGER_SPAWN = 0x00000001;
@@ -403,7 +465,7 @@ class client_persistant_t {
 	int savedFlags = 0;
 
 	int selected_item = 0;
-	// int inventory[MAX_ITEMS];
+	List<int> inventory = List.generate(MAX_ITEMS, (i) => 0);
 
 	/* ammo capacities */
 	int max_bullets = 0;
@@ -585,13 +647,13 @@ class monsterinfo_t {
 	// void (*dodge)(edict_t *self, edict_t *other, float eta);
   void Function(edict_t) attack;
   void Function(edict_t) melee;
-	// void (*sight)(edict_t *self, edict_t *other);
-	// qboolean (*checkattack)(edict_t *self);
+  void Function(edict_t, edict_t) sight;
+	bool Function(edict_t) checkattack;
 
 	double pausetime = 0;
 	double attack_finished = 0;
 
-	// vec3_t saved_goal;
+	List<double> saved_goal = [0,0,0];
 	double search_time = 0;
 	double trail_time = 0;
 	List<double> last_sighting = [0,0,0];
@@ -616,11 +678,11 @@ class monsterinfo_t {
     // void (*dodge)(edict_t *self, edict_t *other, float eta);
     this.attack = null;
     this.melee = null;
-    // void (*sight)(edict_t *self, edict_t *other);
-    // qboolean (*checkattack)(edict_t *self);
+    this.sight = null;
+    this.checkattack = null;
     this.pausetime = 0;
     this.attack_finished = 0;
-    // vec3_t saved_goal;
+    this.saved_goal.fillRange(0, 3, 0);
     this.search_time = 0;
     this.trail_time = 0;
     this.last_sighting.fillRange(0, 3, 0);
@@ -702,7 +764,7 @@ class gclient_t extends gclient_s {
 	int damage_parmor = 0; /* damage absorbed by power armor */
 	int damage_blood = 0; /* damage taken out of health */
 	int damage_knockback = 0; /* impact damage */
-	// vec3_t damage_from; /* origin for vector calculation */
+	List<double> damage_from = [0,0,0]; /* origin for vector calculation */
 
 	double killer_yaw = 0; /* when dead, look at killer */
 
@@ -732,17 +794,17 @@ class gclient_t extends gclient_s {
 	bool anim_run = false;
 
 	/* powerup timers */
-	// double quad_framenum;
+	double quad_framenum = 0;
 	// double invincible_framenum;
 	// double breather_framenum;
 	// double enviro_framenum;
 
 	// qboolean grenade_blew_up;
-	// double grenade_time;
-	// int silencer_shots;
-	// int weapon_sound;
+	double grenade_time = 0;
+	int silencer_shots = 0;
+	int weapon_sound = 0;
 
-	// double pickup_msg_time;
+	double pickup_msg_time = 0;
 
 	// double flood_locktill; /* locked from talking */
 	// double flood_when[10]; /* when messages were said */
@@ -771,7 +833,7 @@ class gclient_t extends gclient_s {
 	  this.latched_buttons = 0;
 	  this.weapon_thunk = false;
 	  this.newweapon = null;
-	// // vec3_t damage_from; /* origin for vector calculation */
+	  this.damage_from.fillRange(0, 3, 0);
 	  this.killer_yaw = 0;
     this.weaponstate = weaponstate_t.WEAPON_READY;
 	  this.kick_angles.fillRange(0, 3, 0);
@@ -796,15 +858,15 @@ class gclient_t extends gclient_s {
 	  this.anim_priority = 0;
 	  this.anim_duck = false;
 	  this.anim_run = false;
-	// double quad_framenum = 0;
+	  this.quad_framenum = 0;
 	// double invincible_framenum = 0;
 	// double breather_framenum = 0;
 	// double enviro_framenum = 0;
 	// qboolean grenade_blew_up = false;
-	// double grenade_time = 0;
-	// int silencer_shots = 0;
-	// int weapon_sound = 0;
-	// double pickup_msg_time = 0;
+	  this.grenade_time = 0;
+	  this.silencer_shots = 0;
+	  this.weapon_sound = 0;
+	  this.pickup_msg_time = 0;
 	// double flood_locktill = 0;
 	// double flood_when[10];
 	// int flood_whenhead = 0; /* head pointer for when said */
@@ -815,8 +877,6 @@ class gclient_t extends gclient_s {
 }
 
 class edict_t extends edict_s {
-
-  int index;
 
 	movetype_t movetype = movetype_t.MOVETYPE_NONE;
 	int flags = 0;
@@ -864,9 +924,8 @@ class edict_t extends edict_s {
 	void Function(edict_t self, edict_t other, cplane_t plane,
 			csurface_t surf) touch;
 	void Function(edict_t self, edict_t other, edict_t activator) use;
-	// void (*pain)(edict_t *self, edict_t *other, float kick, int damage);
-	// void (*die)(edict_t *self, edict_t *inflictor, edict_t *attacker,
-	// 		int damage, vec3_t point);
+	void Function(edict_t self, edict_t other, double kick, int damage) pain;
+	void Function(edict_t self, edict_t other, edict_t attacker, int damage, List<double> point) die;
 
 	double touch_debounce_time = 0;
 	double pain_debounce_time = 0;
@@ -933,9 +992,7 @@ class edict_t extends edict_s {
 	moveinfo_t moveinfo = moveinfo_t();
 	monsterinfo_t monsterinfo = monsterinfo_t();
 
-  edict_t(int index) {
-    this.index = index;
-  }
+  edict_t(int index) : super(index);
 
   clear() {
     this.s.clear();
@@ -993,12 +1050,10 @@ class edict_t extends edict_s {
     // void (*prethink)(edict_t *ent);
     this.think = null;
     // void (*blocked)(edict_t *self, edict_t *other);
-    // void (*touch)(edict_t *self, edict_t *other, cplane_t *plane,
-    // 		csurface_t *surf);
-    // void (*use)(edict_t *self, edict_t *other, edict_t *activator);
-    // void (*pain)(edict_t *self, edict_t *other, float kick, int damage);
-    // void (*die)(edict_t *self, edict_t *inflictor, edict_t *attacker,
-    // 		int damage, vec3_t point);
+    this.touch = null;
+    this.use = null;
+    this.pain = null;
+    this.die = null;
     this.touch_debounce_time = 0;
     this.pain_debounce_time = 0;
     this.damage_debounce_time = 0;

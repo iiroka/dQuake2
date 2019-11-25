@@ -578,10 +578,10 @@ SV_Physics_Pusher(edict_t ent) {
 	// 		}
 	// 	}
 
-	// 	/* if the pusher has a "blocked" function, call it
-	// 	   otherwise, just stay in place until the obstacle
-	// 	   is gone */
-	// 	if (part->blocked)
+		/* if the pusher has a "blocked" function, call it
+		   otherwise, just stay in place until the obstacle
+		   is gone */
+		// if (part.blocked)
 	// 	{
 	// 		part->blocked(part, obstacle);
 	// 	}
@@ -676,25 +676,25 @@ SV_Physics_Toss(edict_t ent) {
 	}
 
 	if (trace.fraction < 1) {
-		// if (ent.movetype == MOVETYPE_BOUNCE) {
-		// 	backoff = 1.5;
-		// } else {
-		// 	backoff = 1;
-		// }
+    double backoff;
+		if (ent.movetype == movetype_t.MOVETYPE_BOUNCE) {
+			backoff = 1.5;
+		} else {
+			backoff = 1;
+		}
 
-	// 	ClipVelocity(ent->velocity, trace.plane.normal, ent->velocity, backoff);
+		ClipVelocity(ent.velocity, trace.plane.normal, ent.velocity, backoff);
 
 		/* stop if on ground */
-	// 	if (trace.plane.normal[2] > 0.7)
-	// 	{
-	// 		if ((ent->velocity[2] < 60) || (ent->movetype != MOVETYPE_BOUNCE))
-	// 		{
-	// 			ent->groundentity = trace.ent;
-	// 			ent->groundentity_linkcount = trace.ent->linkcount;
-	// 			VectorCopy(vec3_origin, ent->velocity);
-	// 			VectorCopy(vec3_origin, ent->avelocity);
-	// 		}
-	// 	}
+		if (trace.plane.normal[2] > 0.7)
+		{
+			if ((ent.velocity[2] < 60) || (ent.movetype != movetype_t.MOVETYPE_BOUNCE)) {
+				ent.groundentity = trace.ent;
+				ent.groundentity_linkcount = trace.ent.linkcount;
+        ent.velocity = [0,0,0];
+        ent.avelocity = [0,0,0];
+			}
+		}
 	}
 
 	/* check for water transition */
@@ -752,13 +752,13 @@ SV_Physics_Step(edict_t ent) {
 	if (!wasonground) {
 		if ((ent.flags & FL_FLY) == 0) {
 			if (!((ent.flags & FL_SWIM) != 0 && (ent.waterlevel > 2))) {
-	// 			if (ent.velocity[2] < sv_gravity.value * -0.1) {
-	// 				hitsound = true;
-	// 			}
+				// if (ent.velocity[2] < sv_gravity.value * -0.1) {
+				// 	hitsound = true;
+				// }
 
-	// 			if (ent.waterlevel == 0) {
-	// 				SV_AddGravity(ent);
-	// 			}
+				// if (ent.waterlevel == 0) {
+				// 	SV_AddGravity(ent);
+				// }
 			}
 		}
 	}

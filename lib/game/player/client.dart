@@ -237,7 +237,7 @@ InitClientPersistant(gclient_t client) {
 
 	var item = FindItem("Blaster");
 	client.pers.selected_item = item.index;
-	// client.pers.inventory[client.pers.selected_item] = 1;
+	client.pers.inventory[client.pers.selected_item] = 1;
 
 	client.pers.weapon = item;
 
@@ -542,24 +542,21 @@ PutClientInServer(edict_t ent) {
   client.ps.viewangles.setAll(0, ent.s.angles);
   client.v_angle.setAll(0, ent.s.angles);
 
-	// /* spawn a spectator */
-	// if (client->pers.spectator)
-	// {
-	// 	client->chase_target = NULL;
+	/* spawn a spectator */
+	if (client.pers.spectator) {
+		client.chase_target = null;
 
-	// 	client->resp.spectator = true;
+		client.resp.spectator = true;
 
-	// 	ent->movetype = MOVETYPE_NOCLIP;
-	// 	ent->solid = SOLID_NOT;
-	// 	ent->svflags |= SVF_NOCLIENT;
-	// 	ent->client->ps.gunindex = 0;
-	// 	gi.linkentity(ent);
-	// 	return;
-	// }
-	// else
-	// {
+		ent.movetype = movetype_t.MOVETYPE_NOCLIP;
+		ent.solid = solid_t.SOLID_NOT;
+		ent.svflags |= SVF_NOCLIENT;
+		ent.client.ps.gunindex = 0;
+		SV_LinkEdict(ent);
+		return;
+	} else {
 		client.resp.spectator = false;
-	// }
+	}
 
 	if (!KillBox(ent)) {
 		/* could't spawn in? */
@@ -569,7 +566,7 @@ PutClientInServer(edict_t ent) {
 
 	/* force the current weapon up */
 	client.newweapon = client.pers.weapon;
-	// ChangeWeapon(ent);
+	ChangeWeapon(ent);
 }
 
 /*
@@ -797,7 +794,7 @@ edict_t pm_passent;
  */
 trace_t PM_trace(List<double> start, List<double> mins, List<double> maxs, List<double> end) {
 	if (pm_passent.health > 0) {
-		return SV_Trace(start, mins, maxs, end, pm_passent, MASK_PLAYERSOLID);
+		return SV_Trace(start, mins, maxs, end, pm_passent, MASK_PLAYERSOLID,);
 	} else {
 		return SV_Trace(start, mins, maxs, end, pm_passent, MASK_DEADSOLID);
 	}
@@ -889,13 +886,12 @@ G_ClientThink(edict_t ent, usercmd_t ucmd) {
 		client.resp.cmd_angles[1] = SHORT2ANGLE(ucmd.angles[1]);
 		client.resp.cmd_angles[2] = SHORT2ANGLE(ucmd.angles[2]);
 
-	// 	if (ent->groundentity && !pm.groundentity && (pm.cmd.upmove >= 10) &&
-	// 		(pm.waterlevel == 0))
-	// 	{
+		if (ent.groundentity != null && pm.groundentity == null && (pm.cmd.upmove >= 10) &&
+			(pm.waterlevel == 0)) {
 	// 		gi.sound(ent, CHAN_VOICE, gi.soundindex(
 	// 						"*jump1.wav"), 1, ATTN_NORM, 0);
-	// 		PlayerNoise(ent, ent->s.origin, PNOISE_SELF);
-	// 	}
+			PlayerNoise(ent, ent.s.origin, PNOISE_SELF);
+		}
 
 		ent.viewheight = pm.viewheight.toInt();
 		ent.waterlevel = pm.waterlevel;
@@ -953,10 +949,9 @@ G_ClientThink(edict_t ent, usercmd_t ucmd) {
 	ent.light_level = ucmd.lightlevel;
 
 	/* fire weapon from final position if needed */
-	// if ((client.latched_buttons & BUTTON_ATTACK) != 0) {
-	// 	if (client->resp.spectator)
-	// 	{
-	// 		client->latched_buttons = 0;
+	if ((client.latched_buttons & BUTTON_ATTACK) != 0) {
+		if (client.resp.spectator) {
+			client.latched_buttons = 0;
 
 	// 		if (client->chase_target)
 	// 		{
@@ -967,13 +962,11 @@ G_ClientThink(edict_t ent, usercmd_t ucmd) {
 	// 		{
 	// 			GetChaseTarget(ent);
 	// 		}
-	// 	}
-	// 	else if (!client->weapon_thunk)
-	// 	{
-	// 		client->weapon_thunk = true;
-	// 		Think_Weapon(ent);
-	// 	}
-	// }
+		} else if (!client.weapon_thunk) {
+			client.weapon_thunk = true;
+			Think_Weapon(ent);
+		}
+	}
 
 	// if (client->resp.spectator)
 	// {
@@ -1022,7 +1015,7 @@ ClientBeginServerFrame(edict_t ent) {
 		return;
 	}
 
-	if (level.intermissiontime == 0) {
+	if (level.intermissiontime != 0) {
 		return;
 	}
 
@@ -1035,7 +1028,7 @@ ClientBeginServerFrame(edict_t ent) {
 		return;
 	}
 
-	// /* run weapon animations if it hasn't been done by a ucmd_t */
+	/* run weapon animations if it hasn't been done by a ucmd_t */
 	if (!client.weapon_thunk && !client.resp.spectator) {
 		Think_Weapon(ent);
 	} else {

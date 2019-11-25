@@ -25,12 +25,18 @@
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/collision.dart' show CM_AreasConnected;
+import 'package:dQuakeWeb/shared/files.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'game.dart';
 import 'g_utils.dart';
 import 'monster/misc/move.dart';
+
+bool enemy_vis = false;
+bool enemy_infront = false;
+int enemy_range = 0;
+double enemy_yaw = 0;
 
 /*
  * Called once each frame to set level.sight_client
@@ -110,16 +116,16 @@ ai_stand(edict_t self, double dist) {
 			VectorSubtract(self.enemy.s.origin, self.s.origin, v);
 			self.ideal_yaw = vectoyaw(v);
 
-	// 		if ((self->s.angles[YAW] != self->ideal_yaw) &&
-	// 			self->monsterinfo.aiflags & AI_TEMP_STAND_GROUND)
-	// 		{
-	// 			self->monsterinfo.aiflags &=
-	// 				~(AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
-	// 			self->monsterinfo.run(self);
-	// 		}
+			if ((self.s.angles[YAW] != self.ideal_yaw) &&
+				(self.monsterinfo.aiflags & AI_TEMP_STAND_GROUND) != 0)
+			{
+				self.monsterinfo.aiflags &=
+					~(AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
+				self.monsterinfo.run(self);
+			}
 
 			M_ChangeYaw(self);
-	// 		ai_checkattack(self);
+			ai_checkattack(self);
 		} else {
 			FindTarget(self);
 		}
@@ -174,6 +180,32 @@ ai_walk(edict_t self, double dist) {
 		}
 	}
 }
+
+/*
+ * Turns towards target and advances
+ * Use this call with a distance of 0
+ * to replace ai_face
+ */
+ai_charge(edict_t self, double dist) {
+
+	if (self == null) {
+		return;
+	}
+
+	List<double> v = [0,0,0];
+	if(self.enemy != null) {
+		VectorSubtract(self.enemy.s.origin, self.s.origin, v);
+	}
+
+	self.ideal_yaw = vectoyaw(v);
+	M_ChangeYaw(self);
+
+	if (dist != 0)
+	{
+		M_walkmove(self, self.s.angles[YAW], dist);
+	}
+}
+
 
 /* ============================================================================ */
 
@@ -284,6 +316,36 @@ bool infront(edict_t self, edict_t other) {
 	return false;
 }
 
+/* ============================================================================ */
+
+HuntTarget(edict_t self) {
+
+	if (self == null) {
+		return;
+	}
+
+	self.goalentity = self.enemy;
+
+	if ((self.monsterinfo.aiflags & AI_STAND_GROUND) != 0) {
+		self.monsterinfo.stand(self);
+	} else {
+		self.monsterinfo.run(self);
+	}
+
+	List<double> vec = [0,0,0];
+
+	if(visible(self, self.enemy)) {
+		VectorSubtract(self.enemy.s.origin, self.s.origin, vec);
+	}
+
+	self.ideal_yaw = vectoyaw(vec);
+
+	/* wait a while before first attack */
+	if ((self.monsterinfo.aiflags & AI_STAND_GROUND) == 0) {
+		// AttackFinished(self, 1);
+	}
+}
+
 FoundTarget(edict_t self) {
 	if (self == null || self.enemy == null || !self.enemy.inuse) {
 		return;
@@ -302,14 +364,14 @@ FoundTarget(edict_t self) {
 	self.monsterinfo.trail_time = level.time;
 
 	if (self.combattarget == null) {
-		// HuntTarget(self);
+		HuntTarget(self);
 		return;
 	}
 
-	// self.goalentity = self.movetarget = G_PickTarget(self.combattarget);
+	self.goalentity = self.movetarget = G_PickTarget(self.combattarget);
 	if (self.movetarget == null) {
 		self.goalentity = self.movetarget = self.enemy;
-		// HuntTarget(self);
+		HuntTarget(self);
 		Com_Printf("${self.classname} at ${self.s.origin}, combattarget ${self.combattarget} not found\n");
 		return;
 	}
@@ -500,13 +562,529 @@ bool FindTarget(edict_t self) {
 
 	FoundTarget(self);
 
-	// if (!(self->monsterinfo.aiflags & AI_SOUND_TARGET) &&
-	// 	(self->monsterinfo.sight))
-	// {
-	// 	self->monsterinfo.sight(self, self->enemy);
-	// }
+	if ((self.monsterinfo.aiflags & AI_SOUND_TARGET) == 0 &&
+		(self.monsterinfo.sight != null))
+	{
+		self.monsterinfo.sight(self, self.enemy);
+	}
 
 	return true;
 }
 
 /* ============================================================================= */
+
+bool FacingIdeal(edict_t self) {
+
+	if (self == null) {
+		return false;
+	}
+
+	double delta = anglemod(self.s.angles[YAW] - self.ideal_yaw);
+	if ((delta > 45) && (delta < 315))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+/* ============================================================================= */
+
+bool M_CheckAttack(edict_t self) {
+
+	if (self == null || self.enemy == null || !self.enemy.inuse) {
+		return false;
+	}
+
+	if (self.enemy.health > 0) {
+		/* see if any entities are in the way of the shot */
+    List<double> spot1 = List.generate(3, (i) => self.s.origin[i]);
+		spot1[2] += self.viewheight;
+    List<double> spot2 = List.generate(3, (i) => self.enemy.s.origin[i]);
+		spot2[2] += self.enemy.viewheight;
+
+		final tr = SV_Trace(spot1, null, null, spot2, self,
+				CONTENTS_SOLID | CONTENTS_MONSTER | CONTENTS_SLIME |
+				CONTENTS_LAVA | CONTENTS_WINDOW);
+
+		/* do we have a clear shot? */
+		if (tr.ent != self.enemy) {
+			return false;
+		}
+	}
+
+	/* melee attack */
+	if (enemy_range == RANGE_MELEE) {
+		/* don't always melee in easy mode */
+		if ((skill.integer == 0) && (randk() & 3) != 0) {
+			return false;
+		}
+
+		if (self.monsterinfo.melee != null) {
+			self.monsterinfo.attack_state = AS_MELEE;
+		} else {
+			self.monsterinfo.attack_state = AS_MISSILE;
+		}
+
+		return true;
+	}
+
+	/* missile attack */
+	if (self.monsterinfo.attack == null) {
+		return false;
+	}
+
+	if (level.time < self.monsterinfo.attack_finished) {
+		return false;
+	}
+
+	if (enemy_range == RANGE_FAR) {
+		return false;
+	}
+
+  double chance;
+	if ((self.monsterinfo.aiflags & AI_STAND_GROUND) != 0) {
+		chance = 0.4;
+	}
+	else if (enemy_range == RANGE_MELEE)
+	{
+		chance = 0.2;
+	}
+	else if (enemy_range == RANGE_NEAR)
+	{
+		chance = 0.1;
+	}
+	else if (enemy_range == RANGE_MID)
+	{
+		chance = 0.02;
+	}
+	else
+	{
+		return false;
+	}
+
+	if (skill.integer == 0)
+	{
+		chance *= 0.5;
+	}
+	else if (skill.integer >= 2)
+	{
+		chance *= 2;
+	}
+
+	if (frandk() < chance)
+	{
+		self.monsterinfo.attack_state = AS_MISSILE;
+		self.monsterinfo.attack_finished = level.time + 2 * frandk();
+		return true;
+	}
+
+	if ((self.flags & FL_FLY) != 0)
+	{
+		if (frandk() < 0.3)
+		{
+			self.monsterinfo.attack_state = AS_SLIDING;
+		}
+		else
+		{
+			self.monsterinfo.attack_state = AS_STRAIGHT;
+		}
+	}
+
+	return false;
+}
+
+/*
+ * Turn and close until within an
+ * angle to launch a melee attack
+ */
+ai_run_melee(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	self.ideal_yaw = enemy_yaw;
+	M_ChangeYaw(self);
+
+	if (FacingIdeal(self)) {
+		if (self.monsterinfo.melee != null) {
+			self.monsterinfo.melee(self);
+			self.monsterinfo.attack_state = AS_STRAIGHT;
+		}
+	}
+}
+
+/*
+ * Turn in place until within an
+ * angle to launch a missile attack
+ */
+ai_run_missile(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	self.ideal_yaw = enemy_yaw;
+	M_ChangeYaw(self);
+
+	if (FacingIdeal(self)) {
+		if (self.monsterinfo.attack != null) {
+			self.monsterinfo.attack(self);
+			self.monsterinfo.attack_state = AS_STRAIGHT;
+		}
+	}
+}
+
+
+/*
+ * Decides if we're going to attack
+ * or do something else used by
+ * ai_run and ai_stand
+ */
+bool ai_checkattack(edict_t self) {
+	// vec3_t temp;
+	// qboolean hesDeadJim;
+
+	if (self == null) {
+		enemy_vis = false;
+		return false;
+	}
+
+	/* this causes monsters to run blindly
+	   to the combat point w/o firing */
+	if (self.goalentity != null) {
+
+		if ((self.monsterinfo.aiflags & AI_COMBAT_POINT) != 0) {
+			return false;
+		}
+
+		if ((self.monsterinfo.aiflags & AI_SOUND_TARGET) != 0 && !visible(self, self.goalentity)) {
+			if ((level.time - self.enemy.last_sound_time) > 5.0)
+			{
+				if (self.goalentity == self.enemy)
+				{
+					if (self.movetarget != null)
+					{
+						self.goalentity = self.movetarget;
+					}
+					else
+					{
+						self.goalentity = null;
+					}
+				}
+
+				self.monsterinfo.aiflags &= ~AI_SOUND_TARGET;
+
+				if ((self.monsterinfo.aiflags & AI_TEMP_STAND_GROUND) != 0)
+				{
+					self.monsterinfo.aiflags &=
+							~(AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
+				}
+			}
+			else
+			{
+				self.show_hostile = level.time.toInt() + 1;
+				return false;
+			}
+		}
+	}
+
+	enemy_vis = false;
+
+	/* see if the enemy is dead */
+	bool hesDeadJim = false;
+
+	if ((self.enemy == null) || (!self.enemy.inuse)) {
+		hesDeadJim = true;
+	}
+	else if ((self.monsterinfo.aiflags & AI_MEDIC) != 0)
+	{
+		if (self.enemy.health > 0)
+		{
+			hesDeadJim = true;
+			self.monsterinfo.aiflags &= ~AI_MEDIC;
+		}
+	}
+	else
+	{
+		if ((self.monsterinfo.aiflags & AI_BRUTAL) != 0)
+		{
+			if (self.enemy.health <= -80)
+			{
+				hesDeadJim = true;
+			}
+		}
+		else
+		{
+			if (self.enemy.health <= 0)
+			{
+				hesDeadJim = true;
+			}
+		}
+	}
+
+	if (hesDeadJim)
+	{
+		self.enemy = null;
+
+		if (self.oldenemy != null && (self.oldenemy.health > 0))
+		{
+			self.enemy = self.oldenemy;
+			self.oldenemy = null;
+			HuntTarget(self);
+		}
+		else
+		{
+			if (self.movetarget != null)
+			{
+				self.goalentity = self.movetarget;
+				self.monsterinfo.walk(self);
+			}
+			else
+			{
+				/* we need the pausetime otherwise the stand code
+				   will just revert to walking with no target and
+				   the monsters will wonder around aimlessly trying
+				   to hunt the world entity */
+				self.monsterinfo.pausetime = level.time + 100000000;
+				self.monsterinfo.stand(self);
+			}
+
+			return true;
+		}
+	}
+
+	/* wake up other monsters */
+	self.show_hostile = level.time.toInt() + 1;
+
+	/* check knowledge of enemy */
+	enemy_vis = visible(self, self.enemy);
+
+	if (enemy_vis)
+	{
+		self.monsterinfo.search_time = level.time + 5;
+    self.monsterinfo.last_sighting.setAll(0, self.enemy.s.origin);
+	}
+
+	/* look for other coop players here */
+	if (coop.boolean && (self.monsterinfo.search_time < level.time))
+	{
+		if (FindTarget(self))
+		{
+			return true;
+		}
+	}
+
+	if (self.enemy != null)
+	{
+		enemy_infront = infront(self, self.enemy);
+		enemy_range = range(self, self.enemy);
+    List<double> temp = [0,0,0];
+		VectorSubtract(self.enemy.s.origin, self.s.origin, temp);
+		enemy_yaw = vectoyaw(temp);
+	}
+
+	if (self.monsterinfo.attack_state == AS_MISSILE)
+	{
+		ai_run_missile(self);
+		return true;
+	}
+
+	if (self.monsterinfo.attack_state == AS_MELEE)
+	{
+		ai_run_melee(self);
+		return true;
+	}
+
+	/* if enemy is not currently visible,
+	   we will never attack */
+	if (!enemy_vis)
+	{
+		return false;
+	}
+
+	return self.monsterinfo.checkattack(self);
+}
+
+/*
+ * The monster has an enemy
+ * it is trying to kill
+ */
+ai_run(edict_t self, double dist) {
+
+	if (self == null) {
+		return;
+	}
+
+	/* if we're going to a combat point, just proceed */
+	if ((self.monsterinfo.aiflags & AI_COMBAT_POINT) != 0) {
+		M_MoveToGoal(self, dist);
+		return;
+	}
+
+  List<double> v = [0,0,0];
+
+	if ((self.monsterinfo.aiflags & AI_SOUND_TARGET) != 0) {
+		VectorSubtract(self.s.origin, self.enemy.s.origin, v);
+
+		if (VectorLength(v) < 64) {
+			self.monsterinfo.aiflags |= (AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
+			self.monsterinfo.stand(self);
+			return;
+		}
+
+		M_MoveToGoal(self, dist);
+
+		if (!FindTarget(self)){
+			return;
+		}
+	}
+
+	if (ai_checkattack(self)) {
+		return;
+	}
+
+	if (self.monsterinfo.attack_state == AS_SLIDING) {
+	// 	ai_run_slide(self, dist);
+		return;
+	}
+
+	if (enemy_vis) {
+		M_MoveToGoal(self, dist);
+		self.monsterinfo.aiflags &= ~AI_LOST_SIGHT;
+    self.monsterinfo.last_sighting.setAll(0, self.enemy.s.origin);
+		self.monsterinfo.trail_time = level.time;
+		return;
+	}
+
+	if ((self.monsterinfo.search_time != 0) &&
+		(level.time > (self.monsterinfo.search_time + 20)))
+	{
+		M_MoveToGoal(self, dist);
+		self.monsterinfo.search_time = 0;
+		return;
+	}
+
+	var save = self.goalentity;
+	var tempgoal = G_Spawn();
+	self.goalentity = tempgoal;
+
+	var isNew = false;
+
+	if ((self.monsterinfo.aiflags & AI_LOST_SIGHT) == 0) {
+		/* just lost sight of the player, decide where to go first */
+		self.monsterinfo.aiflags |= (AI_LOST_SIGHT | AI_PURSUIT_LAST_SEEN);
+		self.monsterinfo.aiflags &= ~(AI_PURSUE_NEXT | AI_PURSUE_TEMP);
+		isNew = true;
+	}
+
+	if ((self.monsterinfo.aiflags & AI_PURSUE_NEXT) != 0) {
+		self.monsterinfo.aiflags &= ~AI_PURSUE_NEXT;
+
+		/* give ourself more time since we got this far */
+		self.monsterinfo.search_time = level.time + 5;
+
+    // edict_t marker;
+		if ((self.monsterinfo.aiflags & AI_PURSUE_TEMP) != 0) {
+			self.monsterinfo.aiflags &= ~AI_PURSUE_TEMP;
+      print("AI_PURSUE_TEMP");
+			// marker = null;
+	// 		VectorCopy(self->monsterinfo.saved_goal,
+	// 				self->monsterinfo.last_sighting);
+			isNew = true;
+		} else if ((self.monsterinfo.aiflags & AI_PURSUIT_LAST_SEEN) != 0) {
+      print("AI_PURSUIT_LAST_SEEN");
+	// 		self->monsterinfo.aiflags &= ~AI_PURSUIT_LAST_SEEN;
+	// 		marker = PlayerTrail_PickFirst(self);
+		} else {
+      print("PUSUIT MEXT");
+	// 		marker = PlayerTrail_PickNext(self);
+		}
+
+	// 	if (marker)
+	// 	{
+	// 		VectorCopy(marker->s.origin, self->monsterinfo.last_sighting);
+	// 		self->monsterinfo.trail_time = marker->timestamp;
+	// 		self->s.angles[YAW] = self->ideal_yaw = marker->s.angles[YAW];
+	// 		new = true;
+	// 	}
+	}
+
+	VectorSubtract(self.s.origin, self.monsterinfo.last_sighting, v);
+	double d1 = VectorLength(v);
+
+	if (d1 <= dist) {
+		self.monsterinfo.aiflags |= AI_PURSUE_NEXT;
+		dist = d1;
+	}
+
+  self.goalentity.s.origin.setAll(0, self.monsterinfo.last_sighting);
+
+	if (isNew) {
+		var tr = SV_Trace(self.s.origin, self.mins, self.maxs,
+				self.monsterinfo.last_sighting, self,
+				MASK_PLAYERSOLID);
+
+		if (tr.fraction < 1) {
+			VectorSubtract(self.goalentity.s.origin, self.s.origin, v);
+			d1 = VectorLength(v);
+			double center = tr.fraction;
+			double d2 = d1 * ((center + 1) / 2);
+			self.s.angles[YAW] = self.ideal_yaw = vectoyaw(v);
+      List<double> v_forward = [0,0,0];
+      List<double> v_right = [0,0,0];
+			AngleVectors(self.s.angles, v_forward, v_right, null);
+
+			v =  [d2, -16, 0];
+      List<double> left_target = [0,0,0];
+			G_ProjectSource(self.s.origin, v, v_forward, v_right, left_target);
+			tr = SV_Trace(self.s.origin, self.mins, self.maxs, left_target,
+					self, MASK_PLAYERSOLID);
+			final left = tr.fraction;
+
+			v = [ d2, 16, 0 ];
+      List<double> right_target = [0,0,0];
+			G_ProjectSource(self.s.origin, v, v_forward, v_right, right_target);
+			tr = SV_Trace(self.s.origin, self.mins, self.maxs, right_target,
+					self, MASK_PLAYERSOLID);
+			final right = tr.fraction;
+
+			center = (d1 * center) / d2;
+
+			if ((left >= center) && (left > right)) {
+				if (left < 1) {
+					v = [ d2 * left * 0.5, -16, 0 ];
+					G_ProjectSource(self.s.origin, v, v_forward,
+							v_right, left_target);
+				}
+
+        self.monsterinfo.saved_goal.setAll(0, self.monsterinfo.last_sighting);
+				self.monsterinfo.aiflags |= AI_PURSUE_TEMP;
+				self.monsterinfo.aiflags |= AI_PURSUE_TEMP;
+        self.monsterinfo.last_sighting.setAll(0, left_target);
+				VectorSubtract(self.goalentity.s.origin, self.s.origin, v);
+				self.s.angles[YAW] = self.ideal_yaw = vectoyaw(v);
+			} else if ((right >= center) && (right > left)) {
+				if (right < 1) {
+					v = [ d2 * right * 0.5, 16, 0 ];
+					G_ProjectSource(self.s.origin, v, v_forward, v_right,
+							right_target);
+				}
+
+        self.monsterinfo.saved_goal.setAll(0, self.monsterinfo.last_sighting);
+				self.monsterinfo.aiflags |= AI_PURSUE_TEMP;
+        self.goalentity.s.origin.setAll(0, right_target);
+        self.monsterinfo.last_sighting.setAll(0, right_target);
+				VectorSubtract(self.goalentity.s.origin, self.s.origin, v);
+				self.s.angles[YAW] = self.ideal_yaw = vectoyaw(v);
+			}
+		}
+	}
+
+	M_MoveToGoal(self, dist);
+
+	G_FreeEdict(tempgoal);
+
+	if (self != null) {
+		self.goalentity = save;
+	}
+}

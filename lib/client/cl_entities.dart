@@ -554,6 +554,7 @@ CL_AddViewWeapon(player_state_t ps, player_state_t ops) {
 		}
 	}
 
+
 	gun.flags = RF_MINLIGHT | RF_DEPTHHACK | RF_WEAPONMODEL;
 	gun.backlerp = 1.0 - cl.lerpfrac;
   gun.oldorigin.setAll(0, gun.origin); /* don't lerp at all */
@@ -578,6 +579,7 @@ double AdaptFov(double fov, double w, double h) {
 	 */
 	return (atan(tan(fov / 360.0 * pi) * (w / h * 0.75)) / pi * 360.0);
 }
+
 /*
  * Sets cl.refdef view values
  */

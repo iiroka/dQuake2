@@ -79,6 +79,68 @@ const _DOOR_TOGGLE = 32;
 const _DOOR_X_AXIS = 64;
 const _DOOR_Y_AXIS = 128;
 
+door_use(edict_t self, edict_t other /* unused */, edict_t activator) {
+	if (self == null || activator == null) {
+		return;
+	}
+
+	if ((self.flags & FL_TEAMSLAVE) != 0) {
+		return;
+	}
+
+	if ((self.spawnflags & _DOOR_TOGGLE) != 0) {
+		if ((self.moveinfo.state == _STATE_UP) ||
+			(self.moveinfo.state == _STATE_TOP))
+		{
+			/* trigger all paired doors */
+			// for (var ent = self; ent != null; ent = ent.teamchain) {
+			// 	ent.message = null;
+			// 	ent.touch = null;
+			// 	door_go_down(ent);
+			// }
+
+			return;
+		}
+	}
+
+	/* trigger all paired doors */
+	for (var ent = self; ent != null; ent = ent.teamchain) {
+		// ent->message = NULL;
+		// ent->touch = NULL;
+		// door_go_up(ent, activator);
+	}
+}
+
+Touch_DoorTrigger(edict_t self, edict_t other, cplane_t plane /* unused */,
+		csurface_t surf /* unused */)
+{
+	if (self != null || other != null) {
+		return;
+	}
+
+	if (other.health <= 0) {
+		return;
+	}
+
+	if ((other.svflags & SVF_MONSTER) == 0 && other.client == null) {
+		return;
+	}
+
+	if (((self.owner as edict_t).spawnflags & _DOOR_NOMONSTER) != 0 &&
+		(other.svflags & SVF_MONSTER) != 0)
+	{
+		return;
+	}
+
+	if (level.time < self.touch_debounce_time) {
+		return;
+	}
+
+	self.touch_debounce_time = level.time + 1.0;
+
+	door_use(self.owner, other, other);
+}
+
 Think_CalcMoveSpeed(edict_t self) {
 
 	if (self == null) {
@@ -158,7 +220,7 @@ Think_SpawnDoorTrigger(edict_t ent) {
 	other.owner = ent;
 	other.solid = solid_t.SOLID_TRIGGER;
 	other.movetype = movetype_t.MOVETYPE_NONE;
-	// other.touch = Touch_DoorTrigger;
+	other.touch = Touch_DoorTrigger;
 	SV_LinkEdict(other);
 
 	// if ((ent.spawnflags & _DOOR_START_OPEN) != 0) {
@@ -208,7 +270,7 @@ SP_func_door(edict_t ent) {
 	PF_setmodel(ent, ent.model);
 
 	// ent->blocked = door_blocked;
-	// ent->use = door_use;
+	ent.use = door_use;
 
 	if (ent.speed == 0) {
 		ent.speed = 100;

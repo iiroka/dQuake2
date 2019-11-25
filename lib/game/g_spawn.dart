@@ -37,15 +37,20 @@ import 'g_func.dart';
 import 'g_utils.dart';
 import 'g_items.dart';
 import 'g_misc.dart';
+import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always;
 import 'savegame/savegame.dart';
 import 'player/client.dart' show SP_info_player_start, SaveClientData, InitBodyQue;
 import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
 
 final spawns = {
+  "item_health": SP_item_health,
 
 	"info_player_start": SP_info_player_start,
 
 	"func_door": SP_func_door,
+
+  "trigger_always": SP_trigger_always,
+	"trigger_relay": SP_trigger_relay,
 
 	"worldspawn": SP_worldspawn,
 
@@ -528,7 +533,7 @@ SP_worldspawn(edict_t ent) async {
 		PF_Configstring(CS_NAME, ent.message);
 		level.level_name = ent.message;
 	}  else {
-	level.level_name = level.mapname;
+	  level.level_name = level.mapname;
 	}
 
 	if (st.sky != null && st.sky.isNotEmpty) {
