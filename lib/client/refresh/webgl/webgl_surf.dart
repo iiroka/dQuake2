@@ -114,6 +114,21 @@ WebGL_SurfInit() {
 	gl.vertexAttribPointer(WEBGL_ATTRIB_COLOR, 4, WebGL.FLOAT, false, 9*4, 5*4);
 }
 
+void WebGL_SurfShutdown() {
+  gl.deleteBuffer(glstate.vbo3D);
+	glstate.vbo3D = null;
+	gl.deleteVertexArray(glstate.vao3D);
+	glstate.vao3D = null;
+
+	gl.deleteBuffer(glstate.eboAlias);
+	glstate.eboAlias = null;
+	gl.deleteBuffer(glstate.vboAlias);
+	glstate.vboAlias = null;
+	gl.deleteVertexArray(glstate.vaoAlias);
+	glstate.vaoAlias = null;
+}
+
+
 /*
  * Returns true if the box is completely outside the frustom
  */
@@ -324,6 +339,10 @@ _DrawTextureChains() {
 	c_visible_textures = 0;
 
 	for (webglimage_t image in gltextures) {
+
+    if (image == null) {
+      continue;
+    }
 
 		if (image.registration_sequence == 0) {
 			continue;

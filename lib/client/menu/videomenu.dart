@@ -28,19 +28,132 @@ import 'dart:math';
 import 'package:dQuakeWeb/common/cvar.dart';
 
 import 'qmenu.dart';
-import 'menu.dart' show Key_GetMenuKey;
+import 'menu.dart' show Key_GetMenuKey, M_ForceMenuOff;
 import '../cl_screen.dart' show SCR_GetMenuScale;
 import '../cl_keyboard.dart';
 import '../vid/vid.dart' show viddef, re;
 
 cvar_t _r_mode;
 cvar_t _gl_anisotropic;
+cvar_t _vid_gamma;
 
 menuframework_s _s_webgl_menu = menuframework_s();
 menulist_s _s_mode_list = menulist_s("video mode");
+menuslider_s _s_brightness_slider = menuslider_s("brightness");
 menulist_s _s_af_list = menulist_s("aniso filtering");
 menuaction_s _s_defaults_action = menuaction_s("reset to default");
 menuaction_s _s_apply_action = menuaction_s("apply");
+
+Future<void> _BrightnessCallback(menucommon_s s) async {
+	menuslider_s slider = s as menuslider_s;
+
+	double gamma = slider.curvalue / 10.0;
+	Cvar_Set("vid_gamma", gamma.toString());
+}
+
+Future<void> _ApplyChanges(menucommon_s) async {
+	// qboolean restart = false;
+
+	/* Renderer */
+	// if (s_renderer_list.curvalue != GetRenderer())
+	// {
+	// 	/*  First element in array is 'OpenGL 1.4' aka gl1.
+	// 		Second element in array is 'OpenGL 3.2' aka gl3.
+	// 		Third element in array is unknown renderer. */
+	// 	if (s_renderer_list.curvalue == 0)
+	// 	{
+	// 		Cvar_Set("vid_renderer", "gl1");
+	// 		restart = true;
+	// 	}
+	// 	else if (s_renderer_list.curvalue == 1)
+	// 	{
+	// 		Cvar_Set("vid_renderer", "gl3");
+	// 		restart = true;
+	// 	}
+	// 	else if (s_renderer_list.curvalue == 2)
+	// 	{
+	// 		Cvar_Set("vid_renderer", "soft");
+	// 		restart = true;
+	// 	}
+	// }
+
+	// /* auto mode */
+	// if (!strcmp(s_mode_list.itemnames[s_mode_list.curvalue],
+	// 	AUTO_MODE_NAME))
+	// {
+	// 	/* Restarts automatically */
+	// 	Cvar_SetValue("r_mode", -2);
+	// }
+	// else if (!strcmp(s_mode_list.itemnames[s_mode_list.curvalue],
+	// 	CUSTOM_MODE_NAME))
+	// {
+	// 	/* Restarts automatically */
+	// 	Cvar_SetValue("r_mode", -1);
+	// }
+	// else
+	// {
+		/* Restarts automatically */
+		Cvar_Set("r_mode", _s_mode_list.curvalue.toString());
+	// }
+
+	// if (s_display_list.curvalue != GLimp_GetWindowDisplayIndex() )
+	// {
+	// 	Cvar_SetValue( "vid_displayindex", s_display_list.curvalue );
+	// 	restart = true;
+	// }
+
+	// /* UI scaling */
+	// if (s_uiscale_list.curvalue == 0)
+	// {
+	// 	Cvar_SetValue("r_hudscale", -1);
+	// }
+	// else if (s_uiscale_list.curvalue < GetCustomValue(&s_uiscale_list))
+	// {
+	// 	Cvar_SetValue("r_hudscale", s_uiscale_list.curvalue);
+	// }
+
+	// if (s_uiscale_list.curvalue != GetCustomValue(&s_uiscale_list))
+	// {
+	// 	Cvar_SetValue("r_consolescale", r_hudscale->value);
+	// 	Cvar_SetValue("r_menuscale", r_hudscale->value);
+	// 	Cvar_SetValue("crosshair_scale", r_hudscale->value);
+	// }
+
+	// /* Restarts automatically */
+	// Cvar_SetValue("vid_fullscreen", s_fs_box.curvalue);
+
+	// /* vertical sync */
+	// if (r_vsync->value != s_vsync_list.curvalue)
+	// {
+	// 	Cvar_SetValue("r_vsync", s_vsync_list.curvalue);
+	// 	restart = true;
+	// }
+
+	// /* multisample anti-aliasing */
+	// if (s_msaa_list.curvalue == 0)
+	// {
+	// 	if (gl_msaa_samples->value != 0)
+	// 	{
+	// 		Cvar_SetValue("gl_msaa_samples", 0);
+	// 		restart = true;
+	// 	}
+	// }
+	// else
+	// {
+	// 	if (gl_msaa_samples->value != pow(2, s_msaa_list.curvalue))
+	// 	{
+	// 		Cvar_SetValue("gl_msaa_samples", pow(2, s_msaa_list.curvalue));
+	// 		restart = true;
+	// 	}
+	// }
+
+	// if (restart)
+	// {
+	// 	Cbuf_AddText("vid_restart\n");
+	// }
+
+	M_ForceMenuOff();
+}
 
 
 VID_MenuInit() {
@@ -160,10 +273,9 @@ VID_MenuInit() {
 	// 	fov = Cvar_Get("fov", "90",  CVAR_USERINFO | CVAR_ARCHIVE);
 	// }
 
-	// if (!vid_gamma)
-	// {
-	// 	vid_gamma = Cvar_Get("vid_gamma", "1.2", CVAR_ARCHIVE);
-	// }
+	if (_vid_gamma == null) {
+		_vid_gamma = Cvar_Get("vid_gamma", "1.2", CVAR_ARCHIVE);
+	}
 
 	// if (!vid_renderer)
 	// {
@@ -217,14 +329,12 @@ VID_MenuInit() {
 	// 	s_display_list.curvalue = GLimp_GetWindowDisplayIndex();
 	// }
 
-	// s_brightness_slider.generic.type = MTYPE_SLIDER;
-	// s_brightness_slider.generic.name = "brightness";
-	// s_brightness_slider.generic.x = 0;
-	// s_brightness_slider.generic.y = (y += 20);
-	// s_brightness_slider.generic.callback = BrightnessCallback;
-	// s_brightness_slider.minvalue = 1;
-	// s_brightness_slider.maxvalue = 20;
-	// s_brightness_slider.curvalue = vid_gamma->value * 10;
+	_s_brightness_slider.x = 0;
+	_s_brightness_slider.y = (y += 20);
+	_s_brightness_slider.callback = _BrightnessCallback;
+	_s_brightness_slider.minvalue = 1;
+	_s_brightness_slider.maxvalue = 20;
+	_s_brightness_slider.curvalue = _vid_gamma.value * 10;
 
 	// s_fov_slider.generic.type = MTYPE_SLIDER;
 	// s_fov_slider.generic.x = 0;
@@ -294,7 +404,7 @@ VID_MenuInit() {
 
 	_s_apply_action.x = 0;
 	_s_apply_action.y = (y += 10);
-	// s_apply_action.generic.callback = ApplyChanges;
+	_s_apply_action.callback = _ApplyChanges;
 
 	// Menu_AddItem(&s_opengl_menu, (void *)&s_renderer_list);
 	_s_webgl_menu.AddItem(_s_mode_list);
@@ -305,7 +415,7 @@ VID_MenuInit() {
 	// 	Menu_AddItem(&s_opengl_menu, (void *)&s_display_list);
 	// }
 
-	// Menu_AddItem(&s_opengl_menu, (void *)&s_brightness_slider);
+	_s_webgl_menu.AddItem(_s_brightness_slider);
 	// Menu_AddItem(&s_opengl_menu, (void *)&s_fov_slider);
 	// Menu_AddItem(&s_opengl_menu, (void *)&s_uiscale_list);
 	// Menu_AddItem(&s_opengl_menu, (void *)&s_fs_box);

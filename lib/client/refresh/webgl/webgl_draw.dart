@@ -79,6 +79,15 @@ WebGL_Draw_InitLocal() async {
 	WebGL_BindVAO(null);
 }
 
+WebGL_Draw_ShutdownLocal() {
+	gl.deleteBuffer(vbo2D);
+	vbo2D = null;
+	gl.deleteVertexArray(vao2D);
+	vao2D = null;
+	gl.deleteVertexArray(vao2Dcolor);
+	vao2Dcolor = null;
+}
+
 // bind the texture before calling this
 drawTexturedRectangle(double x, double y, double w, double h,
                       double sl, double tl, double sh, double th)
@@ -214,18 +223,10 @@ WebGL_Draw_TileClear(int x, int y, int w, int h, String pic) async {
  * Fills a box of pixels with a single color
  */
 WebGL_Draw_Fill(int x, int y, int w, int h, int c) {
-	// union
-	// {
-	// 	unsigned c;
-	// 	byte v[4];
-	// } color;
-	// int i;
 
 	if (c < 0 || c > 255) {
 		Com_Error(ERR_FATAL, "Draw_Fill: bad color");
 	}
-
-	// color.c = d_8to24table[c];
 
 	List<double> vBuf = [
 	//  X,   Y

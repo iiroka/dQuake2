@@ -24,7 +24,9 @@
  * =======================================================================
  */
 import 'dart:math';
+import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
+import 'hud.dart' show InventoryMessage;
 import '../game.dart';
 import '../g_combat.dart';
 import '../monster/misc/player.dart';
@@ -56,6 +58,182 @@ double SV_CalcRoll(List<double> angles, List<double> velocity) {
 	}
 
 	return side * sign;
+}
+
+/*
+ * Handles color blends and view kicks
+ */
+int _feedback_i = 0;
+
+P_DamageFeedback(edict_t player) {
+
+	const List<double> _power_color = [0.0, 1.0, 0.0];
+	const List<double> _acolor = [1.0, 1.0, 1.0];
+	const List<double> _bcolor = [1.0, 0.0, 0.0];
+
+	if (player == null) {
+		return;
+	}
+
+	final client = player.client as gclient_t;
+
+	/* flash the backgrounds behind the status numbers */
+	client.ps.stats[STAT_FLASHES] = 0;
+
+	if (client.damage_blood != 0) {
+		client.ps.stats[STAT_FLASHES] |= 1;
+	}
+
+	if (client.damage_armor != 0 && (player.flags & FL_GODMODE) == 0 &&
+		(client.invincible_framenum <= level.framenum))
+	{
+		client.ps.stats[STAT_FLASHES] |= 2;
+	}
+
+	/* total points of damage shot at the player this frame */
+	double count = (client.damage_blood + client.damage_armor + client.damage_parmor).toDouble();
+	if (count == 0) {
+		return; /* didn't take any damage */
+	}
+
+	/* start a pain animation if still in the player model */
+	if ((client.anim_priority < ANIM_PAIN) && (player.s.modelindex == 255)) {
+
+		client.anim_priority = ANIM_PAIN;
+
+		if ((client.ps.pmove.pm_flags & PMF_DUCKED) != 0)
+		{
+			player.s.frame = FRAME_crpain1 - 1;
+			client.anim_end = FRAME_crpain4;
+		}
+		else
+		{
+			_feedback_i = (_feedback_i + 1) % 3;
+
+			switch (_feedback_i)
+			{
+				case 0:
+					player.s.frame = FRAME_pain101 - 1;
+					client.anim_end = FRAME_pain104;
+					break;
+				case 1:
+					player.s.frame = FRAME_pain201 - 1;
+					client.anim_end = FRAME_pain204;
+					break;
+				case 2:
+					player.s.frame = FRAME_pain301 - 1;
+					client.anim_end = FRAME_pain304;
+					break;
+			}
+		}
+	}
+
+	double realcount = count;
+	if (count < 10) {
+		count = 10; /* always make a visible effect */
+	}
+
+	/* play an apropriate pain sound */
+	if ((level.time > player.pain_debounce_time) &&
+		(player.flags & FL_GODMODE) == 0 &&
+		(client.invincible_framenum <= level.framenum))
+	{
+		// r = 1 + (randk() & 1);
+		// player.pain_debounce_time = level.time + 0.7;
+
+		// if (player.health < 25)
+		// {
+		// 	l = 25;
+		// }
+		// else if (player.health < 50)
+		// {
+		// 	l = 50;
+		// }
+		// else if (player.health < 75)
+		// {
+		// 	l = 75;
+		// }
+		// else
+		// {
+		// 	l = 100;
+		// }
+
+		// gi.sound(player, CHAN_VOICE, gi.soundindex(va("*pain%i_%i.wav",
+		// 						l, r)), 1, ATTN_NORM, 0);
+	}
+
+	/* the total alpha of the blend is always proportional to count */
+	if (client.damage_alpha < 0) {
+		client.damage_alpha = 0;
+	}
+
+	client.damage_alpha += count * 0.01;
+
+	if (client.damage_alpha < 0.2)
+	{
+		client.damage_alpha = 0.2;
+	}
+
+	if (client.damage_alpha > 0.6)
+	{
+		client.damage_alpha = 0.6; /* don't go too saturated */
+	}
+
+	/* the color of the blend will vary based
+	   on how much was absorbed by different armors */
+	List<double> v = [0,0,0];
+
+	if (client.damage_parmor != 0)
+	{
+		VectorMA(v, client.damage_parmor / realcount, _power_color, v);
+	}
+
+	if (client.damage_armor != 0)
+	{
+		VectorMA(v, client.damage_armor / realcount, _acolor, v);
+	}
+
+	if (client.damage_blood != 0)
+	{
+		VectorMA(v, client.damage_blood / realcount, _bcolor, v);
+	}
+
+  client.damage_blend.setAll(0, v);
+
+	/* calculate view angle kicks */
+	double kick = client.damage_knockback.abs().toDouble();
+
+	if (kick != 0 && (player.health > 0)) /* kick of 0 means no view adjust at all */
+	{
+		kick = kick * 100 / player.health;
+
+		if (kick < count * 0.5)
+		{
+			kick = count * 0.5;
+		}
+
+		if (kick > 50)
+		{
+			kick = 50;
+		}
+
+		VectorSubtract(client.damage_from, player.s.origin, v);
+		VectorNormalize(v);
+
+		double side = DotProduct(v, _right);
+		client.v_dmg_roll = kick * side * 0.3;
+
+		side = -DotProduct(v, _forward);
+		client.v_dmg_pitch = kick * side * 0.3;
+
+		client.v_dmg_time = level.time + DAMAGE_TIME;
+	}
+
+	/* clear totals */
+	client.damage_blood = 0;
+	client.damage_armor = 0;
+	client.damage_parmor = 0;
+	client.damage_knockback = 0;
 }
 
 /*
@@ -536,7 +714,7 @@ ClientEndServerFrame(edict_t ent) {
 	P_FallingDamage(ent);
 
 	/* apply all the damage taken this frame */
-	// P_DamageFeedback(ent);
+	P_DamageFeedback(ent);
 
 	/* determine the view offsets */
 	SV_CalcViewOffset(ent);
@@ -593,10 +771,9 @@ ClientEndServerFrame(edict_t ent) {
 	// 	}
 	}
 
-	// /* if the inventory is up, update it */
-	// if (ent->client->showinventory)
-	// {
-	// 	InventoryMessage(ent);
-	// 	gi.unicast(ent, false);
-	// }
+	/* if the inventory is up, update it */
+	if ((ent.client as gclient_t).showinventory) {
+		InventoryMessage(ent);
+    PF_Unicast(ent, false);
+	}
 }

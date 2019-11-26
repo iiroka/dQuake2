@@ -24,6 +24,7 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/cvar.dart';
+import 'package:dQuakeWeb/game/g_cmds.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
@@ -196,4 +197,5 @@ class Quake2Game extends game_export_t{
   void ClientUserinfoChanged(edict_s ent, String userinfo) => G_ClientUserinfoChanged(ent, userinfo);
   void ClientBegin(edict_s ent) => G_ClientBegin(ent as edict_t);
   void ClientThink(edict_s ent, usercmd_t cmd) => G_ClientThink(ent as edict_t, cmd);
+  void ClientCommand(edict_s ent, List<String> args) => G_ClientCommand(ent, args);
 }

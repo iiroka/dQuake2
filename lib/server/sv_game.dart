@@ -38,6 +38,32 @@ import 'sv_world.dart';
 game_export_t ge;
 
 /*
+ * Sends the contents of the mutlicast buffer to a single client
+ */
+PF_Unicast(edict_s ent, bool reliable) {
+
+	if (ent == null) {
+		return;
+	}
+
+	final p = ent.index;
+
+	if ((p < 1) || (p > maxclients.integer)) {
+		return;
+	}
+
+	final client = svs.clients[p - 1];
+
+	if (reliable) {
+		sv.multicast.Write(sv.multicast.Data());
+	} else {
+		sv.multicast.Write(sv.multicast.Data());
+	}
+
+	sv.multicast.Clear();
+}
+
+/*
  * Print to a single client
  */
 PF_cprintf(edict_s ent, int level, String msg) {

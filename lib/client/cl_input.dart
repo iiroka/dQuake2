@@ -189,6 +189,10 @@ double CL_KeyState(kbutton_t key) {
 	return val;
 }
 
+IN_UpDown(List<String> args) => KeyDown(in_up, args);
+IN_UpUp(List<String> args) => KeyDown(in_up, args);
+IN_DownDown(List<String> args) => KeyDown(in_down, args);
+IN_DownUp(List<String> args) => KeyDown(in_down, args);
 IN_LeftDown(List<String> args) => KeyDown(in_left, args);
 IN_LeftUp(List<String> args) => KeyUp(in_left, args);
 IN_RightDown(List<String> args) => KeyDown(in_right, args);
@@ -318,10 +322,10 @@ CL_InitInput() {
 	// Cmd_AddCommand("centerview", IN_CenterView);
 	// Cmd_AddCommand("force_centerview", IN_ForceCenterView);
 
-	// Cmd_AddCommand("+moveup", IN_UpDown);
-	// Cmd_AddCommand("-moveup", IN_UpUp);
-	// Cmd_AddCommand("+movedown", IN_DownDown);
-	// Cmd_AddCommand("-movedown", IN_DownUp);
+	Cmd_AddCommand("+moveup", IN_UpDown);
+	Cmd_AddCommand("-moveup", IN_UpUp);
+	Cmd_AddCommand("+movedown", IN_DownDown);
+	Cmd_AddCommand("-movedown", IN_DownUp);
 	Cmd_AddCommand("+left", IN_LeftDown);
 	Cmd_AddCommand("-left", IN_LeftUp);
 	Cmd_AddCommand("+right", IN_RightDown);
@@ -455,14 +459,6 @@ CL_FinalizeCmd() {
 
 
 CL_SendCmd() {
-	// sizebuf_t buf;
-	// byte data[128];
-	// int i;
-	// usercmd_t *cmd, *oldcmd;
-	// usercmd_t nullcmd;
-	// int checksumIndex;
-
-	// memset(&buf, 0, sizeof(buf));
 
 	/* save this command off for prediction */
 	var i = cls.netchan.outgoing_sequence & (CMD_BACKUP - 1);

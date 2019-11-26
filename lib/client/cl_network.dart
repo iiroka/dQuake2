@@ -40,6 +40,31 @@ import 'cl_parse.dart' show CL_ParseServerMessage;
 import 'cl_main.dart' show CL_ClearState, cl_timeout;
 import 'cl_screen.dart' show SCR_EndLoadingPlaque, SCR_BeginLoadingPlaque;
 
+/*
+ * adds the current command line as a clc_stringcmd to the client
+ * message. things like godmode, noclip, etc, are commands directed to
+ * the server, so when they are typed in at the console, they will need
+ * to be forwarded.
+ */
+Cmd_ForwardToServer(List<String> args) {
+
+	final cmd = args[0];
+
+	if ((cls.state.index <= connstate_t.ca_connected.index) || (cmd[0] == '-') || (cmd[0] == '+')) {
+		Com_Printf("Unknown command \"$cmd\"\n");
+		return;
+	}
+
+	cls.netchan.message.WriteByte(clc_ops_e.clc_stringcmd.index);
+
+	cls.netchan.message.Print(cmd);
+
+	for (int i = 1; i < args.length; i++) {
+		cls.netchan.message.Print(" ");
+		cls.netchan.message.Print(args[i]);
+	}
+}
+
 CL_ForwardToServer_f(List<String> args) async {
 	if ((cls.state != connstate_t.ca_connected) && (cls.state != connstate_t.ca_active)) {
 		Com_Printf("Can't \"${args[0]}\", not connected\n");
@@ -295,7 +320,7 @@ CL_ConnectionlessPacket(Readbuf msg, netadr_t adr) async {
 
 	Com_Printf("$adr: ${args[0]}\n");
 
-// 	/* server connection */
+	/* server connection */
 	if (args[0] == "client_connect") {
 		if (cls.state == connstate_t.ca_connected) {
 			Com_Printf("Dup connect received.  Ignored.\n");
@@ -432,7 +457,6 @@ CL_ReadPackets() async {
 			Com_Printf("${info.adr}: Runt packet\n");
 			continue;
 		}
-
 
 		/* packet from server */
 		// if (!NET_CompareAdr(net_from, cls.netchan.remote_address))

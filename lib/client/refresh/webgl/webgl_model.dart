@@ -336,7 +336,7 @@ class webglbrushmodel_t extends webglmodel_t {
       out.mins = List.generate(3, (j) => src.mins[j] - 1);
       out.maxs = List.generate(3, (j) => src.mins[j] + 1);
       out.origin = List.generate(3, (j) => src.mins[j]);
-      out.radius = Mod_RadiusFromBounds(out.mins, out.maxs);
+      out.radius = _Mod_RadiusFromBounds(out.mins, out.maxs);
       out.headnode = src.headnode;
       out.firstface = src.firstface;
       out.numfaces = src.numfaces;
@@ -717,14 +717,14 @@ class webglspritemodel_t extends webglmodel_t {
   webglspritemodel_t(String name) : super(name, modtype_t.mod_sprite);
 }
 
-const MAX_MOD_KNOWN = 512;
+const _MAX_MOD_KNOWN = 512;
 List<webglmodel_t> mod_known = [];
 int registration_sequence = 0;
 webglbrushmodel_t webgl_worldmodel;
-List<webglbrushmodel_t> mod_inline = List(MAX_MOD_KNOWN);
+List<webglbrushmodel_t> mod_inline = List(_MAX_MOD_KNOWN);
 Uint8List mod_novis = Uint8List(MAX_MAP_LEAFS ~/ 8);
 
-Future<webglspritemodel_t> Mod_LoadSpriteModel(String name, ByteData buffer) async {
+Future<webglspritemodel_t> _Mod_LoadSpriteModel(String name, ByteData buffer) async {
 
   webglspritemodel_t mod = webglspritemodel_t(name);
 
@@ -750,7 +750,7 @@ Future<webglspritemodel_t> Mod_LoadSpriteModel(String name, ByteData buffer) asy
   return mod;
 }
 
-Future<webglaliasmodel_t> Mod_LoadAliasModel(String name, ByteData buffer, ByteBuffer buf) async {
+Future<webglaliasmodel_t> _Mod_LoadAliasModel(String name, ByteData buffer, ByteBuffer buf) async {
 
   webglaliasmodel_t mod = webglaliasmodel_t(name);
 
@@ -812,7 +812,7 @@ Future<webglaliasmodel_t> Mod_LoadAliasModel(String name, ByteData buffer, ByteB
   return mod;
 }
 
-Future<webglbrushmodel_t> Mod_LoadBrushModel(String name, ByteData buffer) async {
+Future<webglbrushmodel_t> _Mod_LoadBrushModel(String name, ByteData buffer) async {
 
 	if (mod_known.isNotEmpty && mod_known[0] != null) {
 		Com_Error(ERR_DROP, "Loaded a brush model after the world");
@@ -873,7 +873,7 @@ Future<webglbrushmodel_t> Mod_LoadBrushModel(String name, ByteData buffer) async
 /*
  * Loads in a model for the given name
  */
-Future<webglmodel_t> Mod_ForName(String name, bool crash) async {
+Future<webglmodel_t> _Mod_ForName(String name, bool crash) async {
 
 	if (name == null || name.isEmpty) {
 		Com_Error(ERR_DROP, "Mod_ForName: NULL name");
@@ -909,7 +909,7 @@ Future<webglmodel_t> Mod_ForName(String name, bool crash) async {
 		}
 	}
 
-  if (index < 0 && mod_known.length >=  MAX_MOD_KNOWN) {
+  if (index < 0 && mod_known.length >=  _MAX_MOD_KNOWN) {
     Com_Error(ERR_DROP, "mod_numknown == MAX_MOD_KNOWN");
   }
 
@@ -929,15 +929,15 @@ Future<webglmodel_t> Mod_ForName(String name, bool crash) async {
   final id = view.getUint32(0, Endian.little);
 	switch (id) {
 		case IDALIASHEADER:
-			mod = await Mod_LoadAliasModel(name, view, buf);
+			mod = await _Mod_LoadAliasModel(name, view, buf);
 			break;
 
 		case IDSPRITEHEADER:
-			mod = await Mod_LoadSpriteModel(name, view);
+			mod = await _Mod_LoadSpriteModel(name, view);
 			break;
 
 		case IDBSPHEADER:
-			mod = await  Mod_LoadBrushModel(name, view);
+			mod = await  _Mod_LoadBrushModel(name, view);
 			break;
 
 		default:
@@ -977,14 +977,14 @@ Future<void> WebGL_BeginRegistration(String model) async {
     mod_known[0] = null;
 	}
 
-  webgl_worldmodel = await Mod_ForName(fullname, true);
+  webgl_worldmodel = await _Mod_ForName(fullname, true);
 
 	webgl_viewcluster = -1;
 }
 
 Future<model_s> WebGL_RegisterModel(String name) async {
 
-	final mod = await Mod_ForName(name, false);
+	final mod = await _Mod_ForName(name, false);
 
 	if (mod != null) {
 		mod.registration_sequence = registration_sequence;
@@ -1014,7 +1014,27 @@ Future<model_s> WebGL_RegisterModel(String name) async {
 	return mod;
 }
 
-double Mod_RadiusFromBounds(List<double> mins, List<double> maxs) {
+WebGL_Mod_FreeAll() {
+  mod_known = [];
+}
+
+WebGL_EndRegistration() {
+
+	for (int i = 0; i < mod_known.length; i++) {
+		if (mod_known[i] == null) {
+			continue;
+		}
+
+		if (mod_known[i].registration_sequence != registration_sequence) {
+			/* don't need this model */
+			mod_known[i] == null;
+		}
+	}
+
+	WebGL_FreeUnusedImages();
+}
+
+double _Mod_RadiusFromBounds(List<double> mins, List<double> maxs) {
 
   final corner = List<double>.generate(3, (i) => mins[i].abs() > maxs[i].abs() ? mins[i].abs() : maxs[i].abs());
 	return VectorLength(corner);

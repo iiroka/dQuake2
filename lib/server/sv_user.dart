@@ -271,11 +271,9 @@ SV_ExecuteUserCommand(String s) async {
     return;
   }
 
-  print("Unknwon UserCommand ${args[0]}");
-	// if (!u->name && (sv.state == ss_game))
-	// {
-	// 	ge->ClientCommand(sv_player);
-	// }
+	if (sv.state == server_state_t.ss_game) {
+		ge.ClientCommand(sv_player, args);
+	}
 }
 
 SV_ClientThink(client_t cl, usercmd_t cmd) async {

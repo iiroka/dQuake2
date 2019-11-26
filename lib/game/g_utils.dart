@@ -84,6 +84,43 @@ edict_t G_Find(edict_t from, String field, String match) {
 }
 
 /*
+ * Returns entities that have origins
+ * within a spherical area
+ */
+edict_t findradius(edict_t from, List<double> org, double rad) {
+
+  int from_i;
+	if (from == null) {
+		from_i = 0;
+	} else {
+		from_i = from.index;
+	}
+
+	for ( ; from_i < globals.num_edicts; from_i++) {
+    from = g_edicts[from_i];
+		if (!from.inuse) {
+			continue;
+		}
+
+		if (from.solid == solid_t.SOLID_NOT) {
+			continue;
+		}
+
+    List<double> eorg = List.generate(3, (j) => org[j] - (from.s.origin[j] +
+					   (from.mins[j] + from.maxs[j]) * 0.5));
+
+		if (VectorLength(eorg) > rad) {
+			continue;
+		}
+
+		return from;
+	}
+
+	return null;
+}
+
+
+/*
  * Searches all active entities for
  * the next one that holds the matching
  * string at fieldofs (use the FOFS() macro)
@@ -234,6 +271,22 @@ G_UseTargets(edict_t ent, edict_t activator) {
 			}
 		}
 	}
+}
+
+const List<double> VEC_UP = [0, -1, 0];
+const List<double> MOVEDIR_UP = [0, 0, 1];
+const List<double> VEC_DOWN = [0, -2, 0];
+const List<double> MOVEDIR_DOWN = [0, 0, -1];
+
+G_SetMovedir(List<double> angles, List<double> movedir) {
+	if (angles == VEC_UP) {
+    movedir.setAll(0, MOVEDIR_UP);
+	} else if (angles == VEC_DOWN) {
+    movedir.setAll(0, MOVEDIR_DOWN);
+	} else {
+		AngleVectors(angles, movedir, null, null);
+	}
+	angles.fillRange(0, 3, 0);
 }
 
 double vectoyaw(List<double> vec) {

@@ -144,8 +144,8 @@ abstract class refexport_t {
 	// called when the library is loaded
 	Future<bool> Init();
 
-	// // called before the library is unloaded
-	// void	(EXPORT *Shutdown) (void);
+	// called before the library is unloaded
+	void	Shutdown ();
 
 	// // called by GLimp_InitGraphics() before creating window,
 	// // returns flags for SDL window creation, returns -1 on error
@@ -181,7 +181,7 @@ abstract class refexport_t {
 	Future<Object> RegisterSkin (String name);
 
 	Future<void> SetSky (String name, double rotate, List<double> axis);
-	// void	(EXPORT *EndRegistration) (void);
+	void	EndRegistration ();
 
 	Future<void> RenderFrame (refdef_t fd);
 

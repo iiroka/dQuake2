@@ -222,6 +222,18 @@ SP_info_player_start(edict_t self) async {
 
 /* ======================================================================= */
 
+player_pain(edict_t self /* unused */, edict_t other /* unused */,
+	   	double kick /* unused */, int damage /* unused */)
+{
+	/* Player pain is handled at the end
+	 * of the frame in P_DamageFeedback.
+	 * This function is still here since
+	 * the player is an entity and needs
+	 * a pain callback */
+}
+
+/* ======================================================================= */
+
 /*
  * This is only called when the game first
  * initializes in single player, but is called
@@ -483,7 +495,7 @@ PutClientInServer(edict_t ent) {
 	ent.air_finished = level.time + 12;
 	ent.clipmask = MASK_PLAYERSOLID;
 	ent.model = "players/male/tris.md2";
-	// ent->pain = player_pain;
+	ent.pain = player_pain;
 	// ent->die = player_die;
 	ent.waterlevel = 0;
 	ent.watertype = 0;

@@ -119,7 +119,7 @@ abstract class game_export_t {
 	void ClientBegin(edict_s ent);
 	void ClientUserinfoChanged(edict_s ent, String userinfo);
 	// void (*ClientDisconnect)(edict_t *ent);
-	// void (*ClientCommand)(edict_t *ent);
+	void ClientCommand(edict_s ent, List<String> args);
 	void ClientThink(edict_s ent, usercmd_t cmd);
 
 	Future<void> RunFrame();

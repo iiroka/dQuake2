@@ -775,7 +775,7 @@ class gclient_t extends gclient_s {
 	double fall_time = 0, fall_value = 0; /* for view drop on fall */
 	double damage_alpha = 0;
 	double bonus_alpha = 0;
-	// vec3_t damage_blend;
+  List<double> damage_blend = [0,0,0];
 	List<double> v_angle = [0,0,0]; /* aiming direction */
 	double bobtime = 0; /* so off-ground doesn't change it */
 	List<double> oldviewangles = [0,0,0];
@@ -795,9 +795,9 @@ class gclient_t extends gclient_s {
 
 	/* powerup timers */
 	double quad_framenum = 0;
-	// double invincible_framenum;
-	// double breather_framenum;
-	// double enviro_framenum;
+	double invincible_framenum = 0;
+	double breather_framenum = 0;
+	double enviro_framenum = 0;
 
 	// qboolean grenade_blew_up;
 	double grenade_time = 0;
@@ -845,7 +845,7 @@ class gclient_t extends gclient_s {
     this.fall_value = 0;
 	  this.damage_alpha = 0;
 	  this.bonus_alpha = 0;
-	// // vec3_t damage_blend;
+	  this.damage_blend.fillRange(0, 3, 0);
 	  this.v_angle.fillRange(0, 3, 0);
 	  this.bobtime = 0;
 	  this.oldviewangles.fillRange(0, 3, 0);
@@ -859,9 +859,9 @@ class gclient_t extends gclient_s {
 	  this.anim_duck = false;
 	  this.anim_run = false;
 	  this.quad_framenum = 0;
-	// double invincible_framenum = 0;
-	// double breather_framenum = 0;
-	// double enviro_framenum = 0;
+  	this.invincible_framenum = 0;
+	  this.breather_framenum = 0;
+	  this.enviro_framenum = 0;
 	// qboolean grenade_blew_up = false;
 	  this.grenade_time = 0;
 	  this.silencer_shots = 0;
@@ -1107,6 +1107,8 @@ game_locals_t game = game_locals_t();
 level_locals_t level = level_locals_t();
 spawn_temp_t st = spawn_temp_t();
 
+int sm_meat_index = 0;
+int snd_fry = 0;
 int meansOfDeath = 0;
 
 List<edict_t> g_edicts;

@@ -34,6 +34,7 @@ import 'package:dQuakeWeb/common/filesystem.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'local.dart';
 import 'webgl_model.dart' show registration_sequence;
+import 'webgl_misc.dart';
 
 class glmode_t {
 	final String name;
@@ -291,4 +292,48 @@ Future<webglimage_t> WebGL_FindImage(String name, imagetype_t type) async {
   Image image = decodePng(buf.asUint8List());
   final bytes = image.getBytes();
   return WebGL_LoadPic(name, bytes, image.width, 0, image.height, 0, type);
+}
+
+/*
+ * Any image that was not touched on
+ * this registration sequence
+ * will be freed.
+ */
+WebGL_FreeUnusedImages() {
+
+	/* never free r_notexture or particle texture */
+	webgl_notexture.registration_sequence = registration_sequence;
+	webgl_particletexture.registration_sequence = registration_sequence;
+
+	for (int i = 0; i < gltextures.length; i++) {
+    if (gltextures[i] == null) {
+      continue; /* free image_t slot */
+    }
+
+		if (gltextures[i].registration_sequence == registration_sequence) {
+			continue; /* used this sequence */
+		}
+
+		if (gltextures[i].type == imagetype_t.it_pic)
+		{
+			continue; /* don't free pics */
+		}
+
+		/* free it */
+		gl.deleteTexture(gltextures[i].texture);
+		gltextures[i] = null;
+	}
+}
+
+WebGL_ShutdownImages() {
+
+	for (var image in gltextures) {
+		if (image == null) {
+			continue; /* free image_t slot */
+		}
+
+		/* free it */
+		if (image.texture != null) gl.deleteTexture(image.texture);
+	}
+  gltextures = [];
 }

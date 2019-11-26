@@ -53,12 +53,26 @@ viddef_t viddef = viddef_t();
 refexport_t re;
 
 /*
+ * Shuts the renderer down and unloads it.
+ */
+VID_ShutdownRenderer() {
+	if (re != null)
+	{
+		/* Shut down the renderer */
+		re.Shutdown();
+	}
+
+	// Declare the refresher as inactive
+	re = null;;
+}
+
+/*
  * Loads and initializes a renderer.
  */
 Future<bool> VID_LoadRenderer() async {
 	// If the refresher is already active we need
 	// to shut it down before loading a new one
-	// VID_ShutdownRenderer();
+	VID_ShutdownRenderer();
 
 	// Log what we're doing.
 	Com_Printf("----- refresher initialization -----\n");
@@ -71,7 +85,7 @@ Future<bool> VID_LoadRenderer() async {
   }
 
   if (!await re.Init()) {
-		// VID_ShutdownRenderer();
+		VID_ShutdownRenderer();
 
 		Com_Printf("ERROR: Loading ${vid_renderer.string} as rendering backend failed!\n");
 		Com_Printf("------------------------------------\n\n");

@@ -825,6 +825,7 @@ WebGL_SetLightLevel() {
 
 class WebGLExports extends refexport_t {
 
+  @override
   Future<bool> Init() async {
 
     canvas = querySelector("#quake2-canvas");
@@ -1008,6 +1009,7 @@ class WebGLExports extends refexport_t {
     WebGL_Clear();
   }
 
+  @override
   Future<void> RenderFrame (refdef_t fd) async {
     WebGL_RenderView(fd);
 	  WebGL_SetLightLevel();
@@ -1021,21 +1023,44 @@ class WebGLExports extends refexport_t {
     // }
   }
 
+  @override
   Future<void> DrawStretchPic (int x, int y, int w, int h, String name) => WebGL_Draw_StretchPic(x, y, w, h, name);
+  @override
   void DrawCharScaled(int x, int y, int num, double scale) => WebGL_Draw_CharScaled(x, y, num, scale);
 
+  @override
   Future<void> EndFrame() async {
     gl.flush();
     await gl.waitSync(glstate.glsync, 0, WebGL.TIMEOUT_IGNORED);
   }
 
+  @override
+  void	Shutdown () {
+    WebGL_Mod_FreeAll();
+    WebGL_ShutdownImages();
+    WebGL_SurfShutdown();
+    WebGL_Draw_ShutdownLocal();
+    WebGL_ShutdownShaders();
+  }
+
+  @override
   Future<void>	BeginRegistration (String map) => WebGL_BeginRegistration(map);
+  @override
   Future<model_s> RegisterModel (String name) => WebGL_RegisterModel(name);
+  @override
   Future<Object> RegisterSkin (String name) => WebGL_FindImage(name, imagetype_t.it_skin);
+  @override
   Future<Object> DrawFindPic(String name) => WebGL_Draw_FindPic(name);
+  @override
   void DrawFill (int x, int y, int w, int h, int c) => WebGL_Draw_Fill(x, y, w, h, c);
+  @override
   Future<void> DrawTileClear (int x, int y, int w, int h, String name) => WebGL_Draw_TileClear(x, y, w, h, name);
+  @override
   Future<void> DrawPicScaled (int x, int y, String pic, double factor) => WebGL_Draw_PicScaled(x, y, pic, factor);
+  @override
   Future<List<int>> DrawGetPicSize (String name) => WebGL_Draw_GetPicSize(name);
+  @override
   Future<void> SetSky (String name, double rotate, List<double> axis) => WebGL_SetSky(name, rotate, axis);
+  @override
+  void EndRegistration() => WebGL_EndRegistration();
 }

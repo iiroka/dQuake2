@@ -188,11 +188,6 @@ _PM_StepSlideMove_() {
 }
 
 _PM_StepSlideMove() {
-	// vec3_t start_o, start_v;
-	// vec3_t down_o, down_v;
-	// trace_t trace;
-	// float down_dist, up_dist;
-	// vec3_t up, down;
 
   List<double> start_o = List.generate(3, (i) => _pml.origin[i]);
   List<double> start_v = List.generate(3, (i) => _pml.velocity[i]);
@@ -245,10 +240,6 @@ _PM_StepSlideMove() {
  * Handles both ground friction and water friction
  */
 _PM_Friction() {
-	// float *vel;
-	// float speed, newspeed, control;
-	// float friction;
-	// float drop;
 
 	var vel = _pml.velocity;
 
@@ -437,6 +428,35 @@ _PM_AddCurrents(List<double> wishvel) {
 	}
 }
 
+_PM_WaterMove() {
+
+	/* user intentions */
+  List<double> wishvel = List.generate(3, (i) => _pml.forward[i] * _pm.cmd.forwardmove + 
+					 _pml.right[i] * _pm.cmd.sidemove);
+
+	if (_pm.cmd.forwardmove == 0 && _pm.cmd.sidemove == 0 && _pm.cmd.upmove == 0) {
+		wishvel[2] -= 60; /* drift towards bottom */
+	} else {
+		wishvel[2] += _pm.cmd.upmove;
+	}
+
+	_PM_AddCurrents(wishvel);
+
+  List<double> wishdir = List.generate(3, (i) => wishvel[i]);
+	double wishspeed = VectorNormalize(wishdir);
+
+	if (wishspeed > pm_maxspeed) {
+		VectorScale(wishvel, pm_maxspeed / wishspeed, wishvel);
+		wishspeed = pm_maxspeed;
+	}
+
+	wishspeed *= 0.5;
+
+	_PM_Accelerate(wishdir, wishspeed, pm_wateraccelerate);
+
+	_PM_StepSlideMove();
+}
+
 _PM_AirMove() {
 
 	double fmove = _pm.cmd.forwardmove.toDouble();
@@ -464,27 +484,21 @@ _PM_AirMove() {
 	if (_pml.ladder) {
 		_PM_Accelerate(wishdir, wishspeed, pm_accelerate);
 
-	// 	if (!wishvel[2])
-	// 	{
-	// 		if (pml.velocity[2] > 0)
-	// 		{
-	// 			pml.velocity[2] -= pm->s.gravity * pml.frametime;
+		if (wishvel[2] == 0) {
+			if (_pml.velocity[2] > 0) {
+				_pml.velocity[2] -= _pm.s.gravity * _pml.frametime;
 
-	// 			if (pml.velocity[2] < 0)
-	// 			{
-	// 				pml.velocity[2] = 0;
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			pml.velocity[2] += pm->s.gravity * pml.frametime;
+				if (_pml.velocity[2] < 0) {
+					_pml.velocity[2] = 0;
+				}
+			} else {
+				_pml.velocity[2] += _pm.s.gravity * _pml.frametime;
 
-	// 			if (pml.velocity[2] > 0)
-	// 			{
-	// 				pml.velocity[2] = 0;
-	// 			}
-	// 		}
-	// 	}
+				if (_pml.velocity[2] > 0) {
+					_pml.velocity[2] = 0;
+				}
+			}
+		}
 
 		_PM_StepSlideMove();
 	} else if (_pm.groundentity != null) {
@@ -927,7 +941,7 @@ Pmove(pmove_t pmove) {
 		_PM_Friction();
 
 		if (_pm.waterlevel >= 2) {
-// 			PM_WaterMove();
+			_PM_WaterMove();
 		} else {
 			List<double> angles = List.generate(3, (i) => _pm.viewangles[i]);
 

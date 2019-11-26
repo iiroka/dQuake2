@@ -197,15 +197,11 @@ bool SV_movestep(edict_t ent, List<double> move, bool relink) {
 
 	/* don't go in to water */
 	if (ent.waterlevel == 0) {
-	// 	test[0] = trace.endpos[0];
-	// 	test[1] = trace.endpos[1];
-	// 	test[2] = trace.endpos[2] + ent->mins[2] + 1;
-	// 	contents = gi.pointcontents(test);
-
-	// 	if (contents & MASK_WATER)
-	// 	{
-	// 		return false;
-	// 	}
+    List<double> test = [trace.endpos[0], trace.endpos[1], trace.endpos[2] + ent.mins[2] + 1];
+		final contents = SV_PointContents(test);
+		if ((contents & MASK_WATER) != 0) {
+			return false;
+		}
 	}
 
 	if (trace.fraction == 1) {

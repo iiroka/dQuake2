@@ -23,6 +23,7 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -368,4 +369,77 @@ SP_func_door(edict_t ent) {
 	// {
 	// 	ent->target = "t117";
 	// }
+}
+
+/* ==================================================================== */
+
+/*
+ * QUAKED func_timer (0.3 0.1 0.6) (-8 -8 -8) (8 8 8) START_ON
+ *
+ * "wait"	base time between triggering all targets, default is 1
+ * "random"	wait variance, default is 0
+ *
+ * so, the basic time between firing is a random time
+ * between (wait - random) and (wait + random)
+ *
+ * "delay"			delay before first firing when turned on, default is 0
+ * "pausetime"		additional delay used only the very first time
+ *                  and only if spawned with START_ON
+ *
+ * These can used but not touched.
+ */
+func_timer_think(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	G_UseTargets(self, self.activator);
+	self.nextthink = level.time + self.wait + crandk() * self.random;
+}
+
+func_timer_use(edict_t self, edict_t other /* unused */, edict_t activator) {
+	if (self == null || activator == null) {
+		return;
+	}
+
+	self.activator = activator;
+
+	/* if on, turn it off */
+	if (self.nextthink != 0) {
+		self.nextthink = 0;
+		return;
+	}
+
+	/* turn it on */
+	if (self.delay != 0) {
+		self.nextthink = level.time + self.delay;
+	} else {
+		func_timer_think(self);
+	}
+}
+
+SP_func_timer(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (self.wait == 0) {
+		self.wait = 1.0;
+	}
+
+	self.use = func_timer_use;
+	self.think = func_timer_think;
+
+	if (self.random >= self.wait) {
+		self.random = self.wait - FRAMETIME;
+		Com_Printf("func_timer at ${self.s.origin} has random >= wait\n");
+	}
+
+	if ((self.spawnflags & 1) != 0) {
+		self.nextthink = level.time + 1.0 + st.pausetime + self.delay +
+						  self.wait + crandk() * self.random;
+		self.activator = self;
+	}
+
+	self.svflags = SVF_NOCLIENT;
 }

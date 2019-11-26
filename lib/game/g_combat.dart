@@ -23,12 +23,104 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/game/g_utils.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/server/sv_send.dart';
+import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
+
+/*
+ * Returns true if the inflictor can
+ * directly damage the target.  Used for
+ * explosions and melee attacks.
+ */
+bool CanDamage(edict_t targ, edict_t inflictor) {
+	// vec3_t dest;
+	// trace_t trace;
+
+	if (targ == null || inflictor == null) {
+		return false;
+	}
+
+  List<double> dest = [0,0,0];
+
+	/* bmodels need special checking because their origin is 0,0,0 */
+	if (targ.movetype == movetype_t.MOVETYPE_PUSH) {
+		VectorAdd(targ.absmin, targ.absmax, dest);
+		VectorScale(dest, 0.5, dest);
+		final trace = SV_Trace(inflictor.s.origin, [0,0,0], [0,0,0],
+				dest, inflictor, MASK_SOLID);
+
+		if (trace.fraction == 1.0)
+		{
+			return true;
+		}
+
+		if (trace.ent == targ)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	var trace = SV_Trace(inflictor.s.origin, [0,0,0], [0,0,0],
+			targ.s.origin, inflictor, MASK_SOLID);
+
+	if (trace.fraction == 1.0)
+	{
+		return true;
+	}
+
+  dest.setAll(0, targ.s.origin);
+	dest[0] += 15.0;
+	dest[1] += 15.0;
+  trace = SV_Trace(inflictor.s.origin, [0,0,0], [0,0,0],
+			dest, inflictor, MASK_SOLID);
+
+	if (trace.fraction == 1.0)
+	{
+		return true;
+	}
+
+  dest.setAll(0, targ.s.origin);
+	dest[0] += 15.0;
+	dest[1] -= 15.0;
+	trace = SV_Trace(inflictor.s.origin, [0,0,0], [0,0,0],
+			dest, inflictor, MASK_SOLID);
+
+	if (trace.fraction == 1.0)
+	{
+		return true;
+	}
+
+  dest.setAll(0, targ.s.origin);
+	dest[0] -= 15.0;
+	dest[1] += 15.0;
+	trace = SV_Trace(inflictor.s.origin, [0,0,0], [0,0,0],
+			dest, inflictor, MASK_SOLID);
+
+	if (trace.fraction == 1.0)
+	{
+		return true;
+	}
+
+  dest.setAll(0, targ.s.origin);
+	dest[0] -= 15.0;
+	dest[1] -= 15.0;
+	trace = SV_Trace(inflictor.s.origin, [0,0,0], [0,0,0],
+			dest, inflictor, MASK_SOLID);
+
+	if (trace.fraction == 1.0)
+	{
+		return true;
+	}
+
+	return false;
+}
 
 Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 		int damage, List<double> point)
@@ -45,7 +137,7 @@ Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 
 	if ((targ.svflags & SVF_MONSTER) != 0 && (targ.deadflag != DEAD_DEAD) != 0) {
 		if ((targ.monsterinfo.aiflags & AI_GOOD_GUY) == 0) {
-	// 		level.killed_monsters++;
+			level.killed_monsters++;
 
 	// 		if (coop->value && attacker->client) {
 	// 			attacker->client->resp.score++;
@@ -59,14 +151,14 @@ Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 		}
 	}
 
-	// if ((targ.movetype == MOVETYPE_PUSH) ||
-	// 	(targ.movetype == MOVETYPE_STOP) ||
-	// 	(targ.movetype == MOVETYPE_NONE))
-	// {
-	// 	/* doors, triggers, etc */
-	// 	targ.die(targ, inflictor, attacker, damage, point);
-	// 	return;
-	// }
+	if ((targ.movetype == movetype_t.MOVETYPE_PUSH) ||
+		(targ.movetype == movetype_t.MOVETYPE_STOP) ||
+		(targ.movetype == movetype_t.MOVETYPE_NONE))
+	{
+		/* doors, triggers, etc */
+		targ.die(targ, inflictor, attacker, damage, point);
+		return;
+	}
 
 	// if ((targ->svflags & SVF_MONSTER) && (targ->deadflag != DEAD_DEAD))
 	// {
@@ -101,8 +193,6 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 		return;
 	}
 
-  print("T_Damage");
-
 	if (targ.takedamage == 0) {
 		return;
 	}
@@ -128,16 +218,14 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 
 	meansOfDeath = mod;
 
-	// /* easy mode takes half damage */
-	// if ((skill->value == 0) && (deathmatch->value == 0) && targ->client)
-	// {
-	// 	damage *= 0.5;
+	/* easy mode takes half damage */
+	if ((skill.integer == 0) && !deathmatch.boolean && targ.client != null) {
+		damage = damage ~/ 2;
 
-	// 	if (!damage)
-	// 	{
-	// 		damage = 1;
-	// 	}
-	// }
+		if (damage == 0) {
+			damage = 1;
+		}
+	}
 
 	var client = targ.client as gclient_t;
   int te_sparks;
@@ -195,8 +283,6 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 
 	int take = damage;
 	int save = 0;
-
-  print("damage $damage health: ${targ.health}");
 
 	// /* check for godmode */
 	// if ((targ->flags & FL_GODMODE) && !(dflags & DAMAGE_NO_PROTECTION))
@@ -291,5 +377,48 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 		client.damage_blood += take;
 	// 	client->damage_knockback += knockback;
     client.damage_from.setAll(0, point);
+	}
+}
+
+T_RadiusDamage(edict_t inflictor, edict_t attacker, double damage,
+		edict_t ignore, double radius, int mod)
+{
+
+	if (inflictor == null || attacker == null) {
+		return;
+	}
+
+  edict_t ent;
+	while ((ent = findradius(ent, inflictor.s.origin, radius)) != null) {
+		if (ent == ignore) {
+			continue;
+		}
+
+		if (ent.takedamage == 0) {
+			continue;
+		}
+
+    List<double> v = [0,0,0];
+		VectorAdd(ent.mins, ent.maxs, v);
+		VectorMA(ent.s.origin, 0.5, v, v);
+		VectorSubtract(inflictor.s.origin, v, v);
+		double points = damage - 0.5 * VectorLength(v);
+
+		if (ent == attacker)
+		{
+			points = points * 0.5;
+		}
+
+		if (points > 0)
+		{
+			if (CanDamage(ent, inflictor))
+			{
+        List<double> dir = [0,0,0];
+				VectorSubtract(ent.s.origin, inflictor.s.origin, dir);
+				T_Damage(ent, inflictor, attacker, dir, inflictor.s.origin,
+						[0,0,0], points.toInt(), points.toInt(), DAMAGE_RADIUS,
+						mod);
+			}
+		}
 	}
 }

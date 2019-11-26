@@ -37,7 +37,8 @@ import 'g_func.dart';
 import 'g_utils.dart';
 import 'g_items.dart';
 import 'g_misc.dart';
-import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always;
+import 'g_target.dart' show SP_target_temp_entity, SP_target_speaker, SP_target_explosion;
+import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always, SP_trigger_once;
 import 'savegame/savegame.dart';
 import 'player/client.dart' show SP_info_player_start, SaveClientData, InitBodyQue;
 import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
@@ -48,14 +49,24 @@ final spawns = {
 	"info_player_start": SP_info_player_start,
 
 	"func_door": SP_func_door,
+  "func_wall": SP_func_wall,
+	"func_timer": SP_func_timer,
 
   "trigger_always": SP_trigger_always,
+  "trigger_once": SP_trigger_once,
 	"trigger_relay": SP_trigger_relay,
+
+  "target_temp_entity": SP_target_temp_entity,
+	"target_speaker": SP_target_speaker,
+  "target_explosion": SP_target_explosion,
 
 	"worldspawn": SP_worldspawn,
 
 	"light": SP_light,
 	"path_corner": SP_path_corner,
+  "point_combat": SP_point_combat,
+
+  "misc_deadsoldier": SP_misc_deadsoldier,
 
 	"monster_soldier_light": SP_monster_soldier_light,
 	"monster_soldier": SP_monster_soldier,
@@ -574,7 +585,7 @@ SP_worldspawn(edict_t ent) async {
 	// 	gi.cvar_set("sv_gravity", st.gravity);
 	// }
 
-	// snd_fry = SV_SoundIndex("player/fry.wav"); /* standing in lava / slime */
+	snd_fry = SV_SoundIndex("player/fry.wav"); /* standing in lava / slime */
 
 	PrecacheItem(FindItem("Blaster"));
 
@@ -650,7 +661,7 @@ SP_worldspawn(edict_t ent) async {
 
 	SV_SoundIndex("infantry/inflies1.wav");
 
-	// sm_meat_index = gi.modelindex("models/objects/gibs/sm_meat/tris.md2");
+	sm_meat_index = SV_ModelIndex("models/objects/gibs/sm_meat/tris.md2");
 	SV_ModelIndex("models/objects/gibs/arm/tris.md2");
 	SV_ModelIndex("models/objects/gibs/bone/tris.md2");
 	SV_ModelIndex("models/objects/gibs/bone2/tris.md2");

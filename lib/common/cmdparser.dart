@@ -26,10 +26,11 @@
  *
  * =======================================================================
  */
-import './clientserver.dart';
-import './filesystem.dart';
+import '../client/cl_network.dart' show Cmd_ForwardToServer;
 import '../shared/shared.dart';
-import './cvar.dart';
+import 'clientserver.dart';
+import 'cvar.dart';
+import 'filesystem.dart';
 
 const ALIAS_LOOP_COUNT = 16;
 
@@ -325,11 +326,10 @@ Cmd_ExecuteString(String text) async {
 		return;
 	}
 
-// #ifndef DEDICATED_ONLY
-// 	/* send it as a server command if we are connected */
-// 	Cmd_ForwardToServer();
-// #endif
   print("Unknown command ${args[0]}");
+
+	/* send it as a server command if we are connected */
+	Cmd_ForwardToServer(args);
 }
 
 Cmd_Init()

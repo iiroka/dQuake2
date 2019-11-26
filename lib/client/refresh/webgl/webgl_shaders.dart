@@ -31,7 +31,7 @@ import 'package:dQuakeWeb/common/clientserver.dart';
 import 'local.dart';
 
 
-Shader CompileShader(int shaderType, String shaderSrc, String shaderSrc2)
+Shader _CompileShader(int shaderType, String shaderSrc, String shaderSrc2)
 {
 	Shader shader = gl.createShader(shaderType);
 
@@ -62,7 +62,7 @@ Shader CompileShader(int shaderType, String shaderSrc, String shaderSrc2)
 	return shader;
 }
 
-Program CreateShaderProgram(List<Shader> shaders) {
+Program _CreateShaderProgram(List<Shader> shaders) {
 	Program shaderProgram = gl.createProgram();
 	if (shaderProgram == null) {
 		Com_Printf("ERROR: Couldn't create a new Shader Program!\n");
@@ -95,11 +95,11 @@ Program CreateShaderProgram(List<Shader> shaders) {
 		return null;
 	}
 
-	// for(i=0; i<numShaders; ++i) {
+	for(Shader shader in shaders) {
 		// after linking, they don't need to be attached anymore.
 		// no idea  why they even are, if they don't have to..
-		// glDetachShader(shaderProgram, shaders[i]);
-	// }
+		gl.detachShader(shaderProgram, shader);
+	}
 
 	return shaderProgram;
 }
@@ -110,7 +110,7 @@ const WEBGL_BINDINGPOINT_UNI3D = 2;
 const WEBGL_BINDINGPOINT_UNILIGHTS = 3;
 
 
-bool initShader2D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc)
+bool _initShader2D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc)
 {
 	if(shaderInfo.shaderProgram != null)
 	{
@@ -123,20 +123,20 @@ bool initShader2D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc)
   shaderInfo.uniLmScales = null;
 
   List<Shader> shaders2D = [null, null];
-	shaders2D[0] = CompileShader(WebGL.VERTEX_SHADER, vertSrc, null);
+	shaders2D[0] = _CompileShader(WebGL.VERTEX_SHADER, vertSrc, null);
 	if(shaders2D[0] == null)  return false;
 
-	shaders2D[1] = CompileShader(WebGL.FRAGMENT_SHADER, fragSrc, null);
+	shaders2D[1] = _CompileShader(WebGL.FRAGMENT_SHADER, fragSrc, null);
 	if(shaders2D[1] == null) {
 		gl.deleteShader(shaders2D[0]);
 		return false;
 	}
 
-	final prog = CreateShaderProgram(shaders2D);
+	final prog = _CreateShaderProgram(shaders2D);
 
 	// I think the shaders aren't needed anymore once they're linked into the program
-	// glDeleteShader(shaders2D[0]);
-	// glDeleteShader(shaders2D[1]);
+	gl.deleteShader(shaders2D[0]);
+	gl.deleteShader(shaders2D[1]);
 
 	if (prog == null) {
 		return false;
@@ -195,7 +195,7 @@ bool initShader2D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc)
 	return true;
 }
 
-bool initShader3D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc) {
+bool _initShader3D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc) {
 
 	if(shaderInfo.shaderProgram != null) {
 		Com_Printf("WARNING: calling initShader3D for gl3ShaderInfo_t that already has a shaderProgram!\n");
@@ -206,17 +206,17 @@ bool initShader3D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc) {
 	shaderInfo.uniLmScales = null;
 
   List<Shader> shaders3D = [null, null];
-	shaders3D[0] = CompileShader(WebGL.VERTEX_SHADER, vertexCommon3D, vertSrc);
+	shaders3D[0] = _CompileShader(WebGL.VERTEX_SHADER, vertexCommon3D, vertSrc);
 	if(shaders3D[0] == null)  return false;
 
-	shaders3D[1] = CompileShader(WebGL.FRAGMENT_SHADER, fragmentCommon3D, fragSrc);
+	shaders3D[1] = _CompileShader(WebGL.FRAGMENT_SHADER, fragmentCommon3D, fragSrc);
 	if(shaders3D[1] == null)
 	{
 		gl.deleteShader(shaders3D[0]);
 		return false;
 	}
 
-	final prog = CreateShaderProgram(shaders3D);
+	final prog = _CreateShaderProgram(shaders3D);
 	if(prog == null) {
     gl.deleteShader(shaders3D[0]);
     gl.deleteShader(shaders3D[0]);
@@ -314,13 +314,13 @@ bool initShader3D(gl3ShaderInfo_t shaderInfo, String vertSrc, String fragSrc) {
 	shaderInfo.shaderProgram = prog;
 
 	// I think the shaders aren't needed anymore once they're linked into the program
-	// glDeleteShader(shaders3D[0]);
-	// glDeleteShader(shaders3D[1]);
+	gl.deleteShader(shaders3D[0]);
+	gl.deleteShader(shaders3D[1]);
 
 	return true;
 }
 
-initUBOs()
+_initUBOs()
 {
 	glstate.uniCommonData.gamma = 1.0/vid_gamma.value;
 	glstate.uniCommonData.intensity = gl3_intensity.value;
@@ -365,28 +365,28 @@ initUBOs()
 }
 
 
-bool createShaders() {
-	if(!initShader2D(glstate.si2D, vertexSrc2D, fragmentSrc2D))
+bool _createShaders() {
+	if(!_initShader2D(glstate.si2D, vertexSrc2D, fragmentSrc2D))
 	{
 		Com_Printf("WARNING: Failed to create shader program for textured 2D rendering!\n");
 		return false;
 	}
-	if(!initShader2D(glstate.si2Dcolor, vertexSrc2Dcolor, fragmentSrc2Dcolor))
+	if(!_initShader2D(glstate.si2Dcolor, vertexSrc2Dcolor, fragmentSrc2Dcolor))
 	{
 		Com_Printf("WARNING: Failed to create shader program for color-only 2D rendering!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3Dlm, vertexSrc3Dlm, fragmentSrc3Dlm))
+	if(!_initShader3D(glstate.si3Dlm, vertexSrc3Dlm, fragmentSrc3Dlm))
 	{
 		Com_Printf("WARNING: Failed to create shader program for textured 3D rendering with lightmap!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3Dtrans, vertexSrc3D, fragmentSrc3D))
+	if(!_initShader3D(glstate.si3Dtrans, vertexSrc3D, fragmentSrc3D))
 	{
 		Com_Printf("WARNING: Failed to create shader program for rendering translucent 3D things!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3DcolorOnly, vertexSrc3D, fragmentSrc3Dcolor))
+	if(!_initShader3D(glstate.si3DcolorOnly, vertexSrc3D, fragmentSrc3Dcolor))
 	{
 		Com_Printf("WARNING: Failed to create shader program for flat-colored 3D rendering!\n");
 		return false;
@@ -398,42 +398,42 @@ bool createShaders() {
 		return false;
 	}
 	*/
-	if(!initShader3D(glstate.si3Dturb, vertexSrc3Dwater, fragmentSrc3Dwater))
+	if(!_initShader3D(glstate.si3Dturb, vertexSrc3Dwater, fragmentSrc3Dwater))
 	{
 		Com_Printf("WARNING: Failed to create shader program for water rendering!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3DlmFlow, vertexSrc3DlmFlow, fragmentSrc3Dlm))
+	if(!_initShader3D(glstate.si3DlmFlow, vertexSrc3DlmFlow, fragmentSrc3Dlm))
 	{
 		Com_Printf("WARNING: Failed to create shader program for scrolling textured 3D rendering with lightmap!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3DtransFlow, vertexSrc3Dflow, fragmentSrc3D))
+	if(!_initShader3D(glstate.si3DtransFlow, vertexSrc3Dflow, fragmentSrc3D))
 	{
 		Com_Printf("WARNING: Failed to create shader program for scrolling textured translucent 3D rendering!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3Dsky, vertexSrc3D, fragmentSrc3Dsky))
+	if(!_initShader3D(glstate.si3Dsky, vertexSrc3D, fragmentSrc3Dsky))
 	{
 		Com_Printf("WARNING: Failed to create shader program for sky rendering!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3Dsprite, vertexSrc3D, fragmentSrc3Dsprite))
+	if(!_initShader3D(glstate.si3Dsprite, vertexSrc3D, fragmentSrc3Dsprite))
 	{
 		Com_Printf("WARNING: Failed to create shader program for sprite rendering!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3DspriteAlpha, vertexSrc3D, fragmentSrc3DspriteAlpha))
+	if(!_initShader3D(glstate.si3DspriteAlpha, vertexSrc3D, fragmentSrc3DspriteAlpha))
 	{
 		Com_Printf("WARNING: Failed to create shader program for alpha-tested sprite rendering!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3Dalias, vertexSrcAlias, fragmentSrcAlias))
+	if(!_initShader3D(glstate.si3Dalias, vertexSrcAlias, fragmentSrcAlias))
 	{
 		Com_Printf("WARNING: Failed to create shader program for rendering textured models!\n");
 		return false;
 	}
-	if(!initShader3D(glstate.si3DaliasColor, vertexSrcAlias, fragmentSrcAliasColor))
+	if(!_initShader3D(glstate.si3DaliasColor, vertexSrcAlias, fragmentSrcAliasColor))
 	{
 		Com_Printf("WARNING: Failed to create shader program for rendering flat-colored models!\n");
 		return false;
@@ -445,7 +445,7 @@ bool createShaders() {
 		particleFrag = fragmentSrcParticlesSquare;
 	}
 
-	if(!initShader3D(glstate.siParticle, vertexSrcParticles, particleFrag))
+	if(!_initShader3D(glstate.siParticle, vertexSrcParticles, particleFrag))
 	{
 		Com_Printf("WARNING: Failed to create shader program for rendering particles!\n");
 		return false;
@@ -457,11 +457,55 @@ bool createShaders() {
 }
 
 bool WebGL_InitShaders() {
-	initUBOs();
-	return createShaders();
+	_initUBOs();
+	return _createShaders();
 }
 
-updateUBO(Buffer ubo, dynamic data) {
+void _deleteShaders() {
+  if (glstate.si2D.shaderProgram != null) gl.deleteProgram(glstate.si2D.shaderProgram);
+  glstate.si2D.shaderProgram = null;
+	if (glstate.si2Dcolor.shaderProgram != null) gl.deleteProgram(glstate.si2Dcolor.shaderProgram);
+  glstate.si2Dcolor.shaderProgram = null;
+	if (glstate.si3Dlm.shaderProgram != null) gl.deleteProgram(glstate.si3Dlm.shaderProgram);
+  glstate.si3Dlm.shaderProgram = null;
+	if (glstate.si3Dtrans.shaderProgram != null) gl.deleteProgram(glstate.si3Dtrans.shaderProgram);
+  glstate.si3Dtrans.shaderProgram = null;
+	if (glstate.si3DcolorOnly.shaderProgram != null) gl.deleteProgram(glstate.si3DcolorOnly.shaderProgram);
+  glstate.si3DcolorOnly.shaderProgram = null;
+	if (glstate.si3Dturb.shaderProgram != null) gl.deleteProgram(glstate.si3Dturb.shaderProgram);
+  glstate.si3Dturb.shaderProgram = null;
+	if (glstate.si3DlmFlow.shaderProgram != null) gl.deleteProgram(glstate.si3DlmFlow.shaderProgram);
+  glstate.si3DlmFlow.shaderProgram = null;
+	if (glstate.si3DtransFlow.shaderProgram != null) gl.deleteProgram(glstate.si3DtransFlow.shaderProgram);
+  glstate.si3DtransFlow.shaderProgram = null;
+	if (glstate.si3Dsky.shaderProgram != null) gl.deleteProgram(glstate.si3Dsky.shaderProgram);
+  glstate.si3Dsky.shaderProgram = null;
+	if (glstate.si3Dsprite.shaderProgram != null) gl.deleteProgram(glstate.si3Dsprite.shaderProgram);
+  glstate.si3Dsprite.shaderProgram = null;
+	if (glstate.si3DspriteAlpha.shaderProgram != null) gl.deleteProgram(glstate.si3DspriteAlpha.shaderProgram);
+  glstate.si3DspriteAlpha.shaderProgram = null;
+	if (glstate.si3Dalias.shaderProgram != null) gl.deleteProgram(glstate.si3Dalias.shaderProgram);
+  glstate.si3Dalias.shaderProgram = null;
+	if (glstate.si3DaliasColor.shaderProgram != null) gl.deleteProgram(glstate.si3DaliasColor.shaderProgram);
+  glstate.si3DaliasColor.shaderProgram = null;
+	if (glstate.siParticle.shaderProgram != null) gl.deleteProgram(glstate.siParticle.shaderProgram);
+  glstate.siParticle.shaderProgram = null;
+}
+
+
+void WebGL_ShutdownShaders() {
+	_deleteShaders();
+
+	// let's (ab)use the fact that all 4 UBO handles are consecutive fields
+	// of the gl3state struct
+  gl.deleteBuffer(glstate.uniCommonUBO);
+  gl.deleteBuffer(glstate.uni2DUBO);
+  gl.deleteBuffer(glstate.uni3DUBO);
+  gl.deleteBuffer(glstate.uniLightsUBO);
+	glstate.uniCommonUBO = glstate.uni2DUBO = glstate.uni3DUBO = glstate.uniLightsUBO = null;
+}
+
+_updateUBO(Buffer ubo, dynamic data) {
 	if(glstate.currentUBO != ubo) {
 		glstate.currentUBO = ubo;
 		gl.bindBuffer(WebGL.UNIFORM_BUFFER, ubo);
@@ -480,19 +524,19 @@ updateUBO(Buffer ubo, dynamic data) {
 }
 
 WebGL_UpdateUBOCommon() {
-	updateUBO(glstate.uniCommonUBO, glstate.uniCommonData.data);
+	_updateUBO(glstate.uniCommonUBO, glstate.uniCommonData.data);
 }
 
 WebGL_UpdateUBO2D() {
-	updateUBO(glstate.uni2DUBO, glstate.uni2DData.data);
+	_updateUBO(glstate.uni2DUBO, glstate.uni2DData.data);
 }
 
 WebGL_UpdateUBO3D() {
-	updateUBO(glstate.uni3DUBO, glstate.uni3DData.data);
+	_updateUBO(glstate.uni3DUBO, glstate.uni3DData.data);
 }
 
 WebGL_UpdateUBOLights() {
-	updateUBO(glstate.uniLightsUBO, glstate.uniLightsData.data);
+	_updateUBO(glstate.uniLightsUBO, glstate.uniLightsData.data);
 }
 
 

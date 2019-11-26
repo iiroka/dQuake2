@@ -793,7 +793,7 @@ SV_Physics_Step(edict_t ent) {
 	if (ent.velocity[2] != 0 || ent.velocity[1] != 0 || ent.velocity[0] != 0) {
 		/* apply friction: let dead monsters who
 		   aren't completely onground slide */
-       print("MOVING");
+    print("MOVING");
 	// 	if ((wasonground) || (ent.flags & (FL_SWIM | FL_FLY)) != 0)
 	// 	{
 	// 		if (!((ent->health <= 0.0) && !M_CheckBottom(ent)))
