@@ -39,6 +39,52 @@ const _STOPSPEED = 100;
 const _FRICTION = 6;
 const _WATERFRICTION = 1;
 
+/*
+ * pushmove objects do not obey gravity, and do not interact
+ * with each other or trigger fields, but block normal movement
+ * and push normal objects when they move.
+ *
+ * onground is set for toss objects when they come to a complete
+ * rest. It is set for steping or walking objects.
+ *
+ * doors, plats, etc are SOLID_BSP, and MOVETYPE_PUSH
+ * bonus items are SOLID_TRIGGER touch, and MOVETYPE_TOSS
+ * corpses are SOLID_NOT and MOVETYPE_TOSS
+ * crates are SOLID_BBOX and MOVETYPE_TOSS
+ * walking monsters are SOLID_SLIDEBOX and MOVETYPE_STEP
+ * flying/floating monsters are SOLID_SLIDEBOX and MOVETYPE_FLY
+ *
+ * solid_edge items only clip against bsp models.
+ */
+
+edict_t SV_TestEntityPosition(edict_t ent) {
+	if (ent == null) {
+		return null;
+	}
+
+	int mask;
+	if (ent.clipmask != 0) {
+		mask = ent.clipmask;
+	} else {
+		mask = MASK_SOLID;
+	}
+
+	var trace = SV_Trace(ent.s.origin, ent.mins, ent.maxs,
+			ent.s.origin, ent, mask);
+
+	if (trace.startsolid)
+	{
+    if ((ent.svflags & SVF_DEADMONSTER) != 0 && (trace.ent.client || (trace.ent.svflags & SVF_MONSTER) != 0)) {
+			return null;
+		}
+
+		return g_edicts[0];
+	}
+
+	return null;
+}
+
+
 SV_CheckVelocity(edict_t ent) {
 	if (ent == null) {
 		return;
@@ -268,6 +314,110 @@ int SV_FlyMove(edict_t ent, double time, int mask) {
 	return blocked;
 }
 
+SV_AddGravity(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	ent.velocity[2] -= ent.gravity * sv_gravity.value * FRAMETIME;
+}
+
+
+/*
+ * Returns the actual bounding box of a bmodel.
+ * This is a big improvement over what q2 normally
+ * does with rotating bmodels - q2 sets absmin,
+ * absmax to a cube that will completely contain
+ * the bmodel at *any* rotation on *any* axis, whether
+ * the bmodel can actually rotate to that angle or not.
+ * This leads to a lot of false block tests in SV_Push
+ * if another bmodel is in the vicinity.
+ */
+RealBoundingBox(edict_t ent, List<double> mins, List<double> maxs) {
+
+  List<List<double>> p = List.generate(8, (i) => [0,0,0]);
+
+	for (int k = 0; k < 2; k++) {
+		int k4 = k * 4;
+
+		if (k != 0) {
+			p[k4][2] = ent.maxs[2];
+		} else {
+			p[k4][2] = ent.mins[2];
+		}
+
+		p[k4 + 1][2] = p[k4][2];
+		p[k4 + 2][2] = p[k4][2];
+		p[k4 + 3][2] = p[k4][2];
+
+		for (int j = 0; j < 2; j++) {
+			int j2 = j * 2;
+
+			if (j != 0) {
+				p[j2 + k4][1] = ent.maxs[1];
+			} else {
+				p[j2 + k4][1] = ent.mins[1];
+			}
+
+			p[j2 + k4 + 1][1] = p[j2 + k4][1];
+
+			for (int i = 0; i < 2; i++) {
+				if (i != 0) {
+					p[i + j2 + k4][0] = ent.maxs[0];
+				} else {
+					p[i + j2 + k4][0] = ent.mins[0];
+				}
+			}
+		}
+	}
+
+  List<double> forward = [0,0,0];
+  List<double> left = [0,0,0];
+  List<double> up = [0,0,0];
+	AngleVectors(ent.s.angles, forward, left, up);
+
+  List<double> f1 = [0,0,0];
+  List<double> l1 = [0,0,0];
+  List<double> u1 = [0,0,0];
+	for (int i = 0; i < 8; i++) {
+		VectorScale(forward, p[i][0], f1);
+		VectorScale(left, -p[i][1], l1);
+		VectorScale(up, p[i][2], u1);
+		VectorAdd(ent.s.origin, f1, p[i]);
+		VectorAdd(p[i], l1, p[i]);
+		VectorAdd(p[i], u1, p[i]);
+	}
+
+  mins.setAll(0, p[0]);
+  maxs.setAll(0, p[0]);
+
+	for (int i = 1; i < 8; i++) {
+		if (mins[0] > p[i][0]) {
+			mins[0] = p[i][0];
+		}
+
+		if (mins[1] > p[i][1]) {
+			mins[1] = p[i][1];
+		}
+
+		if (mins[2] > p[i][2]) {
+			mins[2] = p[i][2];
+		}
+
+		if (maxs[0] < p[i][0]) {
+			maxs[0] = p[i][0];
+		}
+
+ 		if (maxs[1] < p[i][1]) {
+			maxs[1] = p[i][1];
+		}
+
+		if (maxs[2] < p[i][2]) {
+			maxs[2] = p[i][2];
+		}
+	}
+}
+
 /* ================================================================== */
 
 /* PUSHMOVE */
@@ -286,42 +436,45 @@ trace_t SV_PushEntity(edict_t ent, List<double> push) {
   VectorAdd(start, push, end);
 
   int mask;
+  trace_t trace;
+  bool retry = false;
+  do {
 // retry:
-	if (ent.clipmask != 0) {
-		mask = ent.clipmask;
-	} else {
-		mask = MASK_SOLID;
-	}
+    if (ent.clipmask != 0) {
+      mask = ent.clipmask;
+    } else {
+      mask = MASK_SOLID;
+    }
 
-	var trace = SV_Trace(start, ent.mins, ent.maxs, end, ent, mask);
-	if (trace.startsolid || trace.allsolid) {
-		mask ^= CONTENTS_DEADMONSTER;
-		trace =SV_Trace (start, ent.mins, ent.maxs, end, ent, mask);
-	}
+    trace = SV_Trace(start, ent.mins, ent.maxs, end, ent, mask);
+    if (trace.startsolid || trace.allsolid) {
+      mask ^= CONTENTS_DEADMONSTER;
+      trace =SV_Trace (start, ent.mins, ent.maxs, end, ent, mask);
+    }
 
-  ent.s.origin.setAll(0, trace.endpos);
-	SV_LinkEdict(ent);
+    ent.s.origin.setAll(0, trace.endpos);
+    SV_LinkEdict(ent);
 
-	/* Push slightly away from non-horizontal surfaces,
-	   prevent origin stuck in the plane which causes
-	   the entity to be rendered in full black. */
-	if (trace.plane.type != 2) {
-		VectorAdd(ent.s.origin, trace.plane.normal, ent.s.origin);
-	}
+    /* Push slightly away from non-horizontal surfaces,
+      prevent origin stuck in the plane which causes
+      the entity to be rendered in full black. */
+    if (trace.plane.type != 2) {
+      VectorAdd(ent.s.origin, trace.plane.normal, ent.s.origin);
+    }
 
-	if (trace.fraction != 1.0) {
-// 		SV_Impact(ent, &trace);
+    if (trace.fraction != 1.0) {
+      SV_Impact(ent, trace);
 
-		/* if the pushed entity went away
-		   and the pusher is still there */
-// 		if (!trace.ent->inuse && ent->inuse)
-// 		{
-// 			/* move the pusher back and try again */
-// 			VectorCopy(start, ent->s.origin);
-// 			gi.linkentity(ent);
-			// goto retry;
-// 		}
-	}
+      /* if the pushed entity went away
+        and the pusher is still there */
+      if (!trace.ent.inuse && ent.inuse) {
+        /* move the pusher back and try again */
+        ent.s.origin.setAll(0, start);
+  			SV_LinkEdict(ent);
+        retry = true;
+      }
+    }
+  } while (retry);
 
 	if (ent.inuse) {
 		G_TouchTriggers(ent);
@@ -396,7 +549,9 @@ bool SV_Push(edict_t pusher, List<double> move, List<double> amove) {
 
 	/* Create a real bounding box for
 	   rotating brush models. */
-	// RealBoundingBox(pusher,realmins,realmaxs);
+  List<double> realmins = [0,0,0];
+  List<double> realmaxs = [0,0,0];
+	RealBoundingBox(pusher,realmins,realmaxs);
 
 	/* see if any solid entities
 	   are inside the final position */
@@ -421,106 +576,100 @@ bool SV_Push(edict_t pusher, List<double> move, List<double> amove) {
 		/* if the entity is standing on the pusher,
 		   it will definitely be moved */
 		if (check.groundentity != pusher) {
-	// 		/* see if the ent needs to be tested */
-	// 		if ((check->absmin[0] >= realmaxs[0]) ||
-	// 			(check->absmin[1] >= realmaxs[1]) ||
-	// 			(check->absmin[2] >= realmaxs[2]) ||
-	// 			(check->absmax[0] <= realmins[0]) ||
-	// 			(check->absmax[1] <= realmins[1]) ||
-	// 			(check->absmax[2] <= realmins[2]))
-	// 		{
-	// 			continue;
-	// 		}
+			/* see if the ent needs to be tested */
+			if ((check.absmin[0] >= realmaxs[0]) ||
+				(check.absmin[1] >= realmaxs[1]) ||
+				(check.absmin[2] >= realmaxs[2]) ||
+				(check.absmax[0] <= realmins[0]) ||
+				(check.absmax[1] <= realmins[1]) ||
+				(check.absmax[2] <= realmins[2])) {
+				continue;
+			}
 
-	// 		/* see if the ent's bbox is inside
-	// 		   the pusher's final position */
-	// 		if (!SV_TestEntityPosition(check))
-	// 		{
-	// 			continue;
-	// 		}
+			/* see if the ent's bbox is inside
+			   the pusher's final position */
+			if (SV_TestEntityPosition(check) == null) {
+				continue;
+			}
 		}
 
-	// 	if ((pusher->movetype == MOVETYPE_PUSH) ||
-	// 		(check->groundentity == pusher))
-	// 	{
-	// 		/* move this entity */
-	// 		pushed_p->ent = check;
-	// 		VectorCopy(check->s.origin, pushed_p->origin);
-	// 		VectorCopy(check->s.angles, pushed_p->angles);
-	// 		pushed_p++;
+		if ((pusher.movetype == movetype_t.MOVETYPE_PUSH) ||
+			(check.groundentity == pusher)) {
+			/* move this entity */
+			pushed[pushed_i].ent = check;
+      pushed[pushed_i].origin.setAll(0, check.s.origin);
+      pushed[pushed_i].angles.setAll(0, check.s.angles);
+			pushed_i++;
 
-	// 		/* try moving the contacted entity */
-	// 		VectorAdd(check->s.origin, move, check->s.origin);
+			/* try moving the contacted entity */
+			VectorAdd(check.s.origin, move, check.s.origin);
 
-	// 		if (check->client)
-	// 		{
-	// 			check->client->ps.pmove.delta_angles[YAW] += amove[YAW];
-	// 		}
+			if (check.client != null) {
+				check.client.ps.pmove.delta_angles[YAW] += amove[YAW].toInt();
+			}
 
-	// 		/* figure movement due to the pusher's amove */
-	// 		VectorSubtract(check->s.origin, pusher->s.origin, org);
-	// 		org2[0] = DotProduct(org, forward);
-	// 		org2[1] = -DotProduct(org, right);
-	// 		org2[2] = DotProduct(org, up);
-	// 		VectorSubtract(org2, org, move2);
-	// 		VectorAdd(check->s.origin, move2, check->s.origin);
+			/* figure movement due to the pusher's amove */
+			VectorSubtract(check.s.origin, pusher.s.origin, org);
+      List<double> org2 = [
+			    DotProduct(org, forward),
+          -DotProduct(org, right),
+			    DotProduct(org, up)];
+      List<double> move2 = [0,0,0];
+			VectorSubtract(org2, org, move2);
+			VectorAdd(check.s.origin, move2, check.s.origin);
 
-	// 		/* may have pushed them off an edge */
-	// 		if (check->groundentity != pusher)
-	// 		{
-	// 			check->groundentity = NULL;
-	// 		}
+			/* may have pushed them off an edge */
+			if (check.groundentity != pusher) {
+				check.groundentity = null;
+			}
 
-	// 		block = SV_TestEntityPosition(check);
+			var block = SV_TestEntityPosition(check);
+			if (block == null)
 
-	// 		if (!block)
+			{   /* pushed ok */
+				SV_LinkEdict(check);
+				continue;
+			}
 
-	// 		{   /* pushed ok */
-	// 			gi.linkentity(check);
-	// 			continue;
-	// 		}
+			/* if it is ok to leave in the old position, do it
+			   this is only relevent for riding entities, not
+			   pushed */
+			VectorSubtract(check.s.origin, move, check.s.origin);
+			block = SV_TestEntityPosition(check);
 
-	// 		/* if it is ok to leave in the old position, do it
-	// 		   this is only relevent for riding entities, not
-	// 		   pushed */
-	// 		VectorSubtract(check->s.origin, move, check->s.origin);
-	// 		block = SV_TestEntityPosition(check);
+			if (block == null)
+			{
+				pushed_i--;
+				continue;
+			}
+		}
 
-	// 		if (!block)
-	// 		{
-	// 			pushed_p--;
-	// 			continue;
-	// 		}
-	// 	}
+		/* save off the obstacle so we can
+		   call the block function */
+		obstacle = check;
 
-	// 	/* save off the obstacle so we can
-	// 	   call the block function */
-	// 	obstacle = check;
+		/* move back any entities we already moved
+		   go backwards, so if the same entity was pushed
+		   twice, it goes back to the original position */
+		for (int p_i = pushed_i - 1; p_i >= 0; p_i--) {
+      final p = pushed[p_i];
+      p.ent.s.origin.setAll(0, p.origin);
+      p.ent.s.angles.setAll(0, p.angles);
 
-	// 	/* move back any entities we already moved
-	// 	   go backwards, so if the same entity was pushed
-	// 	   twice, it goes back to the original position */
-	// 	for (p = pushed_p - 1; p >= pushed; p--)
-	// 	{
-	// 		VectorCopy(p->origin, p->ent->s.origin);
-	// 		VectorCopy(p->angles, p->ent->s.angles);
+			if (p.ent.client != null) {
+				p.ent.client.ps.pmove.delta_angles[YAW] = p.deltayaw.toInt();
+			}
 
-	// 		if (p->ent->client)
-	// 		{
-	// 			p->ent->client->ps.pmove.delta_angles[YAW] = p->deltayaw;
-	// 		}
-
-	// 		gi.linkentity(p->ent);
-	// 	}
+			SV_LinkEdict(p.ent);
+		}
 
 		return false;
 	}
 
 	/* see if anything we moved has touched a trigger */
-	// for (p = pushed_p - 1; p >= pushed; p--)
-	// {
-	// 	G_TouchTriggers(p->ent);
-	// }
+	for (int p = pushed_i - 1; p >= 0; p--) {
+		G_TouchTriggers(pushed[p].ent);
+	}
 
 	return true;
 }
@@ -570,8 +719,7 @@ SV_Physics_Pusher(edict_t ent) {
 	if (part != null) {
 		/* the move failed, bump all nextthink
 		   times and back out moves */
-	// 	for (mv = ent; mv; mv = mv->teamchain)
-	// 	{
+		// for (mv = ent; mv; mv = mv->teamchain) {
 	// 		if (mv->nextthink > 0)
 	// 		{
 	// 			mv->nextthink += FRAMETIME;
@@ -581,10 +729,9 @@ SV_Physics_Pusher(edict_t ent) {
 		/* if the pusher has a "blocked" function, call it
 		   otherwise, just stay in place until the obstacle
 		   is gone */
-		// if (part.blocked)
-	// 	{
-	// 		part->blocked(part, obstacle);
-	// 	}
+		if (part.blocked != null) {
+			part.blocked(part, obstacle);
+		}
 	} else {
 		/* the move succeeded, so call all think functions */
 		for (part = ent; part != null; part = part.teamchain) {
@@ -660,7 +807,7 @@ SV_Physics_Toss(edict_t ent) {
 	/* add gravity */
 	if ((ent.movetype != movetype_t.MOVETYPE_FLY) &&
 		(ent.movetype != movetype_t.MOVETYPE_FLYMISSILE)) {
-	// 	SV_AddGravity(ent);
+		SV_AddGravity(ent);
 	}
 
 	/* move angles */
@@ -756,9 +903,9 @@ SV_Physics_Step(edict_t ent) {
 				// 	hitsound = true;
 				// }
 
-				// if (ent.waterlevel == 0) {
-				// 	SV_AddGravity(ent);
-				// }
+				if (ent.waterlevel == 0) {
+					SV_AddGravity(ent);
+				}
 			}
 		}
 	}

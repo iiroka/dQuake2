@@ -137,25 +137,20 @@ SP_target_speaker(edict_t ent) {
 
 	// ent.noise_index = SV_SoundIndex(buffer);
 
-	// if (!ent->volume)
-	// {
-	// 	ent->volume = 1.0;
-	// }
+	if (ent.volume == 0) {
+		ent.volume = 1.0;
+	}
 
-	// if (!ent->attenuation)
-	// {
-	// 	ent->attenuation = 1.0;
-	// }
-	// else if (ent->attenuation == -1) /* use -1 so 0 defaults to 1 */
-	// {
-	// 	ent->attenuation = 0;
-	// }
+	if (ent.attenuation == 0) {
+		ent.attenuation = 1.0;
+	} else if (ent.attenuation == -1) { /* use -1 so 0 defaults to 1 */
+		ent.attenuation = 0;
+	}
 
-	// /* check for prestarted looping sound */
-	// if (ent->spawnflags & 1)
-	// {
-	// 	ent->s.sound = ent->noise_index;
-	// }
+	/* check for prestarted looping sound */
+	if ((ent.spawnflags & 1) != 0) {
+		ent.s.sound = ent.noise_index;
+	}
 
 	ent.use = _Use_Target_Speaker;
 

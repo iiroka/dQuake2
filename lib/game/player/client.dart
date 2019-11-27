@@ -307,12 +307,13 @@ FetchClientEntData(edict_t ent) {
 		return;
 	}
 
-	ent.health = (ent.client as gclient_t).pers.health;
-	ent.max_health = (ent.client as gclient_t).pers.max_health;
-	ent.flags |= (ent.client as gclient_t).pers.savedFlags;
+  final client = ent.client as gclient_t;
+	ent.health = client.pers.health;
+	ent.max_health = client.pers.max_health;
+	ent.flags |= client.pers.savedFlags;
 
 	if (coop.boolean) {
-		(ent.client as gclient_t).resp.score = (ent.client as gclient_t).pers.score;
+		client.resp.score = client.pers.score;
 	}
 }
 

@@ -339,7 +339,6 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 			if ((targ.svflags & SVF_MONSTER) != 0 || (client != null)) {
 				targ.flags |= FL_NO_KNOCKBACK;
 			}
-      print("killed");
 			Killed(targ, inflictor, attacker, take, point);
 			return;
 		}

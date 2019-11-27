@@ -48,6 +48,14 @@ const bodyarmor_info = gitem_armor_t(100, 200, .80, .60, ARMOR_BODY);
 
 /* ====================================================================== */
 
+gitem_t GetItemByIndex(int index) {
+	if ((index == 0) || (index >= itemlist.length)) {
+		return null;
+	}
+
+	return itemlist[index];
+}
+
 gitem_t FindItemByClassname(String classname) {
 
 	if (classname == null) {
@@ -301,6 +309,37 @@ bool Pickup_Health(edict_t ent, edict_t other) {
 	}
 
 	return true;
+}
+
+/* ====================================================================== */
+
+int ArmorIndex(edict_t ent) {
+	if (ent == null) {
+		return 0;
+	}
+
+	if (ent.client == null) {
+		return 0;
+	}
+
+  final client = ent.client as gclient_t;
+
+	if (client.pers.inventory[jacket_armor_index] > 0)
+	{
+		return jacket_armor_index;
+	}
+
+	if (client.pers.inventory[combat_armor_index] > 0)
+	{
+		return combat_armor_index;
+	}
+
+	if (client.pers.inventory[body_armor_index] > 0)
+	{
+		return body_armor_index;
+	}
+
+	return 0;
 }
 
 bool Pickup_Armor(edict_t ent, edict_t other) {
@@ -1698,6 +1737,66 @@ SP_item_health(edict_t self) {
 	SpawnItem(self, FindItem("Health"));
 	SV_SoundIndex("items/n_health.wav");
 }
+
+/*
+ * QUAKED item_health_small (.3 .3 1) (-16 -16 -16) (16 16 16)
+ */
+SP_item_health_small(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (deathmatch.boolean && (dmflags.integer & DF_NO_HEALTH) != 0) {
+		G_FreeEdict(self);
+		return;
+	}
+
+	self.model = "models/items/healing/stimpack/tris.md2";
+	self.count = 2;
+	SpawnItem(self, FindItem("Health"));
+	self.style = _HEALTH_IGNORE_MAX;
+	SV_SoundIndex("items/s_health.wav");
+}
+
+/*
+ * QUAKED item_health_large (.3 .3 1) (-16 -16 -16) (16 16 16)
+ */
+SP_item_health_large(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (deathmatch.boolean && (dmflags.integer & DF_NO_HEALTH) != 0) {
+		G_FreeEdict(self);
+		return;
+	}
+
+	self.model = "models/items/healing/large/tris.md2";
+	self.count = 25;
+	SpawnItem(self, FindItem("Health"));
+	SV_SoundIndex("items/l_health.wav");
+}
+
+/*
+ * QUAKED item_health_mega (.3 .3 1) (-16 -16 -16) (16 16 16)
+ */
+SP_item_health_mega(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (deathmatch.boolean && (dmflags.integer & DF_NO_HEALTH) != 0) {
+		G_FreeEdict(self);
+		return;
+	}
+
+	self.model = "models/items/mega_h/tris.md2";
+	self.count = 100;
+	SpawnItem(self, FindItem("Health"));
+	SV_SoundIndex("items/m_health.wav");
+	self.style = _HEALTH_IGNORE_MAX | _HEALTH_TIMED;
+}
+
 
 InitItems() {
 	itemlist = List.generate(gameitemlist.length, (i) => gitem_t(i, gameitemlist[i]));

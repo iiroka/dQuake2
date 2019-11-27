@@ -26,7 +26,7 @@
 import 'dart:math';
 import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
-import 'hud.dart' show InventoryMessage;
+import 'hud.dart' show InventoryMessage, G_SetStats;
 import '../game.dart';
 import '../g_combat.dart';
 import '../monster/misc/player.dart';
@@ -734,7 +734,7 @@ ClientEndServerFrame(edict_t ent) {
 	// }
 	// else
 	// {
-	// 	G_SetStats(ent);
+		G_SetStats(ent);
 	// }
 
 	// G_CheckChaseStats(ent);

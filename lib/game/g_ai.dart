@@ -31,6 +31,7 @@ import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'game.dart';
 import 'g_utils.dart';
+import 'player/trail.dart';
 import 'monster/misc/move.dart';
 
 bool enemy_vis = false;
@@ -983,30 +984,25 @@ ai_run(edict_t self, double dist) {
 		/* give ourself more time since we got this far */
 		self.monsterinfo.search_time = level.time + 5;
 
-    // edict_t marker;
+    edict_t marker;
 		if ((self.monsterinfo.aiflags & AI_PURSUE_TEMP) != 0) {
 			self.monsterinfo.aiflags &= ~AI_PURSUE_TEMP;
-      print("AI_PURSUE_TEMP");
-			// marker = null;
-	// 		VectorCopy(self->monsterinfo.saved_goal,
-	// 				self->monsterinfo.last_sighting);
+			marker = null;
+      self.monsterinfo.last_sighting.setAll(0, self.monsterinfo.saved_goal);
 			isNew = true;
 		} else if ((self.monsterinfo.aiflags & AI_PURSUIT_LAST_SEEN) != 0) {
-      print("AI_PURSUIT_LAST_SEEN");
-	// 		self->monsterinfo.aiflags &= ~AI_PURSUIT_LAST_SEEN;
-	// 		marker = PlayerTrail_PickFirst(self);
+		  self.monsterinfo.aiflags &= ~AI_PURSUIT_LAST_SEEN;
+			marker = PlayerTrail_PickFirst(self);
 		} else {
-      print("PUSUIT MEXT");
-	// 		marker = PlayerTrail_PickNext(self);
+			marker = PlayerTrail_PickNext(self);
 		}
 
-	// 	if (marker)
-	// 	{
-	// 		VectorCopy(marker->s.origin, self->monsterinfo.last_sighting);
-	// 		self->monsterinfo.trail_time = marker->timestamp;
-	// 		self->s.angles[YAW] = self->ideal_yaw = marker->s.angles[YAW];
-	// 		new = true;
-	// 	}
+		if (marker != null) {
+      self.monsterinfo.last_sighting.setAll(0, marker.s.origin);
+			self.monsterinfo.trail_time = marker.timestamp;
+			self.s.angles[YAW] = self.ideal_yaw = marker.s.angles[YAW];
+			isNew = true;
+		}
 	}
 
 	VectorSubtract(self.s.origin, self.monsterinfo.last_sighting, v);

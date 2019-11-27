@@ -36,18 +36,24 @@ import 'game.dart';
 import 'g_func.dart';
 import 'g_utils.dart';
 import 'g_items.dart';
+import 'g_main.dart' show globals;
 import 'g_misc.dart';
 import 'g_target.dart' show SP_target_temp_entity, SP_target_speaker, SP_target_explosion;
 import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always, SP_trigger_once;
 import 'savegame/savegame.dart';
 import 'player/client.dart' show SP_info_player_start, SaveClientData, InitBodyQue;
+import 'player/trail.dart' show PlayerTrail_Init;
 import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
 
 final spawns = {
   "item_health": SP_item_health,
+	"item_health_small": SP_item_health_small,
+	"item_health_large": SP_item_health_large,
+	"item_health_mega": SP_item_health_mega,
 
 	"info_player_start": SP_info_player_start,
 
+  "func_button": SP_func_button,
 	"func_door": SP_func_door,
   "func_wall": SP_func_wall,
 	"func_timer": SP_func_timer,
@@ -229,6 +235,65 @@ int ED_ParseEdict(String data, int index, edict_t ent) {
 	return index;
 }
 
+/*
+ * Chain together all entities with a matching team field.
+ *
+ * All but the first will have the FL_TEAMSLAVE flag set.
+ * All but the last will have the teamchain field set to the next one
+ */
+G_FindTeams() {
+	// edict_t *e, *e2, *chain;
+	// int i, j;
+	// int c, c2;
+
+	int c = 0;
+	int c2 = 0;
+
+	for (int i = 1; i < globals.num_edicts; i++) {
+    var e = g_edicts[i];
+		if (!e.inuse) {
+			continue;
+		}
+
+		if (e.team == null) {
+			continue;
+		}
+
+		if ((e.flags & FL_TEAMSLAVE) != 0) {
+			continue;
+		}
+
+		edict_t chain = e;
+		e.teammaster = e;
+		c++;
+		c2++;
+
+		for (int j = i + 1; j < globals.num_edicts; j++) {
+      var e2 = g_edicts[j];
+			if (!e2.inuse) {
+				continue;
+			}
+
+			if (e2.team == null) {
+				continue;
+			}
+
+			if ((e2.flags & FL_TEAMSLAVE) != 0) {
+				continue;
+			}
+
+			if (e.team == e2.team) {
+				c2++;
+				chain.teamchain = e2;
+				e2.teammaster = e;
+				chain = e2;
+				e2.flags |= FL_TEAMSLAVE;
+			}
+		}
+	}
+
+	Com_Printf("$c teams with $c2 entities.\n");
+}
 
 /*
  * Creates a server's entity / program execution context by
@@ -361,9 +426,9 @@ G_SpawnEntities(String mapname, String entities, String spawnpoint) async {
 
 	Com_Printf("$inhibit entities inhibited.\n");
 
-	// G_FindTeams();
+	G_FindTeams();
 
-	// PlayerTrail_Init();
+	PlayerTrail_Init();
 }
 
 /* =================================================================== */

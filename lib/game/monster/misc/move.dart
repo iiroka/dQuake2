@@ -349,9 +349,6 @@ bool SV_StepDirection(edict_t ent, double yaw, double dist) {
 /* ============================================================================ */
 
 SV_NewChaseDir(edict_t actor, edict_t enemy, double dist) {
-	// float deltax, deltay;
-	// float d[3];
-	// float tdir, olddir, turnaround;
 
 	if (actor == null || enemy == null) {
 		return;
@@ -454,6 +451,25 @@ SV_NewChaseDir(edict_t actor, edict_t enemy, double dist) {
 	// }
 }
 
+bool SV_CloseEnough(edict_t ent, edict_t goal, double dist) {
+
+	if (ent == null || goal == null) {
+		return false;
+	}
+
+	for (int i = 0; i < 3; i++) {
+		if (goal.absmin[i] > ent.absmax[i] + dist) {
+			return false;
+		}
+
+		if (goal.absmax[i] < ent.absmin[i] - dist) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 M_MoveToGoal(edict_t ent, double dist) {
 
 	if (ent == null) {
@@ -467,9 +483,9 @@ M_MoveToGoal(edict_t ent, double dist) {
 	}
 
 	/* if the next step hits the enemy, return immediately */
-	// if (ent.enemy != null && SV_CloseEnough(ent, ent->enemy, dist)) {
-	// 	return;
-	// }
+	if (ent.enemy != null && SV_CloseEnough(ent, ent.enemy, dist)) {
+		return;
+	}
 
 	// /* bump around... */
 	if (((randk() & 3) == 1) || !SV_StepDirection(ent, ent.ideal_yaw, dist)) {

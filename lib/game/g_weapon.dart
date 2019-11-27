@@ -65,7 +65,6 @@ blaster_touch(edict_t self, edict_t other, cplane_t plane, csurface_t surf) {
 		PlayerNoise(self.owner, self.s.origin, PNOISE_IMPACT);
 	}
 
-  print("blaster_touch ${other.takedamage}");
 	if (other.takedamage != 0)
 	{
 		if ((self.spawnflags & 1) != 0)

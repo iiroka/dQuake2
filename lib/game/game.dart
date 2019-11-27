@@ -589,7 +589,7 @@ class moveinfo_t {
 	double next_speed = 0;
 	double remaining_distance = 0;
 	double decel_distance = 0;
-	// void (*endfunc)(edict_t *);
+  void Function(edict_t) endfunc;
 
   clear() {
     this.start_origin.fillRange(0, 3, 0);
@@ -611,7 +611,7 @@ class moveinfo_t {
 	  this.next_speed = 0;
 	  this.remaining_distance = 0;
 	  this.decel_distance = 0;
-	// void (*endfunc)(edict_t *);
+    this.endfunc = null;
   }
 }
 
@@ -918,9 +918,9 @@ class edict_t extends edict_s {
 	double ideal_yaw = 0;
 
 	double nextthink = 0;
-	// void (*prethink)(edict_t *ent);
+  void Function(edict_t) prethink;
   void Function(edict_t) think;
-	// void (*blocked)(edict_t *self, edict_t *other);
+	void Function(edict_t self, edict_t other) blocked;
 	void Function(edict_t self, edict_t other, cplane_t plane,
 			csurface_t surf) touch;
 	void Function(edict_t self, edict_t other, edict_t activator) use;
@@ -1047,9 +1047,9 @@ class edict_t extends edict_s {
     this.yaw_speed = 0;
     this.ideal_yaw = 0;
     this.nextthink = 0;
-    // void (*prethink)(edict_t *ent);
+    this.prethink = null;
     this.think = null;
-    // void (*blocked)(edict_t *self, edict_t *other);
+    this.blocked = null;
     this.touch = null;
     this.use = null;
     this.pain = null;
