@@ -38,6 +38,304 @@ import 'g_utils.dart';
 import 'player/weapon.dart' show PlayerNoise;
 
 /*
+ * Used for all impact (hit/punch/slash) attacks
+ */
+bool fire_hit(edict_t self, List<double> aim, int damage, int kick) {
+	// trace_t tr;
+	// vec3_t forward, right, up;
+	// vec3_t v;
+	// vec3_t point;
+
+	if (self == null) {
+		return false;
+	}
+
+	/* Lazarus: Paranoia check */
+	if (self.enemy == null) {
+		return false;
+	}
+
+	/* see if enemy is in range */
+  List<double> dir = [0,0,0];
+	VectorSubtract(self.enemy.s.origin, self.s.origin, dir);
+	double range = VectorLength(dir);
+	if (range > aim[0])
+	{
+		return false;
+	}
+
+	if ((aim[1] > self.mins[0]) && (aim[1] < self.maxs[0])) {
+		/* the hit is straight on so back the
+		   range up to the edge of their bbox */
+		range -= self.enemy.maxs[0];
+	}
+	else
+	{
+		/* this is a side hit so adjust the "right"
+		   value out to the edge of their bbox */
+		if (aim[1] < 0)
+		{
+			aim[1] = self.enemy.mins[0];
+		}
+		else
+		{
+			aim[1] = self.enemy.maxs[0];
+		}
+	}
+
+  List<double> point = [0,0,0];
+	VectorMA(self.s.origin, range, dir, point);
+
+	final tr = SV_Trace(self.s.origin, null, null, point, self, MASK_SHOT);
+
+	if (tr.fraction < 1)
+	{
+		if (!tr.ent.takedamage)
+		{
+			return false;
+		}
+
+		/* if it will hit any client/monster
+		   then hit the one we wanted to hit */
+		if ((tr.ent.svflags & SVF_MONSTER) != 0 || (tr.ent.client != null))
+		{
+			tr.ent = self.enemy;
+		}
+	}
+
+  List<double> forward = [0,0,0];
+  List<double> right = [0,0,0];
+  List<double> up = [0,0,0];
+	AngleVectors(self.s.angles, forward, right, up);
+	VectorMA(self.s.origin, range, forward, point);
+	VectorMA(point, aim[1], right, point);
+	VectorMA(point, aim[2], up, point);
+	VectorSubtract(point, self.enemy.s.origin, dir);
+
+	/* do the damage */
+	T_Damage(tr.ent, self, self, dir, point, [0,0,0], damage,
+			kick ~/ 2, DAMAGE_NO_KNOCKBACK, MOD_HIT);
+
+	if ((tr.ent.svflags & SVF_MONSTER) == 0 && (tr.ent.client == null))
+	{
+		return false;
+	}
+
+	/* do our special form of knockback here */
+  List<double> v = [0,0,0];
+	VectorMA(self.enemy.absmin, 0.5, self.enemy.size, v);
+	VectorSubtract(v, point, v);
+	VectorNormalize(v);
+	VectorMA(self.enemy.velocity, kick.toDouble(), v, self.enemy.velocity);
+
+	if (self.enemy.velocity[2] > 0)
+	{
+		self.enemy.groundentity = null;
+	}
+
+	return true;
+}
+
+/*
+ * This is an internal support routine
+ * used for bullet/pellet based weapons.
+ */
+_fire_lead(edict_t self, List<double> start, List<double> aimdir, int damage, int kick,
+		int te_impact, int hspread, int vspread, int mod) {
+	// vec3_t dir;
+	// vec3_t forward, right, up;
+	// vec3_t end;
+	// float r;
+	// float u;
+	// vec3_t water_start;
+	bool water = false;
+	int content_mask = MASK_SHOT | MASK_WATER;
+
+	if (self == null) {
+		return;
+	}
+
+  List<double> water_start = [0,0,0];
+	var tr = SV_Trace(self.s.origin, null, null, start, self, MASK_SHOT);
+
+	if (!(tr.fraction < 1.0)) {
+    List<double> dir = [0,0,0];
+		vectoangles(aimdir, dir);
+    List<double> forward = [0,0,0];
+    List<double> right = [0,0,0];
+    List<double> up = [0,0,0];
+		AngleVectors(dir, forward, right, up);
+
+		double r = crandk() * hspread;
+		double u = crandk() * vspread;
+    List<double> end = [0,0,0];
+		VectorMA(start, 8192, forward, end);
+		VectorMA(end, r, right, end);
+		VectorMA(end, u, up, end);
+
+		if ((SV_PointContents(start) & MASK_WATER) != 0)
+		{
+			water = true;
+      water_start.setAll(0, start);
+			content_mask &= ~MASK_WATER;
+		}
+
+		tr = SV_Trace(start, null, null, end, self, content_mask);
+
+		/* see if we hit water */
+		if ((tr.contents & MASK_WATER) != 0)
+		{
+			int color;
+
+			water = true;
+      water_start.setAll(0, tr.endpos);
+
+			if (start[0] != tr.endpos[0] || start[1] != tr.endpos[1] || start[2] != tr.endpos[2])
+			{
+				if ((tr.contents & CONTENTS_WATER) != 0)
+				{
+					if (tr.surface.name == "*brwater")
+					{
+						color = SPLASH_BROWN_WATER;
+					}
+					else
+					{
+						color = SPLASH_BLUE_WATER;
+					}
+				}
+				else if ((tr.contents & CONTENTS_SLIME) != 0)
+				{
+					color = SPLASH_SLIME;
+				}
+				else if ((tr.contents & CONTENTS_LAVA) != 0)
+				{
+					color = SPLASH_LAVA;
+				}
+				else
+				{
+					color = SPLASH_UNKNOWN;
+				}
+
+				if (color != SPLASH_UNKNOWN)
+				{
+					PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+					PF_WriteByte(temp_event_t.TE_SPLASH.index);
+					PF_WriteByte(8);
+					PF_WritePos(tr.endpos);
+					PF_WriteDir(tr.plane.normal);
+					PF_WriteByte(color);
+					SV_Multicast(tr.endpos, multicast_t.MULTICAST_PVS);
+				}
+
+				/* change bullet's course when it enters water */
+				VectorSubtract(end, start, dir);
+				vectoangles(dir, dir);
+				AngleVectors(dir, forward, right, up);
+				r = crandk() * hspread * 2;
+				u = crandk() * vspread * 2;
+				VectorMA(water_start, 8192, forward, end);
+				VectorMA(end, r, right, end);
+				VectorMA(end, u, up, end);
+			}
+
+			/* re-trace ignoring water this time */
+			tr = SV_Trace(water_start, null, null, end, self, MASK_SHOT);
+		}
+	}
+
+	/* send gun puff / flash */
+	if (!((tr.surface != null) && (tr.surface.flags & SURF_SKY) != 0))
+	{
+		if (tr.fraction < 1.0)
+		{
+			if (tr.ent.takedamage != 0)
+			{
+				T_Damage(tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal,
+						damage, kick, DAMAGE_BULLET, mod);
+			}
+			else
+			{
+				if (!tr.surface.name.startsWith("sky"))
+				{
+					PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+					PF_WriteByte(te_impact);
+					PF_WritePos(tr.endpos);
+					PF_WriteDir(tr.plane.normal);
+					SV_Multicast(tr.endpos, multicast_t.MULTICAST_PVS);
+
+					if (self.client != null)
+					{
+						PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+					}
+				}
+			}
+		}
+	}
+
+	/* if went through water, determine
+	   where the end and make a bubble trail */
+	if (water)
+	{
+		List<double> pos = [0,0,0];
+		List<double> dir = [0,0,0];
+
+		VectorSubtract(tr.endpos, water_start, dir);
+		VectorNormalize(dir);
+		VectorMA(tr.endpos, -2, dir, pos);
+
+		if ((SV_PointContents(pos) & MASK_WATER) != 0)
+		{
+			tr.endpos.setAll(0, pos);
+		}
+		else
+		{
+			tr = SV_Trace(pos, null, null, water_start, tr.ent, MASK_WATER);
+		}
+
+		VectorAdd(water_start, tr.endpos, pos);
+		VectorScale(pos, 0.5, pos);
+
+		PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+		PF_WriteByte(temp_event_t.TE_BUBBLETRAIL.index);
+		PF_WritePos(water_start);
+		PF_WritePos(tr.endpos);
+		SV_Multicast(pos, multicast_t.MULTICAST_PVS);
+	}
+}
+
+/*
+ * Fires a single round.  Used for machinegun and
+ * chaingun.  Would be fine for pistols, rifles, etc....
+ */
+fire_bullet(edict_t self, List<double> start, List<double> aimdir, int damage,
+		int kick, int hspread, int vspread, int mod)
+{
+	if (self == null) {
+		return;
+	}
+
+	_fire_lead(self, start, aimdir, damage, kick, temp_event_t.TE_GUNSHOT.index, hspread,
+			vspread, mod);
+}
+
+/*
+ * Shoots shotgun pellets. Used
+ * by shotgun and super shotgun.
+ */
+fire_shotgun(edict_t self, List<double> start, List<double> aimdir, int damage,
+		int kick, int hspread, int vspread, int count, int mod)
+{
+	if (self == null) {
+		return;
+	}
+
+	for (int i = 0; i < count; i++) {
+		_fire_lead(self, start, aimdir, damage, kick, temp_event_t.TE_SHOTGUN.index,
+				hspread, vspread, mod);
+	}
+}
+
+/*
  * Fires a single blaster bolt.
  * Used by the blaster and hyper blaster.
  */

@@ -687,6 +687,15 @@ enum temp_event_t {
 	TE_FLECHETTE
 }
 
+const SPLASH_UNKNOWN = 0;
+const SPLASH_SPARKS = 1;
+const SPLASH_BLUE_WATER = 2;
+const SPLASH_BROWN_WATER = 3;
+const SPLASH_SLIME = 4;
+const SPLASH_LAVA = 5;
+const SPLASH_BLOOD = 6;
+
+
 /* player_state->stats[] indexes */
 const STAT_HEALTH_ICON = 0;
 const STAT_HEALTH = 1;

@@ -381,3 +381,20 @@ V_RenderView() async {
 
 	// SCR_DrawCrosshair();
 }
+
+V_Init() {
+	// Cmd_AddCommand("gun_next", V_Gun_Next_f);
+	// Cmd_AddCommand("gun_prev", V_Gun_Prev_f);
+	// Cmd_AddCommand("gun_model", V_Gun_Model_f);
+
+	// Cmd_AddCommand("viewpos", V_Viewpos_f);
+
+	// crosshair = Cvar_Get("crosshair", "0", CVAR_ARCHIVE);
+	// crosshair_scale = Cvar_Get("crosshair_scale", "-1", CVAR_ARCHIVE);
+	// cl_testblend = Cvar_Get("cl_testblend", "0", 0);
+	// cl_testparticles = Cvar_Get("cl_testparticles", "0", 0);
+	// cl_testentities = Cvar_Get("cl_testentities", "0", 0);
+	// cl_testlights = Cvar_Get("cl_testlights", "0", 0);
+
+	// cl_stats = Cvar_Get("cl_stats", "0", 0);
+}

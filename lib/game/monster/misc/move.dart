@@ -25,6 +25,7 @@
  */
 import 'dart:math';
 import 'package:dQuakeWeb/server/sv_world.dart';
+import 'package:dQuakeWeb/shared/files.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import '../../game.dart';
 import '../../g_utils.dart';
@@ -32,6 +33,87 @@ import '../../g_utils.dart';
 const _STEPSIZE = 18;
 const _DI_NODIR = -1;
 
+int c_yes = 0, c_no = 0;
+
+/*
+ * Returns false if any part of the
+ * bottom of the entity is off an edge
+ * that is not a staircase.
+ */
+bool M_CheckBottom(edict_t ent) {
+
+	if (ent == null) {
+		return false;
+	}
+
+  List<double> mins = [0,0,0];
+  List<double> maxs = [0,0,0];
+	VectorAdd(ent.s.origin, ent.mins, mins);
+	VectorAdd(ent.s.origin, ent.maxs, maxs);
+
+	/* if all of the points under the corners are solid
+	   world, don't bother with the tougher checks
+	   the corners must be within 16 of the midpoint */
+  List<double> start = [0,0,0];
+  List<double> stop = [0,0,0];
+	start[2] = mins[2] - 1;
+
+	for (int x = 0; x <= 1; x++)
+	{
+		for (int y = 0; y <= 1; y++)
+		{
+			start[0] = x != 0 ? maxs[0] : mins[0];
+			start[1] = y != 0 ? maxs[1] : mins[1];
+
+			if (SV_PointContents(start) != CONTENTS_SOLID) {
+        c_no++;
+
+        /* check it for real... */
+        start[2] = mins[2];
+
+        /* the midpoint must be within 16 of the bottom */
+        start[0] = stop[0] = (mins[0] + maxs[0]) * 0.5;
+        start[1] = stop[1] = (mins[1] + maxs[1]) * 0.5;
+        stop[2] = start[2] - 2 * _STEPSIZE;
+        final trace = SV_Trace(start, [0,0,0], [0,0,0],
+            stop, ent, MASK_MONSTERSOLID);
+
+        if (trace.fraction == 1.0) {
+          return false;
+        }
+
+        double mid = trace.endpos[2];;
+        double bottom = mid;
+
+        /* the corners must be within 16 of the midpoint */
+        for (int x = 0; x <= 1; x++) {
+          for (int y = 0; y <= 1; y++) {
+            start[0] = stop[0] = x != 0 ? maxs[0] : mins[0];
+            start[1] = stop[1] = y != 0 ? maxs[1] : mins[1];
+
+            final trace = SV_Trace(start, [0,0,0], [0,0,0],
+                stop, ent, MASK_MONSTERSOLID);
+
+            if ((trace.fraction != 1.0) && (trace.endpos[2] > bottom)) {
+              bottom = trace.endpos[2];
+            }
+
+            if ((trace.fraction == 1.0) || (mid - trace.endpos[2] > _STEPSIZE)) {
+              return false;
+            }
+          }
+        }
+
+        c_yes++;
+        return true;
+      }
+    }
+	}
+
+	c_yes++;
+	return true; /* we got out easy */
+
+}
 /*
  * Called by monster program code.
  * The move will be adjusted for slopes
@@ -224,24 +306,22 @@ bool SV_movestep(edict_t ent, List<double> move, bool relink) {
 	/* check point traces down for dangling corners */
   ent.s.origin.setAll(0, trace.endpos);
 
-	// if (!M_CheckBottom(ent))
-	// {
-	// 	if (ent->flags & FL_PARTIALGROUND)
-	// 	{   /* entity had floor mostly pulled out
-	// 		   from underneath it and is trying to
-	// 		   correct */
-	// 		if (relink)
-	// 		{
-	// 			gi.linkentity(ent);
-	// 			G_TouchTriggers(ent);
-	// 		}
+	if (!M_CheckBottom(ent)) {
+		if ((ent.flags & FL_PARTIALGROUND) != 0)
+		{   /* entity had floor mostly pulled out
+			   from underneath it and is trying to
+			   correct */
+			if (relink) {
+				SV_LinkEdict(ent);
+				G_TouchTriggers(ent);
+			}
 
-	// 		return true;
-	// 	}
+			return true;
+		}
 
-	// 	VectorCopy(oldorg, ent->s.origin);
-	// 	return false;
-	// }
+    ent.s.origin.setAll(0, oldorg);
+		return false;
+	}
 
 	if ((ent.flags & FL_PARTIALGROUND) != 0) {
 		ent.flags &= ~FL_PARTIALGROUND;
@@ -446,9 +526,9 @@ SV_NewChaseDir(edict_t actor, edict_t enemy, double dist) {
 	/* if a bridge was pulled out from underneath
 	   a monster, it may not have a valid standing
 	   position at all */
-	// if (!M_CheckBottom(actor)) {
+	if (!M_CheckBottom(actor)) {
 	// 	SV_FixCheckBottom(actor);
-	// }
+	}
 }
 
 bool SV_CloseEnough(edict_t ent, edict_t goal, double dist) {

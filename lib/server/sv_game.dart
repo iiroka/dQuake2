@@ -24,7 +24,7 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
-import 'package:dQuakeWeb/common/collision.dart' show CM_InlineModel;
+import 'package:dQuakeWeb/common/collision.dart';
 import 'package:dQuakeWeb/game/g_main.dart' show Quake2Game;
 import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
@@ -61,6 +61,32 @@ PF_Unicast(edict_s ent, bool reliable) {
 	}
 
 	sv.multicast.Clear();
+}
+
+/*
+ * Also checks portalareas so that doors block sound
+ */
+bool PF_inPHS(List<double> p1, List<double> p2) {
+
+	int leafnum = CM_PointLeafnum(p1);
+	int cluster = CM_LeafCluster(leafnum);
+	int area1 = CM_LeafArea(leafnum);
+	final mask = CM_ClusterPHS(cluster);
+
+	leafnum = CM_PointLeafnum(p2);
+	cluster = CM_LeafCluster(leafnum);
+	int area2 = CM_LeafArea(leafnum);
+
+	if (mask != null && ((mask[cluster >> 3] & (1 << (cluster & 7))) == 0)) {
+		return false; /* more than one bounce away */
+	}
+
+	if (!CM_AreasConnected(area1, area2))
+	{
+		return false; /* a door blocks hearing */
+	}
+
+	return true;
 }
 
 /*

@@ -613,6 +613,54 @@ _PM_CatagorizePosition() {
 	}
 }
 
+_PM_CheckSpecialMovement() {
+
+	if (_pm.s.pm_time != 0) {
+		return;
+	}
+
+	_pml.ladder = false;
+
+	/* check for ladder */
+	List<double> flatforward = [ _pml.forward[0], _pml.forward[1], 0 ];
+  List<double> spot = [0,0,0];
+	VectorMA(_pml.origin, 1, flatforward, spot);
+	var trace = _pm.trace(_pml.origin, _pm.mins, _pm.maxs, spot);
+
+	if ((trace.fraction < 1) && (trace.contents & CONTENTS_LADDER) != 0) {
+		_pml.ladder = true;
+	}
+
+	/* check for water jump */
+	if (_pm.waterlevel != 2) {
+		return;
+	}
+
+	VectorMA(_pml.origin, 30, flatforward, spot);
+	spot[2] += 4;
+	var cont = _pm.pointcontents(spot);
+
+	if ((cont & CONTENTS_SOLID) == 0)
+	{
+		return;
+	}
+
+	spot[2] += 16;
+	cont = _pm.pointcontents(spot);
+
+	if (cont != 0)
+	{
+		return;
+	}
+
+	/* jump out of water */
+	VectorScale(flatforward, 50, _pml.velocity);
+	_pml.velocity[2] = 350;
+
+	_pm.s.pm_flags |= PMF_TIME_WATERJUMP;
+	_pm.s.pm_time = 255;
+}
+
 /*
  * Sets mins, maxs, and pm->viewheight
  */
@@ -903,7 +951,7 @@ Pmove(pmove_t pmove) {
 		_PM_DeadMove();
 	}
 
-// 	PM_CheckSpecialMovement();
+	_PM_CheckSpecialMovement();
 
 	/* drop timing counter */
 	if (_pm.s.pm_time != 0) {

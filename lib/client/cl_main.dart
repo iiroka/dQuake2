@@ -26,6 +26,10 @@
  * =======================================================================
  */
 import 'dart:typed_data';
+import 'package:dQuakeWeb/client/cl_parse.dart';
+import 'package:dQuakeWeb/client/cl_tempentities.dart';
+import 'package:dQuakeWeb/client/sound/sound.dart';
+
 import '../common/cvar.dart';
 import '../common/cmdparser.dart';
 import '../common/clientserver.dart';
@@ -97,7 +101,7 @@ cvar_t cl_vwep;
 CL_ClearState() {
 	// S_StopAllSounds();
 	CL_ClearEffects();
-	// CL_ClearTEnts();
+  CL_ClearTEnts();
 
 	/* wipe the entire cl structure */
 	cl = client_state_t();
@@ -108,7 +112,7 @@ CL_ClearState() {
     cl_parse_entities[i] = entity_state_t();
   }
 
-	// cls.netchan.message.Clear();
+	cls.netchan.message.Clear();
 }
 
 int precache_check = 0;
@@ -128,7 +132,7 @@ CL_Precache_f(List<String> args) async {
 		List<int> map_checksum = [0];    /* for detecting cheater maps */
 
 		await CM_LoadMap(cl.configstrings[CS_MODELS + 1], true, map_checksum);
-		// CL_RegisterSounds();
+		await CL_RegisterSounds();
 		await CL_PrepRefresh();
 		return;
 	}
@@ -304,9 +308,9 @@ void CL_Frame(int packetdelta, int renderdelta, int timedelta, bool packetframe,
   cl_framecounter++;
 
 	// if in the debugger last frame, don't timeout.
-	// if (timedelta > 5000000) {
-	// 	cls.netchan.last_received = Sys_Milliseconds();
-	// }
+	if (timedelta > 5000000) {
+		cls.netchan.last_received = Sys_Milliseconds();
+	}
 
 	// Reset power shield / power screen sound counter.
 // 	num_power_sounds = 0;
@@ -433,7 +437,7 @@ void CL_Init() async {
 	/* all archived variables will now be loaded */
 	Con_Init();
 
-// 	S_Init();
+	S_Init();
 
 	SCR_Init();
 
@@ -441,7 +445,7 @@ void CL_Init() async {
 
 	IN_Init();
 
-// 	V_Init();
+	V_Init();
 
 // 	net_message.data = net_message_buffer;
 

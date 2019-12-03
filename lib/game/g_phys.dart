@@ -24,6 +24,7 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/game/monster/misc/move.dart';
 import 'package:dQuakeWeb/shared/files.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -35,6 +36,7 @@ import 'g_monster.dart';
 import 'g_utils.dart';
 
 const _STOP_EPSILON = 0.1;
+const _MAX_CLIP_PLANES = 5;
 const _STOPSPEED = 100;
 const _FRICTION = 6;
 const _WATERFRICTION = 1;
@@ -254,11 +256,11 @@ int SV_FlyMove(edict_t ent, double time, int mask) {
 		time_left -= time_left * trace.fraction;
 
 		/* cliped to another plane */
-		// if (numplanes >= MAX_CLIP_PLANES) {
-		// 	/* this shouldn't really happen */
-    //   ent.velocity.fillRange(0, 3, 0);
-		// 	return 3;
-		// }
+		if (planes.length >= _MAX_CLIP_PLANES) {
+			/* this shouldn't really happen */
+      ent.velocity.fillRange(0, 3, 0);
+			return 3;
+		}
 
     planes.add(trace.plane.normal);
 
@@ -702,6 +704,7 @@ SV_Physics_Pusher(edict_t ent) {
 		if (part.velocity[0] != 0 || part.velocity[1] != 0 || part.velocity[2] != 0 ||
 			  part.avelocity[0] != 0 || part.avelocity[1] != 0 || part.avelocity[2] != 0) {
 			/* object is moving */
+      print("PUSH");
 			VectorScale(part.velocity, FRAMETIME, move);
 			VectorScale(part.avelocity, FRAMETIME, amove);
 
@@ -717,14 +720,14 @@ SV_Physics_Pusher(edict_t ent) {
 	// }
 
 	if (part != null) {
+    print("blocked");
 		/* the move failed, bump all nextthink
 		   times and back out moves */
-		// for (mv = ent; mv; mv = mv->teamchain) {
-	// 		if (mv->nextthink > 0)
-	// 		{
-	// 			mv->nextthink += FRAMETIME;
-	// 		}
-	// 	}
+		for (var mv = ent; mv != null; mv = mv.teamchain) {
+			if (mv.nextthink > 0) {
+				mv.nextthink += FRAMETIME;
+			}
+		}
 
 		/* if the pusher has a "blocked" function, call it
 		   otherwise, just stay in place until the obstacle
@@ -940,11 +943,9 @@ SV_Physics_Step(edict_t ent) {
 	if (ent.velocity[2] != 0 || ent.velocity[1] != 0 || ent.velocity[0] != 0) {
 		/* apply friction: let dead monsters who
 		   aren't completely onground slide */
-    print("MOVING");
-	// 	if ((wasonground) || (ent.flags & (FL_SWIM | FL_FLY)) != 0)
-	// 	{
-	// 		if (!((ent->health <= 0.0) && !M_CheckBottom(ent)))
-	// 		{
+		if ((wasonground) || (ent.flags & (FL_SWIM | FL_FLY)) != 0) {
+			if (!((ent.health <= 0.0) && !M_CheckBottom(ent))) {
+        print("MOVING");
 	// 			vel = ent->velocity;
 	// 			speed = sqrt(vel[0] * vel[0] + vel[1] * vel[1]);
 
@@ -965,8 +966,8 @@ SV_Physics_Step(edict_t ent) {
 	// 				vel[0] *= newspeed;
 	// 				vel[1] *= newspeed;
 	// 			}
-	// 		}
-	// 	}
+			}
+		}
 
     int mask;
 		if ((ent.svflags & SVF_MONSTER) != 0) {

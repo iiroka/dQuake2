@@ -26,6 +26,7 @@
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/game/g_combat.dart';
 import 'package:dQuakeWeb/game/g_utils.dart';
+import 'package:dQuakeWeb/server/sv_init.dart';
 import 'package:dQuakeWeb/server/sv_send.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/common.dart';
@@ -126,16 +127,14 @@ SP_target_speaker(edict_t ent) {
 		return;
 	}
 
-	// if (!strstr(st.noise, ".wav"))
-	// {
-	// 	Com_sprintf(buffer, sizeof(buffer), "%s.wav", st.noise);
-	// }
-	// else
-	// {
-	// 	Q_strlcpy(buffer, st.noise, sizeof(buffer));
-	// }
+  String buffer;
+  if (!st.noise.endsWith(".wav")) {
+	  buffer = st.noise + ".wav";
+	} else {
+    buffer = st.noise;
+	}
 
-	// ent.noise_index = SV_SoundIndex(buffer);
+	ent.noise_index = SV_SoundIndex(buffer);
 
 	if (ent.volume == 0) {
 		ent.volume = 1.0;
@@ -158,6 +157,61 @@ SP_target_speaker(edict_t ent) {
 	   the server can determine who to send updates to */
 	SV_LinkEdict(ent);
 }
+
+/* ========================================================== */
+
+/*
+ * QUAKED target_splash (1 0 0) (-8 -8 -8) (8 8 8)
+ * Creates a particle splash effect when used.
+ *
+ * Set "sounds" to one of the following:
+ * 1) sparks
+ * 2) blue water
+ * 3) brown water
+ * 4) slime
+ * 5) lava
+ * 6) blood
+ *
+ * "count"	how many pixels in the splash
+ * "dmg"	if set, does a radius damage at this location when it splashes
+ *          useful for lava/sparks
+ */
+_use_target_splash(edict_t self, edict_t other /* unused */, edict_t activator)
+{
+	if (self == null || activator == null) {
+		return;
+	}
+
+	PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+	PF_WriteByte(temp_event_t.TE_SPLASH.index);
+	PF_WriteByte(self.count);
+	PF_WritePos(self.s.origin);
+	PF_WriteDir(self.movedir);
+	PF_WriteByte(self.sounds);
+	SV_Multicast(self.s.origin, multicast_t.MULTICAST_PVS);
+
+	if (self.dmg != 0)
+	{
+		T_RadiusDamage(self, activator, self.dmg.toDouble(), null,
+				self.dmg.toDouble() + 40, MOD_SPLASH);
+	}
+}
+
+SP_target_splash(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	self.use = _use_target_splash;
+	G_SetMovedir(self.s.angles, self.movedir);
+
+	if (self.count == 0) {
+		self.count = 32;
+	}
+
+	self.svflags = SVF_NOCLIENT;
+}
+
 
 /* ========================================================== */
 

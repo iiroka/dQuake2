@@ -25,6 +25,8 @@
  * =======================================================================
  */
 
+import 'package:dQuakeWeb/client/input.dart';
+import 'package:dQuakeWeb/client/sound/sound.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/cmdparser.dart';
 import 'package:dQuakeWeb/common/collision.dart' show CM_InlineModel;
@@ -36,7 +38,7 @@ import 'cl_main.dart';
 import 'vid/vid.dart' show re;
 import 'cl_view.dart' show cl_weaponmodels;
 import 'cl_lights.dart' show CL_SetLightstyle;
-import 'cl_tempentities.dart' show CL_ParseTEnt;
+import 'cl_tempentities.dart' show CL_ParseTEnt, CL_RegisterTEntSounds;
 import 'cl_effects.dart' show CL_AddMuzzleFlash, CL_AddMuzzleFlash2;
 import 'cl_predict.dart' show CL_CheckPredictionError;
 import 'cl_console.dart' show con;
@@ -68,6 +70,24 @@ const svc_strings = [
 	"svc_deltapacketentities",
 	"svc_frame"
 ];
+
+CL_RegisterSounds() async {
+	int i;
+
+	S_BeginRegistration();
+	await CL_RegisterTEntSounds();
+
+	for (i = 1; i < MAX_SOUNDS; i++) {
+		if (cl.configstrings[CS_SOUNDS + i].isEmpty) {
+			break;
+		}
+
+		cl.sound_precache[i] = await S_RegisterSound(cl.configstrings[CS_SOUNDS + i]);
+		await IN_Update();
+	}
+
+	await S_EndRegistration();
+}
 
 /*
  * Returns the entity number and the header bits
@@ -851,15 +871,11 @@ CL_ParseConfigString(Readbuf msg) async {
 				cl.model_clip[i - CS_MODELS] = null;
 			}
 		}
+	} else if ((i >= CS_SOUNDS) && (i < CS_SOUNDS + MAX_MODELS)) {
+		if (cl.refresh_prepped) {
+			cl.sound_precache[i - CS_SOUNDS] = await S_RegisterSound(cl.configstrings[i]);
+		}
 	}
-	// else if ((i >= CS_SOUNDS) && (i < CS_SOUNDS + MAX_MODELS))
-	// {
-	// 	if (cl.refresh_prepped)
-	// 	{
-	// 		cl.sound_precache[i - CS_SOUNDS] =
-	// 			S_RegisterSound(cl.configstrings[i]);
-	// 	}
-	// }
 	else if ((i >= CS_IMAGES) && (i < CS_IMAGES + MAX_MODELS)) {
 		if (cl.refresh_prepped) {
 			cl.image_precache[i - CS_IMAGES] = await re.DrawFindPic(cl.configstrings[i]);
@@ -871,7 +887,7 @@ CL_ParseConfigString(Readbuf msg) async {
 	}
 }
 
-CL_ParseStartSoundPacket(Readbuf msg) {
+CL_ParseStartSoundPacket(Readbuf msg) async {
 
 	final flags = msg.ReadByte();
 	final sound_num = msg.ReadByte();
@@ -912,13 +928,12 @@ CL_ParseStartSoundPacket(Readbuf msg) {
 		pos = msg.ReadPos();
 	}
 
-	// if (!cl.sound_precache[sound_num])
-	// {
-	// 	return;
-	// }
+	if (cl.sound_precache[sound_num] == null) {
+		return;
+	}
 
-	// S_StartSound(pos, ent, channel, cl.sound_precache[sound_num],
-	// 		volume, attenuation, ofs);
+	await S_StartSound(pos, ent, channel, cl.sound_precache[sound_num],
+			volume, attenuation, ofs);
 }
 
 SHOWNET(String s, Readbuf msg)
@@ -1018,7 +1033,7 @@ CL_ParseServerMessage(Readbuf msg) async {
 				break;
 
 			case svc_ops_e.svc_sound:
-				CL_ParseStartSoundPacket(msg);
+				await CL_ParseStartSoundPacket(msg);
 				break;
 
 			case svc_ops_e.svc_spawnbaseline:

@@ -153,13 +153,12 @@ ChangeWeapon(edict_t ent) {
 
   final client = ent.client as gclient_t;
 
-	// if (client.grenade_time != 0)
-	// {
-	// 	client.grenade_time = level.time;
-	// 	client.weapon_sound = 0;
+	if (client.grenade_time != 0) {
+		client.grenade_time = level.time;
+		client.weapon_sound = 0;
 	// 	weapon_grenade_fire(ent, false);
-	// 	client.grenade_time = 0;
-	// }
+		client.grenade_time = 0;
+	}
 
 	client.pers.lastweapon = client.pers.weapon;
 	client.pers.weapon = client.newweapon;

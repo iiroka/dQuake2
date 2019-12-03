@@ -25,6 +25,8 @@
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/collision.dart' show CM_AreasConnected;
+import 'package:dQuakeWeb/game/g_monster.dart';
+import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/shared/files.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -143,15 +145,15 @@ ai_stand(edict_t self, double dist) {
 		return;
 	}
 
-	// if (!(self->spawnflags & 1) && (self->monsterinfo.idle) &&
-	// 	(level.time > self->monsterinfo.idle_time)) {
-	// 	if (self->monsterinfo.idle_time) {
-	// 		self->monsterinfo.idle(self);
-	// 		self->monsterinfo.idle_time = level.time + 15 + random() * 15;
-	// 	} else {
-	// 		self->monsterinfo.idle_time = level.time + random() * 15;
-	// 	}
-	// }
+	if ((self.spawnflags & 1) == 0 && (self.monsterinfo.idle != null) &&
+		(level.time > self.monsterinfo.idle_time)) {
+		if (self.monsterinfo.idle_time != 0) {
+			self.monsterinfo.idle(self);
+			self.monsterinfo.idle_time = level.time + 15 + frandk() * 15;
+		} else {
+			self.monsterinfo.idle_time = level.time + frandk() * 15;
+		}
+	}
 }
 
 /*
@@ -343,7 +345,7 @@ HuntTarget(edict_t self) {
 
 	/* wait a while before first attack */
 	if ((self.monsterinfo.aiflags & AI_STAND_GROUND) == 0) {
-		// AttackFinished(self, 1);
+		AttackFinished(self, 1);
 	}
 }
 
@@ -509,33 +511,28 @@ bool FindTarget(edict_t self) {
 
 		self.enemy = client;
 
-	// 	if (strcmp(self->enemy->classname, "player_noise") != 0)
-	// 	{
-	// 		self->monsterinfo.aiflags &= ~AI_SOUND_TARGET;
+		if (self.enemy.classname != "player_noise") {
+			self.monsterinfo.aiflags &= ~AI_SOUND_TARGET;
 
-	// 		if (!self->enemy->client)
-	// 		{
-	// 			self->enemy = self->enemy->enemy;
+			if (self.enemy.client == null) {
+				self.enemy = self.enemy.enemy;
 
-	// 			if (!self->enemy->client)
-	// 			{
-	// 				self->enemy = NULL;
-	// 				return false;
-	// 			}
-	// 		}
-	// 	}
+				if (self.enemy.client == null) {
+					self.enemy = null;
+					return false;
+				}
+			}
+		}
 	} else { /* heardit */
-	// 	vec3_t temp;
 
 		if ((self.spawnflags & 1) != 0) {
 			if (!visible(self, client)) {
 				return false;
 			}
 		} else {
-	// 		if (!gi.inPHS(self->s.origin, client->s.origin))
-	// 		{
-	// 			return false;
-	// 		}
+      if (!PF_inPHS(self.s.origin, client.s.origin)) {
+				return false;
+			}
 		}
 
     List<double> temp = [0,0,0];
@@ -564,8 +561,7 @@ bool FindTarget(edict_t self) {
 	FoundTarget(self);
 
 	if ((self.monsterinfo.aiflags & AI_SOUND_TARGET) == 0 &&
-		(self.monsterinfo.sight != null))
-	{
+		(self.monsterinfo.sight != null)) {
 		self.monsterinfo.sight(self, self.enemy);
 	}
 
@@ -742,8 +738,6 @@ ai_run_missile(edict_t self) {
  * ai_run and ai_stand
  */
 bool ai_checkattack(edict_t self) {
-	// vec3_t temp;
-	// qboolean hesDeadJim;
 
 	if (self == null) {
 		enemy_vis = false;

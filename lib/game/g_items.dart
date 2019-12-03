@@ -101,24 +101,19 @@ DoRespawn(edict_t ent) {
 		return;
 	}
 
-	// if (ent.team != null)
-	// {
+	if (ent.team != null) {
 	// 	edict_t *master;
-	// 	int count;
+		// int count;
 	// 	int choice;
 
-	// 	master = ent->teammaster;
+		// var master = ent.teammaster;
 
-	// 	for (count = 0, ent = master; ent; ent = ent->chain, count++)
-	// 	{
-	// 	}
+		// for (count = 0, ent = master; ent != null; ent = ent.chain, count++) { }
 
-	// 	choice = count ? randk() % count : 0;
+		// int choice = (count != 0) ? randk() % count : 0;
 
-	// 	for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
-	// 	{
-	// 	}
-	// }
+		// for (count = 0, ent = master; count < choice; ent = ent.chain, count++) { }
+	}
 
 	ent.svflags &= ~SVF_NOCLIENT;
 	ent.solid = solid_t.SOLID_TRIGGER;

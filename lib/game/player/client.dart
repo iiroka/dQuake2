@@ -321,11 +321,6 @@ FetchClientEntData(edict_t ent) {
  * Chooses a player start, deathmatch start, coop start, etc
  */
 SelectSpawnPoint(edict_t ent, List<double> origin, List<double> angles) {
-	// edict_t *spot = NULL;
-	// edict_t *coopspot = NULL;
-	// int index;
-	// int counter = 0;
-	// vec3_t d;
 
 	if (ent == null) {
 		return;

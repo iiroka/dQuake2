@@ -506,6 +506,8 @@ door_use(edict_t self, edict_t other /* unused */, edict_t activator) {
 		return;
 	}
 
+  print("door_use");
+
 	if ((self.flags & FL_TEAMSLAVE) != 0) {
 		return;
 	}
@@ -540,6 +542,8 @@ Touch_DoorTrigger(edict_t self, edict_t other, cplane_t plane /* unused */,
 		return;
 	}
 
+  print("Touch_DoorTrigger");
+
 	if (other.health <= 0) {
 		return;
 	}
@@ -568,6 +572,8 @@ Think_CalcMoveSpeed(edict_t self) {
 	if (self == null) {
 		return;
 	}
+
+  print("Think_CalcMoveSpeed");
 
 	if ((self.flags & FL_TEAMSLAVE) != 0) {
 		return; /* only the team master does this */
@@ -622,6 +628,8 @@ Think_SpawnDoorTrigger(edict_t ent) {
 		return; /* only the team leader spawns a trigger */
 	}
 
+  print("Think_SpawnDoorTrigger");
+
   List<double> mins = List.generate(3, (i) => ent.absmin[i]);
   List<double> maxs = List.generate(3, (i) => ent.absmax[i]);
 
@@ -658,6 +666,8 @@ door_touch(edict_t self, edict_t other, cplane_t plane /* unused */, csurface_t 
 		return;
 	}
 
+  print("door_touch");
+
 	if (other.client == null) {
 		return;
 	}
@@ -674,7 +684,6 @@ door_touch(edict_t self, edict_t other, cplane_t plane /* unused */, csurface_t 
 
 
 SP_func_door(edict_t ent) {
-	// vec3_t abs_movedir;
 
 	if (ent == null) {
 		return;
@@ -740,6 +749,7 @@ SP_func_door(edict_t ent) {
 	ent.moveinfo.state = _STATE_BOTTOM;
 
 	if (ent.health != 0) {
+    print("door health ${ent.health}");
 		ent.takedamage = damage_t.DAMAGE_YES.index;
 		// ent->die = door_killed;
 		ent.max_health = ent.health;
@@ -768,10 +778,9 @@ SP_func_door(edict_t ent) {
 	}
 
 	/* to simplify logic elsewhere, make non-teamed doors into a team of one */
-	// if (!ent->team)
-	// {
-	// 	ent->teammaster = ent;
-	// }
+	if (ent.team == null) {
+		ent.teammaster = ent;
+	}
 
 	SV_LinkEdict(ent);
 

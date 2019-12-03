@@ -24,7 +24,11 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/game/g_weapon.dart';
+import 'package:dQuakeWeb/server/sv_game.dart';
+import 'package:dQuakeWeb/server/sv_send.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
+import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'game.dart';
@@ -32,6 +36,30 @@ import 'g_ai.dart' show FoundTarget, M_CheckAttack;
 import 'g_items.dart';
 import 'g_utils.dart';
 import 'monster/misc/move.dart';
+
+/* Monster weapons */
+
+monster_fire_bullet(edict_t self, List<double> start, List<double> dir, int damage,
+		int kick, int hspread, int vspread, int flashtype) {
+	if (self == null) {
+		return;
+	}
+
+	fire_bullet(self, start, dir, damage, kick, hspread, vspread, MOD_UNKNOWN);
+
+	PF_WriteByte(svc_ops_e.svc_muzzleflash2.index);
+	PF_WriteShort(self.index);
+	PF_WriteByte(flashtype);
+	SV_Multicast(start, multicast_t.MULTICAST_PVS);
+}
+
+AttackFinished(edict_t self, double time) {
+	if (self == null) {
+		return;
+	}
+
+	self.monsterinfo.attack_finished = level.time + time;
+}
 
 M_CheckGround(edict_t ent) {
 

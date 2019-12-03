@@ -152,6 +152,16 @@ _FloodAreaConnections() {
 	}
 }
 
+CM_SetAreaPortalState(int portalnum, bool open) {
+	if (portalnum > map_areaportals.length) {
+		Com_Error(ERR_DROP, "areaportal > numareaportals");
+	}
+
+	portalopen[portalnum] = open;
+	_FloodAreaConnections();
+}
+
+
 bool CM_AreasConnected(int area1, int area2) {
 	if (map_noareas.boolean) {
 		return true;

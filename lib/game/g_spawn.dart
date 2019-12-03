@@ -38,12 +38,15 @@ import 'g_utils.dart';
 import 'g_items.dart';
 import 'g_main.dart' show globals;
 import 'g_misc.dart';
-import 'g_target.dart' show SP_target_temp_entity, SP_target_speaker, SP_target_explosion;
-import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always, SP_trigger_once;
+import 'g_target.dart' show SP_target_temp_entity, SP_target_speaker, SP_target_explosion,
+  SP_target_splash;
+import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always, SP_trigger_once,
+  SP_trigger_multiple;
 import 'savegame/savegame.dart';
 import 'player/client.dart' show SP_info_player_start, SaveClientData, InitBodyQue;
 import 'player/trail.dart' show PlayerTrail_Init;
 import 'monster/soldier/soldier.dart' show SP_monster_soldier_light, SP_monster_soldier, SP_monster_soldier_ss;
+import 'monster/infantry/infantry.dart' show SP_monster_infantry;
 
 final spawns = {
   "item_health": SP_item_health,
@@ -55,16 +58,19 @@ final spawns = {
 
   "func_button": SP_func_button,
 	"func_door": SP_func_door,
+  "func_areaportal": SP_func_areaportal,
   "func_wall": SP_func_wall,
 	"func_timer": SP_func_timer,
 
   "trigger_always": SP_trigger_always,
   "trigger_once": SP_trigger_once,
+  "trigger_multiple": SP_trigger_multiple,
 	"trigger_relay": SP_trigger_relay,
 
   "target_temp_entity": SP_target_temp_entity,
 	"target_speaker": SP_target_speaker,
   "target_explosion": SP_target_explosion,
+  "target_splash": SP_target_splash,
 
 	"worldspawn": SP_worldspawn,
 
@@ -74,6 +80,7 @@ final spawns = {
 
   "misc_deadsoldier": SP_misc_deadsoldier,
 
+  "monster_infantry": SP_monster_infantry,
 	"monster_soldier_light": SP_monster_soldier_light,
 	"monster_soldier": SP_monster_soldier,
 	"monster_soldier_ss": SP_monster_soldier_ss,

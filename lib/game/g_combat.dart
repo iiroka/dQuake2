@@ -23,6 +23,8 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/game/g_ai.dart';
+import 'package:dQuakeWeb/game/g_items.dart';
 import 'package:dQuakeWeb/game/g_utils.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
 import 'package:dQuakeWeb/server/sv_send.dart';
@@ -178,16 +180,164 @@ SpawnDamage(int type, List<double> origin, List<double> normal)
 	SV_Multicast(origin, multicast_t.MULTICAST_PVS);
 }
 
+int CheckArmor(edict_t ent, List<double> point, List<double> normal, int damage,
+		int te_sparks, int dflags) {
+
+	if (ent != null) {
+		return 0;
+	}
+
+	if (damage != null) {
+		return 0;
+	}
+
+	final client = ent.client as gclient_t;
+
+	if (client == null) {
+		return 0;
+	}
+
+	if ((dflags & DAMAGE_NO_ARMOR) != 0) {
+		return 0;
+	}
+
+	int index = ArmorIndex(ent);
+	if (index == 0) {
+		return 0;
+	}
+
+	final armor = GetItemByIndex(index);
+
+  int save;
+	if ((dflags & DAMAGE_ENERGY) != 0) {
+		save = ((armor.info as gitem_armor_t).energy_protection * damage).ceil();
+	} else {
+		save = ((armor.info as gitem_armor_t).normal_protection * damage).ceil();
+	}
+
+	if (save >= client.pers.inventory[index]) {
+		save = client.pers.inventory[index];
+	}
+
+	if (save == 0) {
+		return 0;
+	}
+
+	client.pers.inventory[index] -= save;
+	SpawnDamage(te_sparks, point, normal);
+
+	return save;
+}
+
+M_ReactToDamage(edict_t targ, edict_t attacker) {
+	if (targ == null || attacker == null) {
+		return;
+	}
+
+	if (targ.health <= 0) {
+		return;
+	}
+
+	if ((attacker.client == null) && (attacker.svflags & SVF_MONSTER) == 0) {
+		return;
+	}
+
+	if ((attacker == targ) || (attacker == targ.enemy)) {
+		return;
+	}
+
+	/* if we are a good guy monster and our attacker is a player
+	   or another good guy, do not get mad at them */
+	if ((targ.monsterinfo.aiflags & AI_GOOD_GUY) != 0) {
+		if (attacker.client != null || (attacker.monsterinfo.aiflags & AI_GOOD_GUY) != 0) {
+			return;
+		}
+	}
+
+	/* if attacker is a client, get mad at
+	   them because he's good and we're not */
+	if (attacker.client != null) {
+		targ.monsterinfo.aiflags &= ~AI_SOUND_TARGET;
+
+		/* this can only happen in coop (both new and old
+		   enemies are clients)  only switch if can't see
+		   the current enemy */
+		if (targ.enemy != null && targ.enemy.client != null) {
+			if (visible(targ, targ.enemy)) {
+				targ.oldenemy = attacker;
+				return;
+			}
+
+			targ.oldenemy = targ.enemy;
+		}
+
+		targ.enemy = attacker;
+
+		if ((targ.monsterinfo.aiflags & AI_DUCKED) == 0) {
+			FoundTarget(targ);
+		}
+
+		return;
+	}
+
+	/* it's the same base (walk/swim/fly) type and a
+	   different classname and it's not a tank
+	   (they spray too much), get mad at them */
+	if (((targ.flags & (FL_FLY | FL_SWIM)) ==
+		 (attacker.flags & (FL_FLY | FL_SWIM))) &&
+		(targ.classname != attacker.classname) &&
+		(attacker.classname != "monster_tank") &&
+		(attacker.classname != "monster_supertank") &&
+		(attacker.classname != "monster_makron") &&
+		(attacker.classname != "monster_jorg"))
+	{
+		if (targ.enemy != null && targ.enemy.client != null)
+		{
+			targ.oldenemy = targ.enemy;
+		}
+
+		targ.enemy = attacker;
+
+		if ((targ.monsterinfo.aiflags & AI_DUCKED) == 0) {
+			FoundTarget(targ);
+		}
+	}
+	/* if they *meant* to shoot us, then shoot back */
+	else if (attacker.enemy == targ)
+	{
+		if (targ.enemy != null && targ.enemy.client != null)
+		{
+			targ.oldenemy = targ.enemy;
+		}
+
+		targ.enemy = attacker;
+
+		if ((targ.monsterinfo.aiflags & AI_DUCKED) == 0)
+		{
+			FoundTarget(targ);
+		}
+	}
+	/* otherwise get mad at whoever they are mad
+	   at (help our buddy) unless it is us! */
+	else if (attacker.enemy != null && (attacker.enemy != targ))
+	{
+		if (targ.enemy != null && targ.enemy.client != null)
+		{
+			targ.oldenemy = targ.enemy;
+		}
+
+		targ.enemy = attacker.enemy;
+
+		if ((targ.monsterinfo.aiflags & AI_DUCKED) == 0)
+		{
+			FoundTarget(targ);
+		}
+	}
+}
 
 T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 		List<double> dir, List<double> point, List<double> normal, int damage,
 		int knockback, int dflags, int mod) {
-	// gclient_t *client;
-	// int take;
-	// int save;
-	// int asave;
-	// int psave;
-	// int te_sparks;
 
 	if (targ == null || inflictor == null || attacker == null) {
 		return;
@@ -310,11 +460,11 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	// psave = CheckPowerArmor(targ, point, normal, take, dflags);
 	// take -= psave;
 
-	// asave = CheckArmor(targ, point, normal, take, te_sparks, dflags);
-	// take -= asave;
+	var asave = CheckArmor(targ, point, normal, take, te_sparks, dflags);
+	take -= asave;
 
 	/* treat cheat/powerup savings the same as armor */
-	// asave += save;
+	asave += save;
 
 	/* team damage avoidance */
 	// if (!(dflags & DAMAGE_NO_PROTECTION) && false)
@@ -345,18 +495,16 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	}
 
 	if ((targ.svflags & SVF_MONSTER) != 0) {
-	// 	M_ReactToDamage(targ, attacker);
+		M_ReactToDamage(targ, attacker);
 
-	// 	if (!(targ->monsterinfo.aiflags & AI_DUCKED) && (take))
-	// 	{
-	// 		targ->pain(targ, attacker, knockback, take);
+		if ((targ.monsterinfo.aiflags & AI_DUCKED) == 0 && (take != 0)) {
+			targ.pain(targ, attacker, knockback.toDouble(), take);
 
-	// 		/* nightmare mode monsters don't go into pain frames often */
-	// 		if (skill->value == 3)
-	// 		{
-	// 			targ->pain_debounce_time = level.time + 5;
-	// 		}
-	// 	}
+			/* nightmare mode monsters don't go into pain frames often */
+			if (skill.integer == 3) {
+				targ.pain_debounce_time = level.time + 5;
+			}
+		}
 	} else if (client != null) {
 		if ((targ.flags & FL_GODMODE) == 0 && take != 0) {
 			targ.pain(targ, attacker, knockback.toDouble(), take);
@@ -372,9 +520,9 @@ T_Damage(edict_t targ, edict_t inflictor, edict_t attacker,
 	   angle kicks at the end of the frame */
 	if (client != null) {
 	// 	client->damage_parmor += psave;
-	// 	client->damage_armor += asave;
+		client.damage_armor += asave;
 		client.damage_blood += take;
-	// 	client->damage_knockback += knockback;
+		client.damage_knockback += knockback;
     client.damage_from.setAll(0, point);
 	}
 }

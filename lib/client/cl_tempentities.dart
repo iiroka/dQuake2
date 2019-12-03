@@ -25,6 +25,7 @@
  * =======================================================================
  */
 import 'dart:math';
+import 'package:dQuakeWeb/client/sound/sound.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/shared/readbuf.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -98,6 +99,32 @@ Object cl_mod_lightning;
 Object cl_mod_heatbeam;
 Object cl_mod_monster_heatbeam;
 Object cl_mod_explo4_big;
+
+CL_RegisterTEntSounds() async {
+	cl_sfx_ric1 = await S_RegisterSound("world/ric1.wav");
+	cl_sfx_ric2 = await S_RegisterSound("world/ric2.wav");
+	cl_sfx_ric3 = await S_RegisterSound("world/ric3.wav");
+	cl_sfx_lashit = await S_RegisterSound("weapons/lashit.wav");
+	cl_sfx_spark5 = await S_RegisterSound("world/spark5.wav");
+	cl_sfx_spark6 = await S_RegisterSound("world/spark6.wav");
+	cl_sfx_spark7 = await S_RegisterSound("world/spark7.wav");
+	cl_sfx_railg = await S_RegisterSound("weapons/railgf1a.wav");
+	cl_sfx_rockexp = await S_RegisterSound("weapons/rocklx1a.wav");
+	cl_sfx_grenexp = await S_RegisterSound("weapons/grenlx1a.wav");
+	cl_sfx_watrexp = await S_RegisterSound("weapons/xpld_wat.wav");
+	await S_RegisterSound("player/land1.wav");
+
+	await S_RegisterSound("player/fall2.wav");
+	await S_RegisterSound("player/fall1.wav");
+
+	for (int i = 0; i < 4; i++) {
+		cl_sfx_footsteps[i] = await S_RegisterSound("player/step${i + 1}.wav");
+	}
+
+	cl_sfx_lightning = await S_RegisterSound("weapons/tesla.wav");
+	cl_sfx_disrexp = await S_RegisterSound("weapons/disrupthit.wav");
+}
+
 
 CL_RegisterTEntModels() async {
 	cl_mod_explode = await re.RegisterModel("models/objects/explode/tris.md2");

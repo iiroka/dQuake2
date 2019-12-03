@@ -24,6 +24,7 @@
  * =======================================================================
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/collision.dart';
 import 'package:dQuakeWeb/server/sv_init.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
@@ -35,6 +36,31 @@ import 'g_utils.dart';
 
 int debristhisframe = 0;
 int gibsthisframe = 0;
+
+_Use_Areaportal(edict_t ent, edict_t other /* unused */, edict_t activator /* unused */) {
+	if (ent == null) {
+		return;
+	}
+
+	ent.count ^= 1; /* toggle state */
+	CM_SetAreaPortalState(ent.style, ent.count != 0);
+}
+
+/*
+ * QUAKED func_areaportal (0 0 0) ?
+ *
+ * This is a non-visible object that divides the world into
+ * areas that are seperated when this portal is not activated.
+ * Usually enclosed in the middle of a door.
+ */
+SP_func_areaportal(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	ent.use = _Use_Areaportal;
+	ent.count = 0; /* always start closed; */
+}
 
 /* ===================================================== */
 
@@ -257,8 +283,6 @@ ThrowHead(edict_t self, String gibname, int damage, int type) {
  */
 path_corner_touch(edict_t self, edict_t other, cplane_t plane /* unused */,
 		csurface_t surf /* unused */) {
-	// vec3_t v;
-	// edict_t *next;
 
 	if (self == null || other == null) {
 		return;
@@ -281,16 +305,16 @@ path_corner_touch(edict_t self, edict_t other, cplane_t plane /* unused */,
 
   edict_t next;
 	if (self.target != null) {
-		// next = G_PickTarget(self->target);
+		next = G_PickTarget(self.target);
 	}
 
 	if ((next != null) && (next.spawnflags & 1) != 0) {
-		// VectorCopy(next->s.origin, v);
-		// v[2] += next->mins[2];
-		// v[2] -= other->mins[2];
-		// VectorCopy(v, other->s.origin);
-		// next = G_PickTarget(next->target);
-		// other.s.event = EV_OTHER_TELEPORT;
+    List<double> v = List.generate(3, (i) => next.s.origin[i]);
+		v[2] += next.mins[2];
+		v[2] -= other.mins[2];
+    other.s.origin.setAll(0, v);
+    next = G_PickTarget(next.target);
+		other.s.event = entity_event_t.EV_OTHER_TELEPORT.index;
 	}
 
 	other.goalentity = other.movetarget = next;

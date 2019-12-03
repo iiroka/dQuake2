@@ -25,6 +25,11 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/game/g_weapon.dart';
+import 'package:dQuakeWeb/server/sv_game.dart';
+import 'package:dQuakeWeb/server/sv_send.dart';
+import 'package:dQuakeWeb/shared/common.dart';
+import 'package:dQuakeWeb/shared/flash.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_init.dart';
@@ -46,6 +51,54 @@ int _sound_death_light = 0;
 int _sound_death = 0;
 int _sound_death_ss = 0;
 int _sound_cock = 0;
+
+/* Monster weapons */
+
+_monster_fire_bullet(edict_t self, List<double> start, List<double> dir, int damage,
+		int kick, int hspread, int vspread, int flashtype)
+{
+	if (self != null) {
+		return;
+	}
+
+	fire_bullet(self, start, dir, damage, kick, hspread, vspread, MOD_UNKNOWN);
+
+	PF_WriteByte(svc_ops_e.svc_muzzleflash2.index);
+	PF_WriteShort(self.index);
+	PF_WriteByte(flashtype);
+	SV_Multicast(start, multicast_t.MULTICAST_PVS);
+}
+
+_monster_fire_shotgun(edict_t self, List<double> start, List<double> aimdir, int damage,
+		int kick, int hspread, int vspread, int count, int flashtype)
+{
+	if (self == null) {
+		return;
+	}
+
+	fire_shotgun(self, start, aimdir, damage, kick, hspread,
+			vspread, count, MOD_UNKNOWN);
+
+	PF_WriteByte(svc_ops_e.svc_muzzleflash2.index);
+	PF_WriteShort(self.index);
+	PF_WriteByte(flashtype);
+	SV_Multicast(start, multicast_t.MULTICAST_PVS);
+}
+
+_monster_fire_blaster(edict_t self, List<double> start, List<double> dir, int damage,
+		int speed, int flashtype, int effect)
+{
+	if (self == null) {
+		return;
+	}
+
+	fire_blaster(self, start, dir, damage, speed, effect, false);
+
+  PF_WriteByte(svc_ops_e.svc_muzzleflash2.index);
+	PF_WriteShort(self.index);
+	PF_WriteByte(flashtype);
+	SV_Multicast(start, multicast_t.MULTICAST_PVS);
+}
 
 soldier_idle(edict_t self) {
 	if (self == null) {
@@ -312,6 +365,160 @@ soldier_run(edict_t self) {
 	}
 }
 
+final soldier_frames_pain1 = [
+	mframe_t(ai_move, -3, null),
+	mframe_t(ai_move, 4, null),
+	mframe_t(ai_move, 1, null),
+	mframe_t(ai_move, 1, null),
+	mframe_t(ai_move, 0, null)
+];
+
+final soldier_move_pain1 = mmove_t(
+	FRAME_pain101,
+   	FRAME_pain105,
+   	soldier_frames_pain1,
+   	soldier_run
+);
+
+final soldier_frames_pain2 = [
+	mframe_t(ai_move, -13, null),
+	mframe_t(ai_move, -1, null),
+	mframe_t(ai_move, 2, null),
+	mframe_t(ai_move, 4, null),
+	mframe_t(ai_move, 2, null),
+	mframe_t(ai_move, 3, null),
+	mframe_t(ai_move, 2, null)
+];
+
+final soldier_move_pain2 = mmove_t(
+	FRAME_pain201,
+	FRAME_pain207,
+   	soldier_frames_pain2,
+   	soldier_run
+);
+
+final soldier_frames_pain3 = [
+	mframe_t(ai_move, -8, null),
+	mframe_t(ai_move, 10, null),
+	mframe_t(ai_move, -4, null),
+	mframe_t(ai_move, -1, null),
+	mframe_t(ai_move, -3, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 3, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 1, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 1, null),
+	mframe_t(ai_move, 2, null),
+	mframe_t(ai_move, 4, null),
+	mframe_t(ai_move, 3, null),
+	mframe_t(ai_move, 2, null)
+];
+
+final soldier_move_pain3 = mmove_t(
+	FRAME_pain301,
+   	FRAME_pain318,
+   	soldier_frames_pain3,
+   	soldier_run
+);
+
+final soldier_frames_pain4 = [
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, -10, null),
+	mframe_t(ai_move, -6, null),
+	mframe_t(ai_move, 8, null),
+	mframe_t(ai_move, 4, null),
+	mframe_t(ai_move, 1, null),
+	mframe_t(ai_move, 0, null),
+	mframe_t(ai_move, 2, null),
+	mframe_t(ai_move, 5, null),
+	mframe_t(ai_move, 2, null),
+	mframe_t(ai_move, -1, null),
+	mframe_t(ai_move, -1, null),
+	mframe_t(ai_move, 3, null),
+	mframe_t(ai_move, 2, null),
+	mframe_t(ai_move, 0, null)
+];
+
+final soldier_move_pain4 = mmove_t(
+	FRAME_pain401,
+	FRAME_pain417,
+	soldier_frames_pain4,
+   	soldier_run
+);
+
+_soldier_pain(edict_t self, edict_t other /* unused */,
+		double kick /* unused */, int damage /* unused */) {
+
+	if (self == null) {
+		return;
+	}
+
+	if (self.health < (self.max_health / 2))
+	{
+		self.s.skinnum |= 1;
+	}
+
+	if (level.time < self.pain_debounce_time)
+	{
+		if ((self.velocity[2] > 100) &&
+			((self.monsterinfo.currentmove == soldier_move_pain1) ||
+			 (self.monsterinfo.currentmove == soldier_move_pain2) ||
+			 (self.monsterinfo.currentmove == soldier_move_pain3))) {
+			self.monsterinfo.currentmove = soldier_move_pain4;
+		}
+
+		return;
+	}
+
+	self.pain_debounce_time = level.time + 3;
+
+	int n = self.s.skinnum | 1;
+
+	// if (n == 1)
+	// {
+	// 	gi.sound(self, CHAN_VOICE, sound_pain_light, 1, ATTN_NORM, 0);
+	// }
+	// else if (n == 3)
+	// {
+	// 	gi.sound(self, CHAN_VOICE, sound_pain, 1, ATTN_NORM, 0);
+	// }
+	// else
+	// {
+	// 	gi.sound(self, CHAN_VOICE, sound_pain_ss, 1, ATTN_NORM, 0);
+	// }
+
+	if (self.velocity[2] > 100)
+	{
+		self.monsterinfo.currentmove = soldier_move_pain4;
+		return;
+	}
+
+	if (skill.integer == 3)
+	{
+		return; /* no pain anims in nightmare */
+	}
+
+	double r = frandk();
+	if (r < 0.33)
+	{
+		self.monsterinfo.currentmove = soldier_move_pain1;
+	}
+	else if (r < 0.66)
+	{
+		self.monsterinfo.currentmove = soldier_move_pain2;
+	}
+	else
+	{
+		self.monsterinfo.currentmove = soldier_move_pain3;
+	}
+}
+
 const _blaster_flash = [
 	MZ2_SOLDIER_BLASTER_1,
    	MZ2_SOLDIER_BLASTER_2,
@@ -374,52 +581,52 @@ soldier_fire(edict_t self, int flash_number) {
   List<double> forward = [0,0,0];
   List<double> right = [0,0,0];
 	AngleVectors(self.s.angles, forward, right, null);
-	// G_ProjectSource(self->s.origin, monster_flash_offset[flash_index],
-	// 		forward, right, start);
+  List<double> start = [0,0,0];
+	G_ProjectSource(self.s.origin, monster_flash_offset[flash_index],
+			forward, right, start);
 
+  List<double> aim = [0,0,0];
 	if ((flash_number == 5) || (flash_number == 6)) {
-	// 	VectorCopy(forward, aim);
+    aim.setAll(0, forward);
 	} else {
-	// 	VectorCopy(self->enemy->s.origin, end);
-	// 	end[2] += self->enemy->viewheight;
-	// 	VectorSubtract(end, start, aim);
-	// 	vectoangles(aim, dir);
-	// 	AngleVectors(dir, forward, right, up);
+    List<double> end = List.generate(3, (i) => self.enemy.s.origin[i]);
+		end[2] += self.enemy.viewheight;
+		VectorSubtract(end, start, aim);
+    List<double> dir = [0,0,0];
+		vectoangles(aim, dir);
+    List<double> up = [0,0,0];
+		AngleVectors(dir, forward, right, up);
 
-	// 	r = crandom() * 1000;
-	// 	u = crandom() * 500;
-	// 	VectorMA(start, 8192, forward, end);
-	// 	VectorMA(end, r, right, end);
-	// 	VectorMA(end, u, up, end);
+		double r = crandk() * 1000;
+		double u = crandk() * 500;
+		VectorMA(start, 8192, forward, end);
+		VectorMA(end, r, right, end);
+		VectorMA(end, u, up, end);
 
-	// 	VectorSubtract(end, start, aim);
-	// 	VectorNormalize(aim);
+		VectorSubtract(end, start, aim);
+		VectorNormalize(aim);
 	}
 
 	if (self.s.skinnum <= 1) {
-	// 	monster_fire_blaster(self, start, aim, 5, 600, flash_index, EF_BLASTER);
+		_monster_fire_blaster(self, start, aim, 5, 600, flash_index, EF_BLASTER);
 	} else if (self.s.skinnum <= 3) {
-	// 	monster_fire_shotgun(self, start, aim, 2, 1,
-	// 			DEFAULT_SHOTGUN_HSPREAD, DEFAULT_SHOTGUN_VSPREAD,
-	// 			DEFAULT_SHOTGUN_COUNT, flash_index);
+		_monster_fire_shotgun(self, start, aim, 2, 1,
+				DEFAULT_SHOTGUN_HSPREAD, DEFAULT_SHOTGUN_VSPREAD,
+				DEFAULT_SHOTGUN_COUNT, flash_index);
 	} else {
-	// 	if (!(self->monsterinfo.aiflags & AI_HOLD_FRAME))
-	// 	{
-	// 		self->monsterinfo.pausetime = level.time + (3 + randk() % 8) * FRAMETIME;
-	// 	}
+		if ((self.monsterinfo.aiflags & AI_HOLD_FRAME) == 0) {
+			self.monsterinfo.pausetime = level.time + (3 + randk() % 8) * FRAMETIME;
+		}
 
-	// 	monster_fire_bullet(self, start, aim, 2, 4,
-	// 			DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD,
-	// 			flash_index);
+		_monster_fire_bullet(self, start, aim, 2, 4,
+				DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD,
+				flash_index);
 
-	// 	if (level.time >= self->monsterinfo.pausetime)
-	// 	{
-	// 		self->monsterinfo.aiflags &= ~AI_HOLD_FRAME;
-	// 	}
-	// 	else
-	// 	{
-	// 		self->monsterinfo.aiflags |= AI_HOLD_FRAME;
-	// 	}
+		if (level.time >= self.monsterinfo.pausetime) {
+			self.monsterinfo.aiflags &= ~AI_HOLD_FRAME;
+		} else {
+			self.monsterinfo.aiflags |= AI_HOLD_FRAME;
+		}
 	}
 }
 
@@ -1093,8 +1300,7 @@ final soldier_move_death6 = mmove_t(
 	soldier_dead
 );
 
-void
-soldier_die(edict_t self, edict_t inflictor /* unused */,
+_soldier_die(edict_t self, edict_t inflictor /* unused */,
 		edict_t attacker /* unused */, int damage,
 		List<double> point /* unused */)
 {
@@ -1189,8 +1395,8 @@ _SP_monster_soldier_x(edict_t self) {
 
 	self.mass = 100;
 
-	// self.pain = soldier_pain;
-	self.die = soldier_die;
+	self.pain = _soldier_pain;
+	self.die = _soldier_die;
 
 	self.monsterinfo.stand = soldier_stand;
 	self.monsterinfo.walk = soldier_walk;
