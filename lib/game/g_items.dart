@@ -593,17 +593,17 @@ droptofloor(edict_t ent) {
   ent.s.origin.setAll(0, tr.endpos);
 
 	if (ent.team != null) {
-		// ent->flags &= ~FL_TEAMSLAVE;
-		// ent->chain = ent->teamchain;
-		// ent->teamchain = NULL;
+		ent.flags &= ~FL_TEAMSLAVE;
+		ent.chain = ent.teamchain;
+		ent.teamchain = null;
 
-		// ent->svflags |= SVF_NOCLIENT;
-		// ent->solid = SOLID_NOT;
+		ent.svflags |= SVF_NOCLIENT;
+		ent.solid = solid_t.SOLID_NOT;
 
-		// if (ent == ent->teammaster) {
-		// 	ent->nextthink = level.time + FRAMETIME;
-		// 	ent->think = DoRespawn;
-		// }
+		if (ent == ent.teammaster) {
+			ent.nextthink = level.time + FRAMETIME;
+			ent.think = DoRespawn;
+		}
 	}
 
 	if ((ent.spawnflags & ITEM_NO_TOUCH) != 0) {

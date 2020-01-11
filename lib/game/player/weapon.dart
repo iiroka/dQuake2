@@ -230,11 +230,11 @@ Think_Weapon(edict_t ent) {
 	if (client.pers.weapon != null && client.pers.weapon.weaponthink != null) {
 		_is_quad = (client.quad_framenum > level.framenum);
 
-	// 	if (ent->client->silencer_shots) {
-	// 		is_silenced = MZ_SILENCED;
-	// 	} else {
+		if (client.silencer_shots != 0) {
+			_is_silenced = MZ_SILENCED;
+		} else {
 			_is_silenced = 0;
-	// 	}
+		}
 
 		client.pers.weapon.weaponthink(ent);
 	}
@@ -244,13 +244,10 @@ Think_Weapon(edict_t ent) {
  * Make the weapon ready if there is ammo
  */
 Use_Weapon(edict_t ent, gitem_t item) {
-	// int ammo_index;
-	// gitem_t *ammo_item;
 
 	if (ent == null || item == null) {
 		return;
 	}
-  print("Use_Weapon");
 
   final client = ent.client as gclient_t;
 
@@ -278,7 +275,6 @@ Use_Weapon(edict_t ent, gitem_t item) {
 
 	/* change to this weapon when down */
 	client.newweapon = item;
-  print("Use_Weapon - done");
 }
 
 /*

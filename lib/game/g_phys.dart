@@ -439,6 +439,7 @@ trace_t SV_PushEntity(edict_t ent, List<double> push) {
 
   int mask;
   trace_t trace;
+
   bool retry = false;
   do {
 // retry:
@@ -704,7 +705,6 @@ SV_Physics_Pusher(edict_t ent) {
 		if (part.velocity[0] != 0 || part.velocity[1] != 0 || part.velocity[2] != 0 ||
 			  part.avelocity[0] != 0 || part.avelocity[1] != 0 || part.avelocity[2] != 0) {
 			/* object is moving */
-      print("PUSH");
 			VectorScale(part.velocity, FRAMETIME, move);
 			VectorScale(part.avelocity, FRAMETIME, amove);
 
@@ -720,7 +720,6 @@ SV_Physics_Pusher(edict_t ent) {
 	// }
 
 	if (part != null) {
-    print("blocked");
 		/* the move failed, bump all nextthink
 		   times and back out moves */
 		for (var mv = ent; mv != null; mv = mv.teamchain) {
@@ -867,11 +866,10 @@ SV_Physics_Toss(edict_t ent) {
 	}
 
 	/* move teamslaves */
-	// for (slave = ent->teamchain; slave; slave = slave->teamchain)
-	// {
-	// 	VectorCopy(ent->s.origin, slave->s.origin);
-	// 	gi.linkentity(slave);
-	// }
+	for (var slave = ent.teamchain; slave != null; slave = slave.teamchain) {
+    slave.s.origin.setAll(0, ent.s.origin);
+		SV_LinkEdict(slave);
+	}
 }
 
 SV_Physics_Step(edict_t ent) {
@@ -1028,7 +1026,7 @@ G_RunEntity(edict_t ent) async {
 	// 	ent->prethink(ent);
 	// }
   // print("${ent.classname} -> ${ent.movetype}");
-
+  
 	switch (ent.movetype) {
 		case movetype_t.MOVETYPE_PUSH:
 		case movetype_t.MOVETYPE_STOP:

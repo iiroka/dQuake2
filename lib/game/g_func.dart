@@ -25,6 +25,9 @@
  */
 import 'dart:math';
 import 'package:dQuakeWeb/common/clientserver.dart';
+import 'package:dQuakeWeb/common/collision.dart';
+import 'package:dQuakeWeb/game/g_combat.dart';
+import 'package:dQuakeWeb/game/g_misc.dart';
 import 'package:dQuakeWeb/server/sv_init.dart';
 import 'package:dQuakeWeb/server/sv_world.dart';
 import 'package:dQuakeWeb/shared/game.dart';
@@ -386,9 +389,9 @@ _button_fire(edict_t self) {
 	self.moveinfo.state = _STATE_UP;
 
 	if (self.moveinfo.sound_start != 0 && (self.flags & FL_TEAMSLAVE) == 0) {
-		// gi.sound(self, CHAN_NO_PHS_ADD + CHAN_VOICE,
-		// 		self->moveinfo.sound_start, 1, ATTN_STATIC,
-		// 		0);
+		PF_StartSound(self, CHAN_NO_PHS_ADD + CHAN_VOICE,
+				self.moveinfo.sound_start, 1, ATTN_STATIC.toDouble(),
+				0);
 	}
 
 	Move_Calc(self, self.moveinfo.end_origin, _button_wait);
@@ -501,12 +504,182 @@ SP_func_button(edict_t ent) {
 	SV_LinkEdict(ent);
 }
 
-door_use(edict_t self, edict_t other /* unused */, edict_t activator) {
+/* ==================================================================== */
+
+/*
+ * DOORS
+ *
+ * spawn a trigger surrounding the entire team
+ * unless it is already targeted by another
+ */
+
+/*
+ * QUAKED func_door (0 .5 .8) ? START_OPEN x CRUSHER NOMONSTER ANIMATED TOGGLE ANIMATED_FAST
+ *
+ * TOGGLE		wait in both the start and end states for a trigger event.
+ * START_OPEN	the door to moves to its destination when spawned, and operate in reverse.
+ *              It is used to temporarily or permanently close off an area when triggered
+ *              (not useful for touch or takedamage doors).
+ * NOMONSTER	monsters will not trigger this door
+ *
+ * "message"	is printed when the door is touched if it is a trigger door and it hasn't been fired yet
+ * "angle"		determines the opening direction
+ * "targetname" if set, no touch field will be spawned and a remote button or trigger field activates the door.
+ * "health"	    if set, door must be shot open
+ * "speed"		movement speed (100 default)
+ * "wait"		wait before returning (3 default, -1 = never return)
+ * "lip"		lip remaining at end of move (8 default)
+ * "dmg"		damage to inflict when blocked (2 default)
+ * "sounds"
+ *    1)	silent
+ *    2)	light
+ *    3)	medium
+ *    4)	heavy
+ */
+
+_door_use_areaportals(edict_t self, bool open) {
+
+	if (self == null) {
+		return;
+	}
+
+	if (self.target == null) {
+		return;
+	}
+
+  edict_t t;
+	while ((t = G_Find(t, "targetname", self.target)) != null) {
+		if (t.classname == "func_areaportal") {
+			CM_SetAreaPortalState(t.style, open);
+		}
+	}
+}
+
+_door_hit_top(edict_t self)
+{
+	if (self == null) {
+		return;
+	}
+
+	if ((self.flags & FL_TEAMSLAVE) == 0) {
+		// if (self->moveinfo.sound_end)
+		// {
+		// 	gi.sound(self, CHAN_NO_PHS_ADD + CHAN_VOICE, self->moveinfo.sound_end,
+		// 			1, ATTN_STATIC, 0);
+		// }
+
+		self.s.sound = 0;
+	}
+
+	self.moveinfo.state = _STATE_TOP;
+
+	if ((self.spawnflags & _DOOR_TOGGLE) != 0) {
+		return;
+	}
+
+	if (self.moveinfo.wait >= 0) {
+		self.think = _door_go_down;
+		self.nextthink = level.time + self.moveinfo.wait;
+	}
+}
+
+
+
+_door_hit_bottom(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if ((self.flags & FL_TEAMSLAVE) == 0) {
+		// if (self->moveinfo.sound_end) {
+		// 	gi.sound(self, CHAN_NO_PHS_ADD + CHAN_VOICE,
+		// 			self->moveinfo.sound_end, 1,
+		// 			ATTN_STATIC, 0);
+		// }
+
+		self.s.sound = 0;
+	}
+
+	self.moveinfo.state = _STATE_BOTTOM;
+	_door_use_areaportals(self, false);
+}
+
+_door_go_down(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	// if (!(self->flags & FL_TEAMSLAVE))
+	// {
+	// 	if (self->moveinfo.sound_start)
+	// 	{
+	// 		gi.sound(self, CHAN_NO_PHS_ADD + CHAN_VOICE,
+	// 				self->moveinfo.sound_start, 1,
+	// 				ATTN_STATIC, 0);
+	// 	}
+
+	// 	self->s.sound = self->moveinfo.sound_middle;
+	// }
+
+	if (self.max_health != 0) {
+		self.takedamage = damage_t.DAMAGE_YES.index;
+		self.health = self.max_health;
+	}
+
+	self.moveinfo.state = _STATE_DOWN;
+
+	if (self.classname == "func_door") {
+		Move_Calc(self, self.moveinfo.start_origin, _door_hit_bottom);
+	} else if (self.classname == "func_door_rotating") {
+	// 	AngleMove_Calc(self, door_hit_bottom);
+	}
+}
+
+_door_go_up(edict_t self, edict_t activator) {
 	if (self == null || activator == null) {
 		return;
 	}
 
-  print("door_use");
+	if (self.moveinfo.state == _STATE_UP) {
+		return; /* already going up */
+	}
+
+	if (self.moveinfo.state == _STATE_TOP) {
+		/* reset top wait time */
+		if (self.moveinfo.wait >= 0) {
+			self.nextthink = level.time + self.moveinfo.wait;
+		}
+
+		return;
+	}
+
+	if ((self.flags & FL_TEAMSLAVE) == 0) {
+		// if (self.moveinfo.sound_start)
+		// {
+		// 	gi.sound(self, CHAN_NO_PHS_ADD + CHAN_VOICE,
+		// 			self->moveinfo.sound_start, 1,
+		// 			ATTN_STATIC, 0);
+		// }
+
+		// self->s.sound = self->moveinfo.sound_middle;
+	}
+
+	self.moveinfo.state = _STATE_UP;
+
+	if (self.classname == "func_door") {
+		Move_Calc(self, self.moveinfo.end_origin, _door_hit_top);
+	} else if (self.classname == "func_door_rotating") {
+		// AngleMove_Calc(self, door_hit_top);
+	}
+
+	G_UseTargets(self, activator);
+	_door_use_areaportals(self, true);
+}
+
+door_use(edict_t self, edict_t other /* unused */, edict_t activator) {
+	if (self == null || activator == null) {
+		return;
+	}
 
 	if ((self.flags & FL_TEAMSLAVE) != 0) {
 		return;
@@ -517,11 +690,11 @@ door_use(edict_t self, edict_t other /* unused */, edict_t activator) {
 			(self.moveinfo.state == _STATE_TOP))
 		{
 			/* trigger all paired doors */
-			// for (var ent = self; ent != null; ent = ent.teamchain) {
-			// 	ent.message = null;
-			// 	ent.touch = null;
-			// 	door_go_down(ent);
-			// }
+			for (var ent = self; ent != null; ent = ent.teamchain) {
+				ent.message = null;
+				ent.touch = null;
+				_door_go_down(ent);
+			}
 
 			return;
 		}
@@ -531,18 +704,16 @@ door_use(edict_t self, edict_t other /* unused */, edict_t activator) {
 	for (var ent = self; ent != null; ent = ent.teamchain) {
 		ent.message = null;
 		ent.touch = null;
-		// door_go_up(ent, activator);
+		_door_go_up(ent, activator);
 	}
 }
 
 Touch_DoorTrigger(edict_t self, edict_t other, cplane_t plane /* unused */,
-		csurface_t surf /* unused */)
-{
-	if (self != null || other != null) {
+		csurface_t surf /* unused */) {
+
+	if (self == null || other == null) {
 		return;
 	}
-
-  print("Touch_DoorTrigger");
 
 	if (other.health <= 0) {
 		return;
@@ -572,8 +743,6 @@ Think_CalcMoveSpeed(edict_t self) {
 	if (self == null) {
 		return;
 	}
-
-  print("Think_CalcMoveSpeed");
 
 	if ((self.flags & FL_TEAMSLAVE) != 0) {
 		return; /* only the team master does this */
@@ -620,15 +789,13 @@ Think_CalcMoveSpeed(edict_t self) {
 
 Think_SpawnDoorTrigger(edict_t ent) {
 
-	if (ent != null) {
+	if (ent == null) {
 		return;
 	}
 
 	if ((ent.flags & FL_TEAMSLAVE) != 0) {
 		return; /* only the team leader spawns a trigger */
 	}
-
-  print("Think_SpawnDoorTrigger");
 
   List<double> mins = List.generate(3, (i) => ent.absmin[i]);
   List<double> maxs = List.generate(3, (i) => ent.absmax[i]);
@@ -653,15 +820,65 @@ Think_SpawnDoorTrigger(edict_t ent) {
 	other.touch = Touch_DoorTrigger;
 	SV_LinkEdict(other);
 
-	// if ((ent.spawnflags & _DOOR_START_OPEN) != 0) {
-	// 	door_use_areaportals(ent, true);
-	// }
+	if ((ent.spawnflags & _DOOR_START_OPEN) != 0) {
+		_door_use_areaportals(ent, true);
+	}
 
 	Think_CalcMoveSpeed(ent);
 }
 
-door_touch(edict_t self, edict_t other, cplane_t plane /* unused */, csurface_t surf /* unused */)
-{
+door_blocked(edict_t self, edict_t other) {
+	// edict_t *ent;
+
+	if (self == null || other == null) {
+		return;
+	}
+
+  print("door_blocked");
+	if ((other.svflags & SVF_MONSTER) == 0 && (other.client == null)) {
+		/* give it a chance to go away on it's own terms (like gibs) */
+		T_Damage(other, self, self, [0,0,0], other.s.origin,
+				[0,0,0], 100000, 1, 0, MOD_CRUSH);
+
+		/* if it's still there, nuke it */
+		if (other != null) {
+			/* Hack for entitiy without their origin near the model */
+			VectorMA (other.absmin, 0.5, other.size, other.s.origin);
+			BecomeExplosion1(other);
+		}
+
+		return;
+	}
+
+	T_Damage(other, self, self, [0,0,0], other.s.origin,
+			[0,0,0], self.dmg, 1, 0, MOD_CRUSH);
+
+	if ((self.spawnflags & _DOOR_CRUSHER) != 0) {
+		return;
+	}
+
+	/* if a door has a negative wait, it would never come back if blocked,
+	   so let it just squash the object to death real fast */
+	if (self.moveinfo.wait >= 0) {
+		if (self.moveinfo.state == _STATE_DOWN) {
+			for (var ent = self.teammaster; ent != null; ent = ent.teamchain)
+			{
+				_door_go_up(ent, ent.activator);
+			}
+		}
+		else
+		{
+			for (var ent = self.teammaster; ent != null; ent = ent.teamchain)
+			{
+				_door_go_down(ent);
+			}
+		}
+	}
+}
+
+
+door_touch(edict_t self, edict_t other, cplane_t plane /* unused */, csurface_t surf /* unused */) {
+
  	if (self == null || other == null) {
 		return;
 	}
@@ -678,8 +895,8 @@ door_touch(edict_t self, edict_t other, cplane_t plane /* unused */, csurface_t 
 
 	self.touch_debounce_time = level.time + 5.0;
 
-	// gi.centerprintf(other, "%s", self->message);
-	// gi.sound(other, CHAN_AUTO, gi.soundindex("misc/talk1.wav"), 1, ATTN_NORM, 0);
+  PF_centerprintf(other, self.message);
+  PF_StartSound(other, CHAN_AUTO, SV_SoundIndex("misc/talk1.wav"), 1, ATTN_NORM.toDouble(), 0);
 }
 
 
@@ -700,7 +917,7 @@ SP_func_door(edict_t ent) {
 	ent.solid = solid_t.SOLID_BSP;
 	PF_setmodel(ent, ent.model);
 
-	// ent->blocked = door_blocked;
+	ent.blocked = door_blocked;
 	ent.use = door_use;
 
 	if (ent.speed == 0) {
@@ -751,7 +968,7 @@ SP_func_door(edict_t ent) {
 	if (ent.health != 0) {
     print("door health ${ent.health}");
 		ent.takedamage = damage_t.DAMAGE_YES.index;
-		// ent->die = door_killed;
+		// ent.die = door_killed;
 		ent.max_health = ent.health;
 	} else if (ent.targetname != null && ent.message != null) {
 		SV_SoundIndex("misc/talk.wav");

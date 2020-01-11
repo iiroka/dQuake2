@@ -93,7 +93,7 @@ edict_t findradius(edict_t from, List<double> org, double rad) {
 	if (from == null) {
 		from_i = 0;
 	} else {
-		from_i = from.index;
+		from_i = from.index + 1;
 	}
 
 	for ( ; from_i < globals.num_edicts; from_i++) {

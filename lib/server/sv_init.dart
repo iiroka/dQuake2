@@ -24,6 +24,7 @@
  *
  * =======================================================================
  */
+import 'package:dQuakeWeb/client/cl_network.dart';
 import 'package:dQuakeWeb/common/cvar.dart';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/cmdparser.dart';
@@ -223,7 +224,7 @@ SV_InitGame() async {
 		SV_Shutdown("Server restarted\n", true);
 	} else {
 		/* make sure the client is down */
-		// CL_Drop();
+    CL_Drop();
 		await SCR_BeginLoadingPlaque();
 	}
 
@@ -361,7 +362,7 @@ SV_Map(bool attractloop, String levelstring, bool loadgame) async {
 	} else {
 		await SCR_BeginLoadingPlaque(); /* for local system */
 		SV_BroadcastCommand("changing\n");
-// 		SV_SendClientMessages();
+		SV_SendClientMessages();
 		await SV_SpawnServer(level, spawnpoint, server_state_t.ss_game, attractloop, loadgame);
 		Cbuf_CopyToDefer();
 	}

@@ -57,7 +57,7 @@ int _sound_cock = 0;
 _monster_fire_bullet(edict_t self, List<double> start, List<double> dir, int damage,
 		int kick, int hspread, int vspread, int flashtype)
 {
-	if (self != null) {
+	if (self == null) {
 		return;
 	}
 
@@ -111,7 +111,7 @@ soldier_idle(edict_t self) {
 }
 
 soldier_cock(edict_t self) {
-	if (self != null) {
+	if (self == null) {
 		return;
 	}
 

@@ -99,12 +99,10 @@ _Use_Target_Speaker(edict_t ent, edict_t other /* unused */, edict_t activator /
 	else
 	{
 		/* normal sound */
-		// if ((ent.spawnflags & 4) != 0)
-		// {
+    // int chan;
+		// if ((ent.spawnflags & 4) != 0) {
 		// 	chan = CHAN_VOICE | CHAN_RELIABLE;
-		// }
-		// else
-		// {
+		// } else {
 		// 	chan = CHAN_VOICE;
 		// }
 
@@ -156,6 +154,53 @@ SP_target_speaker(edict_t ent) {
 	/* must link the entity so we get areas and clusters so
 	   the server can determine who to send updates to */
 	SV_LinkEdict(ent);
+}
+
+/* ========================================================== */
+
+/*
+ * QUAKED target_secret (1 0 1) (-8 -8 -8) (8 8 8)
+ * Counts a secret found. These are single use targets.
+ */
+_use_target_secret(edict_t ent, edict_t other /* unused */, edict_t activator /* acticator */) {
+	if (ent == null) {
+		return;
+	}
+
+	PF_StartSound(ent, CHAN_VOICE, ent.noise_index, 1, ATTN_NORM.toDouble(), 0);
+
+	level.found_secrets++;
+
+	G_UseTargets(ent, activator);
+	G_FreeEdict(ent);
+}
+
+SP_target_secret(edict_t ent) {
+	if (ent == null) {
+		return;
+	}
+
+	if (deathmatch.boolean) {
+		/* auto-remove for deathmatch */
+		G_FreeEdict(ent);
+		return;
+	}
+
+	ent.use = _use_target_secret;
+
+	if (st.noise == null || st.noise.isEmpty) {
+		st.noise = "misc/secret.wav";
+	}
+
+	ent.noise_index =  SV_SoundIndex(st.noise);
+	ent.svflags = SVF_NOCLIENT;
+	level.total_secrets++;
+
+	/* Map quirk for mine3 */
+	if ((level.mapname == "mine3") && (ent.s.origin[0] == 280) &&
+		(ent.s.origin[1] == -2048) && (ent.s.origin[2] == -624)) {
+		ent.message = "You have found a secret area.";
+	}
 }
 
 /* ========================================================== */

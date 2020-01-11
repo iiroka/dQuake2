@@ -155,7 +155,6 @@ CL_PrepRefresh() async {
 			/* special player weapon model */
 			if (cl_weaponmodels.length < MAX_CLIENTWEAPONMODELS) {
 				cl_weaponmodels.add(name.substring(1));
-				// num_cl_weaponmodels++;
 			}
 		} else {
 			cl.model_draw[i] = await re.RegisterModel(cl.configstrings[CS_MODELS + i]);

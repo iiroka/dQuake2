@@ -162,12 +162,13 @@ Killed(edict_t targ, edict_t inflictor, edict_t attacker,
 		return;
 	}
 
-	// if ((targ->svflags & SVF_MONSTER) && (targ->deadflag != DEAD_DEAD))
-	// {
-	// 	targ->touch = NULL;
-	// 	monster_death_use(targ);
-	// }
+	if ((targ.svflags & SVF_MONSTER) != 0 && (targ.deadflag != DEAD_DEAD)) {
+		targ.touch = null;
+    print("monster_death_use ${targ.target} ${targ.deathtarget}");
+		// monster_death_use(targ);
+	}
 
+  print("Die ${targ.classname}");
 	targ.die(targ, inflictor, attacker, damage, point);
 }
 
@@ -183,11 +184,11 @@ SpawnDamage(int type, List<double> origin, List<double> normal)
 int CheckArmor(edict_t ent, List<double> point, List<double> normal, int damage,
 		int te_sparks, int dflags) {
 
-	if (ent != null) {
+	if (ent == null) {
 		return 0;
 	}
 
-	if (damage != null) {
+	if (damage == 0) {
 		return 0;
 	}
 

@@ -258,6 +258,83 @@ SCR_TileClear() async {
 	}
 }
 
+String scr_centerstring = "";
+double scr_centertime_start = 0; /* for slow victory printing */
+double scr_centertime_off = 0;
+int scr_center_lines = 0;
+int scr_erase_center = 0;
+
+SCR_DrawCenterString() {
+	int l;
+	int j;
+	int x, y;
+  const int char_unscaled_width  = 8;
+  const int char_unscaled_height = 8;
+
+	/* the finale prints the characters one at a time */
+	int remaining = 9999;
+
+	scr_erase_center = 0;
+	int start = 0;
+	final double scale = SCR_GetConsoleScale();
+
+	if (scr_center_lines <= 4) {
+		y = (viddef.height * 0.35) ~/ scale;
+	}
+
+	else
+	{
+		y = 48 ~/ scale;
+	}
+
+	do
+	{
+		/* scan the width of the line */
+		for (l = 0; l < 40; l++) {
+			if ((start+l) > scr_centerstring.length || (scr_centerstring[start+l] == '\n')) {
+				break;
+			}
+		}
+
+		x = ((viddef.width ~/ scale) - (l * char_unscaled_width)) ~/ 2;
+		SCR_AddDirtyPoint(x, y);
+
+		for (j = 0; j < l; j++, x += char_unscaled_width) {
+			re.DrawCharScaled((x * scale).toInt(), (y * scale).toInt(), scr_centerstring.codeUnitAt(start+j), scale);
+
+			if (remaining-- == 0) {
+				return;
+			}
+		}
+
+		SCR_AddDirtyPoint(x, y + char_unscaled_height);
+
+		y += char_unscaled_height;
+
+		while (start < scr_centerstring.length && scr_centerstring[start] != '\n') {
+			start++;
+		}
+
+		if (start >= scr_centerstring.length) {
+			break;
+		}
+
+		start++; /* skip the \n */
+	} while (true);
+}
+
+
+SCR_CheckDrawCenterString() {
+	scr_centertime_off -= cls.rframetime;
+
+	if (scr_centertime_off <= 0) {
+		return;
+	}
+
+	SCR_DrawCenterString();
+}
+
+
 /*
  * Sets scr_vrect, the coordinates of the rendered window
  */
@@ -853,7 +930,7 @@ SCR_UpdateScreen() async {
 				cl.cinematicpalette_active = false;
 			}
 
-// 			M_Draw();
+			await M_Draw();
 		} else if (cls.key_dest == keydest_t.key_console) {
 			if (cl.cinematicpalette_active) {
 // 				R_SetPalette(NULL);
@@ -892,7 +969,7 @@ SCR_UpdateScreen() async {
 		// }
 
 // 		SCR_DrawNet();
-// 		SCR_CheckDrawCenterString();
+		SCR_CheckDrawCenterString();
 
 // 		if (scr_timegraph->value)
 // 		{

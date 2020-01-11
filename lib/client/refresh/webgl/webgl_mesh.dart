@@ -574,14 +574,14 @@ WebGL_DrawAliasModel(entity_t entity) {
 	}
 
 	if ((entity.frame >= paliashdr.num_frames) ||
-		(entity.frame < 0)) {
+		  (entity.frame < 0)) {
 		Com_DPrintf("R_DrawAliasModel ${model.name}: no such frame ${entity.frame}\n");
 		entity.frame = 0;
 		entity.oldframe = 0;
 	}
 
 	if ((entity.oldframe >= paliashdr.num_frames) ||
-		(entity.oldframe < 0)) {
+		  (entity.oldframe < 0)) {
 		Com_DPrintf("R_DrawAliasModel ${model.name}: no such oldframe ${entity.oldframe}\n");
 		entity.frame = 0;
 		entity.oldframe = 0;

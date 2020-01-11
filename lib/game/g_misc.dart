@@ -25,7 +25,12 @@
  */
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/collision.dart';
+import 'package:dQuakeWeb/game/g_combat.dart';
+import 'package:dQuakeWeb/game/g_monster.dart';
+import 'package:dQuakeWeb/game/monster/misc/move.dart';
 import 'package:dQuakeWeb/server/sv_init.dart';
+import 'package:dQuakeWeb/server/sv_send.dart';
+import 'package:dQuakeWeb/shared/common.dart';
 import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/server/sv_game.dart';
@@ -271,6 +276,125 @@ ThrowHead(edict_t self, String gibname, int damage, int type) {
 	self.nextthink = level.time + 10 + frandk() * 10;
 
 	SV_LinkEdict(self);
+}
+
+ThrowClientHead(edict_t self, int damage) {
+
+	if (self == null) {
+		return;
+	}
+
+	String gibname;
+	if ((randk() & 1) != 0) {
+		gibname = "models/objects/gibs/head2/tris.md2";
+		self.s.skinnum = 1; /* second skin is player */
+	} else {
+		gibname = "models/objects/gibs/skull/tris.md2";
+		self.s.skinnum = 0;
+	}
+
+	self.s.origin[2] += 32;
+	self.s.frame = 0;
+	PF_setmodel(self, gibname);
+	self.mins = [ -16, -16, 0 ];
+	self.maxs = [ 16, 16, 16 ];
+
+	self.takedamage = damage_t.DAMAGE_NO.index;
+	self.solid = solid_t.SOLID_BBOX;
+	self.s.effects = EF_GIB;
+	self.s.sound = 0;
+	self.flags |= FL_NO_KNOCKBACK;
+
+	self.movetype = movetype_t.MOVETYPE_BOUNCE;
+  List<double> vd = [0,0,0];
+	VelocityForDamage(damage, vd);
+	VectorAdd(self.velocity, vd, self.velocity);
+
+	if (self.client != 0) /* bodies in the queue don't have a client anymore */
+	{
+		(self.client as gclient_t).anim_priority = ANIM_DEATH;
+		(self.client as gclient_t).anim_end = self.s.frame;
+	}
+	else
+	{
+		self.think = null;
+		self.nextthink = 0;
+	}
+
+	SV_LinkEdict(self);
+}
+
+/* ===================================================== */
+
+_debris_die(edict_t self, edict_t inflictor /* unused */, edict_t attacker /* unused */,
+		int damage /* unused */, List<double> point /* unused */) {
+	if (self == null) {
+		return;
+	}
+
+	G_FreeEdict(self);
+}
+
+ThrowDebris(edict_t self, String modelname, double speed, List<double> origin) {
+
+	if (self == null || modelname == null) {
+		return;
+	}
+
+	debristhisframe++;
+
+	if (debristhisframe > MAX_DEBRIS) {
+		return;
+	}
+
+	var chunk = G_Spawn();
+  chunk.s.origin.setAll(0, origin);
+	PF_setmodel(chunk, modelname);
+  List<double> v = [
+	  100 * crandk(),
+	  100 * crandk(),
+	  100 + 100 * crandk() ];
+	VectorMA(self.velocity, speed, v, chunk.velocity);
+	chunk.movetype = movetype_t.MOVETYPE_BOUNCE;
+	chunk.solid = solid_t.SOLID_NOT;
+	chunk.avelocity[0] = frandk() * 600;
+	chunk.avelocity[1] = frandk() * 600;
+	chunk.avelocity[2] = frandk() * 600;
+	chunk.think = G_FreeEdict;
+	chunk.nextthink = level.time + 5 + frandk() * 5;
+	chunk.s.frame = 0;
+	chunk.flags = 0;
+	chunk.classname = "debris";
+	chunk.takedamage = damage_t.DAMAGE_YES.index;
+	chunk.die = _debris_die;
+	chunk.health = 250;
+	SV_LinkEdict(chunk);
+}
+
+BecomeExplosion1(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+	PF_WriteByte(temp_event_t.TE_EXPLOSION1.index);
+	PF_WritePos(self.s.origin);
+	SV_Multicast(self.s.origin, multicast_t.MULTICAST_PVS);
+
+	G_FreeEdict(self);
+}
+
+BecomeExplosion2(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	PF_WriteByte(svc_ops_e.svc_temp_entity.index);
+	PF_WriteByte(temp_event_t.TE_EXPLOSION2.index);
+	PF_WritePos(self.s.origin);
+	SV_Multicast(self.s.origin, multicast_t.MULTICAST_PVS);
+
+	G_FreeEdict(self);
 }
 
 /* ===================================================== */
@@ -591,6 +715,170 @@ SP_func_wall(edict_t self) {
 /* ===================================================== */
 
 /*
+ * QUAKED misc_explobox (0 .5 .8) (-16 -16 0) (16 16 40)
+ * Large exploding box.  You can override its mass (100),
+ * health (80), and dmg (150).
+ */
+
+barrel_touch(edict_t self, edict_t other, cplane_t plane /* unused */, csurface_t surf /*unused */) {
+
+	if (self == null || other == null) {
+		return;
+	}
+
+	if ((other.groundentity == null) || (other.groundentity == self)) {
+		return;
+	}
+
+	double ratio = other.mass / self.mass;
+  List<double> v = [0,0,0];
+	VectorSubtract(self.s.origin, other.s.origin, v);
+	M_walkmove(self, vectoyaw(v), 20 * ratio * FRAMETIME);
+}
+
+barrel_explode(edict_t self) {
+
+	if (self == null) {
+		return;
+	}
+
+	T_RadiusDamage(self, self.activator, self.dmg.toDouble(), null,
+			self.dmg.toDouble() + 40, MOD_BARREL);
+  List<double> save = List.generate(3, (i) => self.s.origin[i]);
+	VectorMA(self.absmin, 0.5, self.size, self.s.origin);
+
+	/* a few big chunks */
+	var spd = 1.5 * self.dmg / 200.0;
+  List<double> org = List.generate(3, (i) => self.s.origin[i] + crandk() * self.size[i]);
+	ThrowDebris(self, "models/objects/debris1/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris1/tris.md2", spd, org);
+
+	/* bottom corners */
+	spd = 1.75 * self.dmg / 200.0;
+  org.setAll(0, self.absmin);
+	ThrowDebris(self, "models/objects/debris3/tris.md2", spd, org);
+  org.setAll(0, self.absmin);
+	org[0] += self.size[0];
+	ThrowDebris(self, "models/objects/debris3/tris.md2", spd, org);
+  org.setAll(0, self.absmin);
+	org[1] += self.size[1];
+	ThrowDebris(self, "models/objects/debris3/tris.md2", spd, org);
+  org.setAll(0, self.absmin);
+	org[0] += self.size[0];
+	org[1] += self.size[1];
+	ThrowDebris(self, "models/objects/debris3/tris.md2", spd, org);
+
+	/* a bunch of little chunks */
+	spd = 2 * self.dmg / 200;
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+	org[0] = self.s.origin[0] + crandk() * self.size[0];
+	org[1] = self.s.origin[1] + crandk() * self.size[1];
+	org[2] = self.s.origin[2] + crandk() * self.size[2];
+	ThrowDebris(self, "models/objects/debris2/tris.md2", spd, org);
+
+  self.s.origin.setAll(0, save);
+
+	if (self.groundentity != null) {
+		BecomeExplosion2(self);
+	} else {
+		BecomeExplosion1(self);
+	}
+}
+
+barrel_delay(edict_t self, edict_t inflictor /* unused */, edict_t attacker,
+		int damage /* unused */, List<double> point /* unused */)
+{
+	if (self == null || attacker == null) {
+		return;
+	}
+
+	self.takedamage = damage_t.DAMAGE_NO.index;
+	self.nextthink = level.time + 2 * FRAMETIME;
+	self.think = barrel_explode;
+	self.activator = attacker;
+}
+
+SP_misc_explobox(edict_t self) {
+	if (self == null) {
+		return;
+	}
+
+	if (deathmatch.boolean) {
+		/* auto-remove for deathmatch */
+		G_FreeEdict(self);
+		return;
+	}
+
+	SV_ModelIndex("models/objects/debris1/tris.md2");
+	SV_ModelIndex("models/objects/debris2/tris.md2");
+	SV_ModelIndex("models/objects/debris3/tris.md2");
+
+	self.solid = solid_t.SOLID_BBOX;
+	self.movetype = movetype_t.MOVETYPE_STEP;
+
+	self.model = "models/objects/barrels/tris.md2";
+	self.s.modelindex = SV_ModelIndex(self.model);
+	self.mins = [ -16, -16, 0 ];
+	self.maxs = [ 16, 16, 40 ];
+
+	if (self.mass == 0) {
+		self.mass = 400;
+	}
+
+	if (self.health == 0) {
+		self.health = 10;
+	}
+
+	if (self.dmg == 0) {
+		self.dmg = 150;
+	}
+
+	self.die = barrel_delay;
+	self.takedamage = damage_t.DAMAGE_YES.index;
+	self.monsterinfo.aiflags = AI_NOSTEP;
+
+	self.touch = barrel_touch;
+
+	self.think = M_droptofloor;
+	self.nextthink = level.time + 2 * FRAMETIME;
+
+	SV_LinkEdict(self);
+}
+
+
+/* ===================================================== */
+
+/*
  * QUAKED misc_deadsoldier (1 .5 0) (-16 -16 0) (16 16 16) ON_BACK ON_STOMACH BACK_DECAP FETAL_POS SIT_DECAP IMPALED
  * This is the dead player model. Comes in 6 exciting different poses!
  */
@@ -605,7 +893,7 @@ _misc_deadsoldier_die(edict_t self, edict_t inflictor /* unused */, edict_t atta
 		return;
 	}
 
-	// gi.sound(self, CHAN_BODY, gi.soundindex("misc/udeath.wav"), 1, ATTN_NORM, 0);
+	PF_StartSound(self, CHAN_BODY, SV_SoundIndex("misc/udeath.wav"), 1, ATTN_NORM.toDouble(), 0);
 
 	for (int n = 0; n < 4; n++)
 	{

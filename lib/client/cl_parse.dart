@@ -988,8 +988,8 @@ CL_ParseServerMessage(Readbuf msg) async {
 				Com_Error(ERR_DISCONNECT, "Server disconnected\n");
 				break;
 
-			// case svc_reconnect:
-			// 	Com_Printf("Server disconnected, reconnecting\n");
+			case svc_ops_e.svc_reconnect:
+				Com_Printf("Server disconnected, reconnecting\n");
 
 			// 	if (cls.download)
 			// 	{
@@ -998,9 +998,9 @@ CL_ParseServerMessage(Readbuf msg) async {
 			// 		cls.download = NULL;
 			// 	}
 
-			// 	cls.state = ca_connecting;
-			// 	cls.connect_time = -99999; /* CL_CheckForResend() will fire immediately */
-			// 	break;
+				cls.state = connstate_t.ca_connecting;
+				cls.connect_time = -99999; /* CL_CheckForResend() will fire immediately */
+				break;
 
 			case svc_ops_e.svc_print:
 				final i = msg.ReadByte();

@@ -39,7 +39,7 @@ import 'g_items.dart';
 import 'g_main.dart' show globals;
 import 'g_misc.dart';
 import 'g_target.dart' show SP_target_temp_entity, SP_target_speaker, SP_target_explosion,
-  SP_target_splash;
+  SP_target_splash, SP_target_secret;
 import 'g_trigger.dart' show SP_trigger_relay, SP_trigger_always, SP_trigger_once,
   SP_trigger_multiple;
 import 'savegame/savegame.dart';
@@ -70,6 +70,7 @@ final spawns = {
   "target_temp_entity": SP_target_temp_entity,
 	"target_speaker": SP_target_speaker,
   "target_explosion": SP_target_explosion,
+  "target_secret": SP_target_secret,
   "target_splash": SP_target_splash,
 
 	"worldspawn": SP_worldspawn,
@@ -78,6 +79,7 @@ final spawns = {
 	"path_corner": SP_path_corner,
   "point_combat": SP_point_combat,
 
+  "misc_explobox": SP_misc_explobox,
   "misc_deadsoldier": SP_misc_deadsoldier,
 
   "monster_infantry": SP_monster_infantry,

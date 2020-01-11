@@ -23,6 +23,7 @@
  *
  * =======================================================================
  */
+import 'dart:math';
 import 'package:dQuakeWeb/common/clientserver.dart';
 import 'package:dQuakeWeb/common/pmove.dart' show Pmove;
 import 'package:dQuakeWeb/shared/game.dart';
@@ -33,6 +34,8 @@ import 'package:dQuakeWeb/server/sv_world.dart';
 import '../game.dart';
 import '../g_items.dart';
 import '../g_utils.dart';
+import '../g_misc.dart';
+import '../monster/misc/player.dart';
 import 'view.dart';
 import 'weapon.dart';
 
@@ -230,6 +233,161 @@ player_pain(edict_t self /* unused */, edict_t other /* unused */,
 	 * This function is still here since
 	 * the player is an entity and needs
 	 * a pain callback */
+}
+
+LookAtKiller(edict_t self, edict_t inflictor, edict_t attacker) {
+
+	if (self == null || inflictor == null || attacker == null) {
+		return;
+	}
+
+  List<double> dir = [0,0,0];
+	if (attacker != null && (attacker != g_edicts[0]) && (attacker != self)) {
+		VectorSubtract(attacker.s.origin, self.s.origin, dir);
+	}
+	else if (inflictor != null && (inflictor != g_edicts[0]) && (inflictor != self))
+	{
+		VectorSubtract(inflictor.s.origin, self.s.origin, dir);
+	}
+	else
+	{
+		(self.client as gclient_t).killer_yaw = self.s.angles[YAW];
+		return;
+	}
+
+	if (dir[0] != 0)
+	{
+		(self.client as gclient_t).killer_yaw = 180 / pi *atan2(dir[1], dir[0]);
+	}
+	else
+	{
+		(self.client as gclient_t).killer_yaw = 0;
+
+		if (dir[1] > 0)
+		{
+			(self.client as gclient_t).killer_yaw = 90;
+		}
+		else if (dir[1] < 0)
+		{
+			(self.client as gclient_t).killer_yaw = -90;
+		}
+	}
+
+	if ((self.client as gclient_t).killer_yaw < 0)
+	{
+		(self.client as gclient_t).killer_yaw += 360;
+	}
+}
+
+int _player_die_i = 0;
+
+player_die(edict_t self, edict_t inflictor, edict_t attacker,
+		int damage, List<double> point /* unused */) {
+	int n;
+
+	if (self == null || inflictor == null || attacker == null) {
+		return;
+	}
+
+	self.avelocity = [0,0,0];
+
+	self.takedamage = damage_t.DAMAGE_YES.index;
+	self.movetype = movetype_t.MOVETYPE_TOSS;
+
+	self.s.modelindex2 = 0; /* remove linked weapon model */
+
+	self.s.angles[0] = 0;
+	self.s.angles[2] = 0;
+
+	self.s.sound = 0;
+	(self.client as gclient_t).weapon_sound = 0;
+
+	self.maxs[2] = -8;
+
+	self.svflags |= SVF_DEADMONSTER;
+
+	if (self.deadflag == 0) {
+		(self.client as gclient_t).respawn_time = level.time + 1.0;
+		LookAtKiller(self, inflictor, attacker);
+		self.client.ps.pmove.pm_type = pmtype_t.PM_DEAD;
+		// ClientObituary(self, inflictor, attacker);
+		// TossClientWeapon(self);
+
+		if (deathmatch.boolean) {
+			// Cmd_Help_f(self); /* show scores */
+		}
+
+		/* clear inventory: this is kind of ugly, but
+		   it's how we want to handle keys in coop */
+		for (n = 0; n < game.num_items; n++) {
+			if (coop.boolean && (itemlist[n].flags & IT_KEY) != 0) {
+				(self.client as gclient_t).resp.coop_respawn.inventory[n] =
+					(self.client as gclient_t).pers.inventory[n];
+			}
+
+			(self.client as gclient_t).pers.inventory[n] = 0;
+		}
+	}
+
+	/* remove powerups */
+	(self.client as gclient_t).quad_framenum = 0;
+	(self.client as gclient_t).invincible_framenum = 0;
+	(self.client as gclient_t).breather_framenum = 0;
+	(self.client as gclient_t).enviro_framenum = 0;
+	self.flags &= ~FL_POWER_ARMOR;
+
+	if (self.health < -40) {
+		/* gib */
+		// gi.sound(self, CHAN_BODY, gi.soundindex(
+		// 				"misc/udeath.wav"), 1, ATTN_NORM, 0);
+
+		for (n = 0; n < 4; n++) {
+			ThrowGib(self, "models/objects/gibs/sm_meat/tris.md2",
+					damage, GIB_ORGANIC);
+		}
+
+		ThrowClientHead(self, damage);
+
+		self.takedamage = damage_t.DAMAGE_NO.index;
+	}
+	else
+	{
+		/* normal death */
+		if (self.deadflag == 0) {
+
+			_player_die_i = (_player_die_i + 1) % 3;
+
+			/* start a death animation */
+			(self.client as gclient_t).anim_priority = ANIM_DEATH;
+
+			if (((self.client as gclient_t).ps.pmove.pm_flags & PMF_DUCKED) != 0) {
+				self.s.frame = FRAME_crdeath1 - 1;
+				(self.client as gclient_t).anim_end = FRAME_crdeath5;
+			} else {
+				switch (_player_die_i) {
+					case 0:
+						self.s.frame = FRAME_death101 - 1;
+						(self.client as gclient_t).anim_end = FRAME_death106;
+						break;
+					case 1:
+						self.s.frame = FRAME_death201 - 1;
+						(self.client as gclient_t).anim_end = FRAME_death206;
+						break;
+					case 2:
+						self.s.frame = FRAME_death301 - 1;
+						(self.client as gclient_t).anim_end = FRAME_death308;
+						break;
+				}
+			}
+
+			// gi.sound(self, CHAN_VOICE, gi.soundindex(va("*death%i.wav",
+			// 				(randk() % 4) + 1)), 1, ATTN_NORM, 0);
+		}
+	}
+
+	self.deadflag = DEAD_DEAD;
+
+	SV_LinkEdict(self);
 }
 
 /* ======================================================================= */
@@ -492,7 +650,7 @@ PutClientInServer(edict_t ent) {
 	ent.clipmask = MASK_PLAYERSOLID;
 	ent.model = "players/male/tris.md2";
 	ent.pain = player_pain;
-	// ent->die = player_die;
+	ent.die = player_die;
 	ent.waterlevel = 0;
 	ent.watertype = 0;
 	ent.flags &= ~FL_NO_KNOCKBACK;

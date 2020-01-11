@@ -108,71 +108,61 @@ SVC_DirectConnect(List<String> args, netadr_t adr) async {
 	if (!adr.IsLocalAddress()) {
     int i;
 		for (i = 0; i < MAX_CHALLENGES; i++) {
-// 			if (NET_CompareBaseAdr(net_from, svs.challenges[i].adr))
-// 			{
-// 				if (challenge == svs.challenges[i].challenge)
-// 				{
-// 					break; /* good */
-// 				}
+			if (adr == svs.challenges[i].adr) {
+				if (challenge == svs.challenges[i].challenge) {
+					break; /* good */
+				}
 
-// 				Netchan_OutOfBandPrint(NS_SERVER, adr,
-// 						"print\nBad challenge.\n");
-// 				return;
-// 			}
+				Netchan_OutOfBandPrint(netsrc_t.NS_SERVER, adr,
+						"print\nBad challenge.\n");
+				return;
+			}
 		}
 
-// 		if (i == MAX_CHALLENGES)
-// 		{
-// 			Netchan_OutOfBandPrint(NS_SERVER, adr,
-// 					"print\nNo challenge for address.\n");
-// 			return;
-// 		}
+		if (i == MAX_CHALLENGES) {
+			Netchan_OutOfBandPrint(netsrc_t.NS_SERVER, adr,
+					"print\nNo challenge for address.\n");
+			return;
+		}
 	}
 
-// 	newcl = &temp;
-// 	memset(newcl, 0, sizeof(client_t));
+	client_t newcl;
 
-// 	/* if there is already a slot for this ip, reuse it */
-// 	for (i = 0, cl = svs.clients; i < maxclients->value; i++, cl++)
-// 	{
-// 		if (cl->state < cs_connected)
-// 		{
-// 			continue;
-// 		}
+	/* if there is already a slot for this ip, reuse it */
+  for (client_t cl in svs.clients) {
+		if (cl.state.index < client_state_t.cs_connected.index) {
+			continue;
+		}
 
-// 		if (NET_CompareBaseAdr(adr, cl->netchan.remote_address) &&
-// 			((cl->netchan.qport == qport) ||
-// 			 (adr.port == cl->netchan.remote_address.port)))
-// 		{
-// 			if (!NET_IsLocalAddress(adr))
-// 			{
-// 				Com_DPrintf("%s:reconnect rejected : too soon\n",
-// 						NET_AdrToString(adr));
-// 				return;
-// 			}
+		if ((adr == cl.netchan.remote_address) &&
+			((cl.netchan.port == qport) ||
+			 (adr.port == cl.netchan.remote_address.port))) {
+			if (!adr.IsLocalAddress()) {
+				Com_DPrintf("$adr:reconnect rejected : too soon\n");
+				return;
+			}
 
-// 			Com_Printf("%s:reconnect\n", NET_AdrToString(adr));
-// 			newcl = cl;
-// 			goto gotnewcl;
-// 		}
-// 	}
+			Com_Printf("$adr:reconnect\n");
+			newcl = cl;
+      break;
+		}
+	}
 
 	/* find a client slot */
-	client_t newcl;
-  for (client_t cl in svs.clients) {
-		if (cl.state == client_state_t.cs_free) {
-			newcl = cl;
-			break;
-		}
-	}
+	if (newcl == null) {
+    for (client_t cl in svs.clients) {
+      if (cl.state == client_state_t.cs_free) {
+        newcl = cl;
+        break;
+      }
+    }
+  }
 
 	if (newcl == null) {
 		Netchan_OutOfBandPrint(netsrc_t.NS_SERVER, adr, "print\nServer is full.\n");
 		Com_DPrintf("Rejected a connection.\n");
 		return;
 	}
-
-// gotnewcl:
 
 	/* build a new connection  accept the new client this
 	   is the only place a client_t is ever initialized */

@@ -32,6 +32,7 @@ import 'package:dQuakeWeb/common/collision.dart';
 import 'package:dQuakeWeb/common/frame.dart' show curtime;
 import 'package:dQuakeWeb/server/server.dart';
 import 'package:dQuakeWeb/shared/common.dart';
+import 'package:dQuakeWeb/shared/game.dart';
 import 'package:dQuakeWeb/shared/shared.dart';
 import 'package:dQuakeWeb/shared/writebuf.dart';
 import 'sv_user.dart' show SV_Nextserver;
@@ -64,6 +65,167 @@ SV_BroadcastCommand(String msg) {
 	sv.multicast.WriteByte(svc_ops_e.svc_stufftext.index);
 	sv.multicast.WriteString(msg);
 	SV_Multicast(null, multicast_t.MULTICAST_ALL_R);
+}
+
+/*
+ * Each entity can have eight independant sound sources, like voice,
+ * weapon, feet, etc.
+ *
+ * If cahnnel & 8, the sound will be sent to everyone, not just
+ * things in the PHS.
+ *
+ * Channel 0 is an auto-allocate channel, the others override anything
+ * already running on that entity/channel pair.
+ *
+ * An attenuation of 0 will play full volume everywhere in the level.
+ * Larger attenuations will drop off.  (max 4 attenuation)
+ *
+ * Timeofs can range from 0.0 to 0.1 to cause sounds to be started
+ * later in the frame than they normally would.
+ *
+ * If origin is NULL, the origin is determined from the entity origin
+ * or the midpoint of the entity box for bmodels.
+ */
+SV_StartSound(List<double> origin, edict_s entity, int channel, int soundindex,
+		double volume, double attenuation, double timeofs) {
+	// int sendchan;
+	// int flags;
+	// int i;
+	// int ent;
+	// vec3_t origin_v;
+	// qboolean use_phs;
+
+	if ((volume < 0) || (volume > 1.0)) {
+		Com_Error(ERR_FATAL, "SV_StartSound: volume = $volume" );
+	}
+
+	if ((attenuation < 0) || (attenuation > 4)) {
+		Com_Error(ERR_FATAL, "SV_StartSound: attenuation = $attenuation" );
+	}
+
+	if ((timeofs < 0) || (timeofs > 0.255)) {
+		Com_Error(ERR_FATAL, "SV_StartSound: timeofs = $timeofs" );
+	}
+
+	final ent = entity.index;
+
+  var use_phs = true;
+	if ((channel & 8) != 0) /* no PHS flag */
+	{
+		use_phs = false;
+		channel &= 7;
+	}
+
+	var sendchan = (ent << 3) | (channel & 7);
+
+	var flags = 0;
+
+	if (volume != DEFAULT_SOUND_PACKET_VOLUME)
+	{
+		flags |= SND_VOLUME;
+	}
+
+	if (attenuation != DEFAULT_SOUND_PACKET_ATTENUATION)
+	{
+		flags |= SND_ATTENUATION;
+	}
+
+	/* the client doesn't know that bmodels have 
+	   weird origins the origin can also be 
+	   explicitly set */
+	if ((entity.svflags & SVF_NOCLIENT) != 0 ||
+		(entity.solid == solid_t.SOLID_BSP) ||
+		origin != null)
+	{
+		flags |= SND_POS;
+	}
+
+	/* always send the entity number for channel overrides */
+	flags |= SND_ENT;
+
+	if (timeofs != 0)
+	{
+		flags |= SND_OFFSET;
+	}
+
+	/* use the entity origin unless it is a bmodel or explicitly specified */
+  List<double> origin_v = [0,0,0];
+	if (origin == null)
+	{
+		origin = origin_v;
+
+		if (entity.solid == solid_t.SOLID_BSP)
+		{
+			for (int i = 0; i < 3; i++)
+			{
+				origin_v[i] = entity.s.origin[i] + 0.5 *
+							  (entity.mins[i] + entity.maxs[i]);
+			}
+		}
+		else
+		{
+			entity.s.origin = origin_v;
+		}
+	}
+
+	sv.multicast.WriteByte(svc_ops_e.svc_sound.index);
+	sv.multicast.WriteByte(flags);
+	sv.multicast.WriteByte(soundindex);
+
+	if ((flags & SND_VOLUME) != 0)
+	{
+		sv.multicast.WriteByte((volume * 255).toInt());
+	}
+
+	if ((flags & SND_ATTENUATION) != 0)
+	{
+		sv.multicast.WriteByte((attenuation * 64).toInt());
+	}
+
+	if ((flags & SND_OFFSET) != 0)
+	{
+		sv.multicast.WriteByte((timeofs * 1000).toInt());
+	}
+
+	if ((flags & SND_ENT) != 0)
+	{
+		sv.multicast.WriteShort(sendchan);
+	}
+
+	if ((flags & SND_POS) != 0)
+	{
+		sv.multicast.WritePos(origin);
+	}
+
+	/* if the sound doesn't attenuate,send it to everyone
+	   (global radio chatter, voiceovers, etc) */
+	if (attenuation == ATTN_NONE)
+	{
+		use_phs = false;
+	}
+
+	if ((channel & CHAN_RELIABLE) != 0)
+	{
+		if (use_phs)
+		{
+			SV_Multicast(origin, multicast_t.MULTICAST_PHS_R);
+		}
+		else
+		{
+			SV_Multicast(origin, multicast_t.MULTICAST_ALL_R);
+		}
+	}
+	else
+	{
+		if (use_phs)
+		{
+			SV_Multicast(origin, multicast_t.MULTICAST_PHS);
+		}
+		else
+		{
+			SV_Multicast(origin, multicast_t.MULTICAST_ALL);
+		}
+	}
 }
 
 bool SV_SendClientDatagram(client_t client) {

@@ -107,6 +107,22 @@ PF_cprintf(edict_s ent, int level, String msg) {
 	}
 }
 
+/*
+ * centerprint to a single client
+ */
+PF_centerprintf(edict_s ent, String msg) {
+
+	final p = ent.index;
+
+	if ((p < 1) || (p > maxclients.integer)) {
+		return;
+	}
+
+	sv.multicast.WriteByte(svc_ops_e.svc_centerprint.index);
+	sv.multicast.WriteString(msg);
+	PF_Unicast(ent, true);
+}
+
 PF_Configstring(int index, String val) {
 	if ((index < 0) || (index >= MAX_CONFIGSTRINGS)) {
 		Com_Error(ERR_DROP, "configstring: bad index $index\n");
@@ -162,6 +178,17 @@ PF_setmodel(edict_s ent, String name) {
     ent.maxs.setAll(0, mod.maxs);
 		SV_LinkEdict(ent);
 	}
+}
+
+PF_StartSound(edict_s entity, int channel, int sound_num,
+		double volume, double attenuation, double timeofs)
+{
+	if (entity == null) {
+		return;
+	}
+
+	SV_StartSound(null, entity, channel, sound_num,
+			volume, attenuation, timeofs);
 }
 
 

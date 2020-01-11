@@ -567,7 +567,7 @@ M_MoveToGoal(edict_t ent, double dist) {
 		return;
 	}
 
-	// /* bump around... */
+	/* bump around... */
 	if (((randk() & 3) == 1) || !SV_StepDirection(ent, ent.ideal_yaw, dist)) {
 		if (ent.inuse) {
 			SV_NewChaseDir(ent, goal, dist);

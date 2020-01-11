@@ -695,6 +695,25 @@ const SPLASH_SLIME = 4;
 const SPLASH_LAVA = 5;
 const SPLASH_BLOOD = 6;
 
+/* sound channels:
+ * channel 0 never willingly overrides
+ * other channels (1-7) allways override
+ * a playing sound on that channel */
+const CHAN_AUTO = 0;
+const CHAN_WEAPON = 1;
+const CHAN_VOICE = 2;
+const CHAN_ITEM = 3;
+const CHAN_BODY = 4;
+/* modifier flags */
+const CHAN_NO_PHS_ADD = 8;           /* send to all clients, not just ones in PHS (ATTN 0 will also do this) */
+const CHAN_RELIABLE = 16;            /* send by reliable message, not datagram */
+
+/* sound attenuation values */
+const ATTN_NONE = 0;                 /* full volume the entire level */
+const ATTN_NORM = 1;
+const ATTN_IDLE = 2;
+const ATTN_STATIC = 3;               /* diminish very rapidly with distance */
+
 
 /* player_state->stats[] indexes */
 const STAT_HEALTH_ICON = 0;
